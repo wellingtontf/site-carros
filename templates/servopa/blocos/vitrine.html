@@ -1,0 +1,5 @@
+<!-- vitrine: titulo, quantidade, somenteDestaques, botao. Cards fixos (sem filtros), na ordem do estoque. -->
+<section class="b-listagem">
+  <div class="b-listagem-topo">{{#titulo}}<h2>{{titulo}}</h2>{{/titulo}}<a class="b-link" href="{{estoqueUrl}}">{{botao}}{{^botao}}Ver estoque completo{{/botao}} &rsaquo;</a></div>
+  <div class="grade">{{#carros}}{{> card}}{{/carros}}</div>
+</section>

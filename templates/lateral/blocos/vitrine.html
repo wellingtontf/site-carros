@@ -1,0 +1,11 @@
+<!-- vitrine: titulo, quantidade, somenteDestaques, botao — carros na ordem do estoque, já no HTML -->
+<section class="b-vitrine">
+  {{#titulo}}<h2>{{titulo}}</h2>{{/titulo}}
+  <div class="grade">
+    {{#carros}}<a class="card" href="{{href}}">
+      <img loading="lazy" width="400" height="300" alt="{{nome}}" {{{imgAttrs}}}>
+      <div class="card-corpo"><h3>{{nome}}</h3><p class="versao">{{versao}}</p><p class="meta">{{ano}} · {{km}} · {{cambio}}</p><p class="preco">{{preco}}</p><p class="un">{{local}}</p></div>
+    </a>{{/carros}}
+  </div>
+  {{#botao}}<p class="b-centro"><a class="btn sec" href="{{estoqueUrl}}">{{botao}} ({{estoque.total}})</a></p>{{/botao}}
+</section>

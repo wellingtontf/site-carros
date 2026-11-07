@@ -1,0 +1,7 @@
+<!-- carrocerias: titulo. Os tipos vêm do estoque (campo "carroceria" dos carros), com o total de cada um. -->
+<section class="b-carrocerias">
+  {{#titulo}}<h2 class="b-titulo">{{titulo}}</h2>{{/titulo}}
+  <div class="b-carrocerias-lista">
+    {{#estoque.carrocerias}}<a href="{{link}}" class="ic-{{chave}}"><span class="ic" aria-hidden="true"></span><b>{{valor}}</b><small>{{total}}</small></a>{{/estoque.carrocerias}}
+  </div>
+</section>

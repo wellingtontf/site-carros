@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+{{> head}}
+<title>Estoque de seminovos | {{site.nome}}</title>
+<meta name="description" content="Estoque completo do {{site.nome}}: {{estoque.total}} veículos com 1 ano de garantia.">
+</head>
+<body data-page="lista" data-base="{{base}}" data-rel="{{rel}}">
+{{> cabecalho}}
+{{{blocosAntes}}}
+<main class="multipla">
+  <div class="multipla-topo">
+    <h1>Estoque <small>(<span id="contagem"></span>)</small></h1>
+    <label class="ordenar">Ordenar por <select id="ord" aria-label="Ordenar"></select></label>
+  </div>
+  <div class="multipla-corpo">
+    <aside>{{> filtros}}</aside>
+    <section>
+      <div id="grade" class="grade" data-pagina="24"></div>
+      <button id="mais" class="btn-mais" hidden>Carregar mais veículos</button>
+    </section>
+  </div>
+</main>
+{{{blocosDepois}}}
+{{> rodape}}
+{{> tpl-card}}
+<script src="{{rel}}motor/engine.js"></script>
+<script src="{{rel}}motor/ui-util.js"></script>
+<script src="{{rel}}motor/link-carro.js"></script>
+<script src="{{rel}}motor/ui-lista.js"></script>
+<script src="{{rel}}js/servopa.js"></script>
+</body>
+</html>

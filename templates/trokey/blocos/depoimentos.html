@@ -1,0 +1,14 @@
+<!-- depoimentos: titulo, subtitulo, fundo (cor), itens[{nome, local, texto, nota (1-5), foto}] -->
+<section class="b-depoimentos" {{#fundo}}style="background:{{fundo}}"{{/fundo}}>
+  <div class="b-depoimentos-in">
+    {{#titulo}}<h2 class="b-titulo">{{titulo}}</h2>{{/titulo}}
+    {{#subtitulo}}<p class="b-sub">{{subtitulo}}</p>{{/subtitulo}}
+    <div class="b-depoimentos-grade">
+      {{#itens}}<figure class="b-depo">
+        {{#estrelas}}<div class="b-estrelas" aria-label="{{nota}} de 5">{{estrelas}}</div>{{/estrelas}}
+        <blockquote>{{texto}}</blockquote>
+        <figcaption>{{#foto}}<img src="{{foto}}" alt="" width="48" height="48" loading="lazy">{{/foto}}<span><strong>{{nome}}</strong>{{#local}}<small>{{local}}</small>{{/local}}</span></figcaption>
+      </figure>{{/itens}}
+    </div>
+  </div>
+</section>

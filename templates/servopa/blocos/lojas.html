@@ -1,0 +1,9 @@
+<!-- lojas: as lojas do site.json, com endereço, telefone e o estoque de cada uma -->
+<section class="b-lojas">
+  {{#itens}}<article class="b-loja">
+    <h3>{{nome}}</h3>
+    <p>{{endereco}}</p>
+    {{#telefone}}<p class="fone">{{telefone}}</p>{{/telefone}}
+    <a class="b-btn" href="{{link}}">Ver estoque ({{total}})</a>
+  </article>{{/itens}}
+</section>

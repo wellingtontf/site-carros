@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{site.nome}}</title>
+<meta name="description" content="{{site.slogan}}">
+{{{fonteLink}}}
+<link rel="stylesheet" href="{{rel}}css/base.css">
+<link rel="stylesheet" href="{{rel}}css/style.css">
+<style>{{{temaCss}}}</style>
+</head>
+<body data-page="lista" data-base="{{base}}" data-rel="{{rel}}">
+<header class="topo">
+  {{#tema.logo}}<img class="logo" src="{{tema.logo}}" alt="{{site.nome}}">{{/tema.logo}}
+  <a class="marca" href="{{inicioUrl}}">{{site.nome}}</a>
+  <span class="slogan">{{site.slogan}}</span>
+</header>
+<main>
+  <form id="filtros" class="filtros" autocomplete="off">
+    <input type="search" id="q" placeholder="{{site.textos.busca}}">
+    <div class="linha" id="filtros-dinamicos"></div>
+    <div class="acoes">
+      <span id="contagem"></span>
+      <select id="ord" aria-label="Ordenar"></select>
+      <button type="button" id="limpar">Limpar</button>
+      <button type="button" id="copiar">Copiar link da busca</button>
+    </div>
+  </form>
+  <div id="grade" class="grade"></div>
+  <button id="mais" class="btn sec" hidden>Carregar mais</button>
+</main>
+{{#site.textos.rodape}}<footer class="rodape">{{site.textos.rodape}}</footer>{{/site.textos.rodape}}
+
+<!-- HTML de cada card. Campos: [[nome]] [[versao]] [[ano]] [[km]] [[cambio]] [[cor]] [[combustivel]] [[preco]] [[loja]] [[local]] [[lojaLocal]] [[href]] [[imgattrs]] -->
+<script type="text/html" id="tpl-card">
+<a class="card" href="[[href]]">
+  <img loading="lazy" width="400" height="300" alt="[[nome]]" [[imgattrs]]>
+  <div class="card-corpo">
+    <h3>[[nome]]</h3>
+    <p class="versao">[[versao]]</p>
+    <p class="meta">[[ano]] · [[km]] · [[cambio]]</p>
+    <p class="preco">[[preco]]</p>
+    <p class="un">[[lojaLocal]]</p>
+  </div>
+</a>
+</script>
+
+<script src="{{rel}}motor/engine.js"></script>
+<script src="{{rel}}motor/ui-util.js"></script>
+<script src="{{rel}}motor/link-carro.js"></script>
+<script src="{{rel}}motor/ui-lista.js"></script>
+</body>
+</html>

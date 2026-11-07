@@ -1,0 +1,492 @@
+{
+  "nome": "Grupo Servopa Seminovos",
+  "slogan": "O maior estoque de seminovos do Sul do Brasil",
+  "motor": "v2",
+  "template": "servopa",
+  "url": "https://gruposervopaseminovos.com.br",
+  "whatsapp": "5508009992000",
+  "fotosBase": "https://fotos.exemplo.com.br/",
+  "tema": {
+    "cor": "#0533ce",
+    "fundo": "#f4f5f7",
+    "texto": "#1c1c1c",
+    "raio": 8,
+    "fonteGoogle": "Montserrat",
+    "colunas": 250
+  },
+  "textos": {
+    "busca": "Busque por marca, modelo, versão...",
+    "botaoWhatsapp": "Falar com um especialista",
+    "voltar": "Voltar ao estoque"
+  },
+  "cabecalho": {
+    "telefone": "0800-999-2000",
+    "menu": [
+      {
+        "rotulo": "Estoque",
+        "link": "multipla/"
+      },
+      {
+        "rotulo": "Ofertas",
+        "link": "multipla/?ord=menor"
+      },
+      {
+        "rotulo": "Avaliação",
+        "link": "https://tradein.autoavaliar.com.br/group/servopa-compra/8781zBABjC/5261zAwjAL?c=6775zPB"
+      }
+    ],
+    "sobre": [
+      {
+        "rotulo": "Quem somos",
+        "link": "empresa/"
+      },
+      {
+        "rotulo": "Lojas",
+        "link": "lojas/"
+      },
+      {
+        "rotulo": "Contato",
+        "link": "contato/"
+      },
+      {
+        "rotulo": "LGPD",
+        "link": "https://www.gruposervopa.com.br/lgpd"
+      }
+    ]
+  },
+  "rodape": {
+    "telefone": "0800-999-2000",
+    "institucional": [
+      {
+        "rotulo": "Quem somos",
+        "link": "empresa/"
+      },
+      {
+        "rotulo": "Lojas",
+        "link": "lojas/"
+      },
+      {
+        "rotulo": "Contato",
+        "link": "contato/"
+      },
+      {
+        "rotulo": "LGPD",
+        "link": "https://www.gruposervopa.com.br/lgpd"
+      },
+      {
+        "rotulo": "Avaliação",
+        "link": "https://tradein.autoavaliar.com.br/group/servopa-compra/8781zBABjC/5261zAwjAL?c=6775zPB"
+      },
+      {
+        "rotulo": "Seguro",
+        "link": "https://protectaseguros.com.br/"
+      },
+      {
+        "rotulo": "Cód. Defesa do Consumidor",
+        "link": "https://idec.org.br/codigo-de-defesa-do-consumidor"
+      },
+      {
+        "rotulo": "Trabalhe Conosco",
+        "link": "https://gruposervopa.pandape.infojobs.com.br/"
+      }
+    ],
+    "sociais": [
+      {
+        "rede": "Instagram",
+        "link": "https://www.instagram.com/seminovosgruposervopa"
+      },
+      {
+        "rede": "Facebook",
+        "link": "https://www.facebook.com/seminovosgruposervopa"
+      }
+    ],
+    "credito": "Desenvolvido por Revenda Mais"
+  },
+  "lojas": {
+    "servopa-curitiba-marechal": {
+      "nome": "Servopa Curitiba Marechal",
+      "cidade": "Curitiba",
+      "uf": "PR",
+      "endereco": "Av. Mal. Floriano Peixoto, 3804 - Parolin - Curitiba - PR",
+      "telefone": "(41) 3213-6000"
+    },
+    "servopa-curitiba-pinheirinho": {
+      "nome": "Servopa Curitiba Pinheirinho",
+      "cidade": "Curitiba",
+      "uf": "PR",
+      "endereco": "Rua Francisco Raitani, 7350 - Capão Raso - Curitiba - PR",
+      "telefone": "(41) 3341-9200"
+    },
+    "servopa-curitiba-rockefeller": {
+      "nome": "Servopa Curitiba Rockefeller",
+      "cidade": "Curitiba",
+      "uf": "PR",
+      "endereco": "Rua Rockefeller, 1118 - Rebouças - Curitiba - PR",
+      "telefone": "(41) 3330-2007"
+    },
+    "servopa-maringa": {
+      "nome": "Servopa Maringá",
+      "cidade": "Maringá",
+      "uf": "PR",
+      "endereco": "Avenida Colombo, 3887 - Zona 07 - Maringá - PR",
+      "telefone": "(44) 3045-9040"
+    },
+    "servopa-paranagua": {
+      "nome": "Servopa Paranaguá",
+      "cidade": "Paranaguá",
+      "uf": "PR",
+      "endereco": "Alameda Coronel Elysio Pereira, 523 - Estradinha - Paranaguá - PR",
+      "telefone": "(41) 3420-4800"
+    },
+    "servopa-ponta-grossa-oficinas": {
+      "nome": "Servopa Ponta Grossa Oficinas",
+      "cidade": "Ponta Grossa",
+      "uf": "PR",
+      "endereco": "R. Doutor Leopoldo Guimarães da Cunha, 233 - Oficinas - Ponta Grossa - PR",
+      "telefone": "(42) 3220-4700"
+    },
+    "audi-center-cascavel": {
+      "nome": "Audi Center Cascavel",
+      "cidade": "Cascavel",
+      "uf": "PR",
+      "endereco": "Avenida Brasil, 1869 - Pacaembu - Cascavel - PR",
+      "telefone": "(45) 3229-8200"
+    },
+    "audi-center-maringa": {
+      "nome": "Audi Center Maringá",
+      "cidade": "Maringá",
+      "uf": "PR",
+      "endereco": "Rua Gaspar Ricardo, 189 - Zona 10 - Maringá - PR",
+      "telefone": "(44) 3355-9500"
+    },
+    "audi-curitiba": {
+      "nome": "Audi Curitiba",
+      "cidade": "Curitiba",
+      "uf": "PR",
+      "endereco": "Rua Padre Germano Mayer, 1629 - Hugo Lange - Curitiba - PR",
+      "telefone": "(41) 3218-4200"
+    },
+    "grupo-servopa-seminovos-canoas": {
+      "nome": "Grupo Servopa Seminovos Canoas",
+      "cidade": "Canoas",
+      "uf": "RS",
+      "endereco": "Av. Getúlio Vargas, 5605 - Centro - Canoas - RS",
+      "telefone": "(51) 3052-7000"
+    },
+    "grupo-servopa-seminovos-gravatai": {
+      "nome": "Grupo Servopa Seminovos Gravataí",
+      "cidade": "Gravataí",
+      "uf": "RS",
+      "endereco": "Rodovia RS-020, 80 - Vera Cruz - Gravataí - RS",
+      "telefone": "(51) 2313-4150"
+    },
+    "grupo-servopa-seminovos-novo-hamburgo": {
+      "nome": "Grupo Servopa Seminovos Novo Hamburgo",
+      "cidade": "Novo Hamburgo",
+      "uf": "RS",
+      "endereco": "Avenida Nações Unidas, 2880 - Rio Branco - Novo Hamburgo - RS",
+      "telefone": "(51) 3594-0000"
+    },
+    "grupo-servopa-seminovos-londrina": {
+      "nome": "Grupo Servopa Seminovos Londrina",
+      "cidade": "Londrina",
+      "uf": "PR",
+      "endereco": "Avenida Tiradentes, 5499 - Rodocentro - Londrina - PR",
+      "telefone": "(41) 3575-4000"
+    },
+    "grupo-servopa-seminovos-umuarama": {
+      "nome": "Grupo Servopa Seminovos Umuarama",
+      "cidade": "Umuarama",
+      "uf": "PR",
+      "endereco": "Av. Tiradentes, 2000 - Jardim Paraiso - Umuarama - PR"
+    },
+    "grupo-servopa-seminovos-ipiranga": {
+      "nome": "Grupo Servopa Seminovos Ipiranga",
+      "cidade": "Porto Alegre",
+      "uf": "RS",
+      "endereco": "Av. Ipiranga, 5570 - Jd. Botânico - Porto Alegre - RS",
+      "telefone": "(51) 3103-4030"
+    },
+    "honda-servopa-curitiba": {
+      "nome": "Honda Servopa Curitiba",
+      "cidade": "Curitiba",
+      "uf": "PR",
+      "endereco": "Rua General Mário Tourinho, 1156 - Seminário - Curitiba - PR",
+      "telefone": "(41) 3270-8000"
+    },
+    "honda-servopa-sao-jose-dos-pinhais": {
+      "nome": "Honda Servopa São José dos Pinhais",
+      "cidade": "São José dos Pinhais",
+      "uf": "PR",
+      "endereco": "Avenida das Torres, 2531 - São Pedro - São José dos Pinhais - PR",
+      "telefone": "(41) 3380-8000"
+    },
+    "red-wheel-harley-davidson": {
+      "nome": "Red Wheel Harley-Davidson",
+      "cidade": "Londrina",
+      "uf": "PR",
+      "endereco": "Avenida Juscelino Kubitschek, 453 - Vila Ipiranga - Londrina - PR",
+      "telefone": "(43) 3294-6000"
+    },
+    "the-one-harley-davidson": {
+      "nome": "The One Harley-Davidson",
+      "cidade": "Curitiba",
+      "uf": "PR",
+      "endereco": "Rua General Mário Tourinho, 1055 - Seminário - Curitiba - PR",
+      "telefone": "(41) 3340-6000"
+    },
+    "triumph-cwb": {
+      "nome": "Triumph CWB",
+      "cidade": "Curitiba",
+      "uf": "PR",
+      "endereco": "Rua General Mário Tourinho, 1082 - Seminário - Curitiba - PR",
+      "telefone": "(41) 3561-3000"
+    },
+    "triumph-north": {
+      "nome": "Triumph North",
+      "cidade": "Londrina",
+      "uf": "PR",
+      "endereco": "Avenida Juscelino Kubitschek, 500 - Vila Ipiranga - Londrina - PR",
+      "telefone": "(43) 3328-8011"
+    },
+    "volvo-cascavel": {
+      "nome": "Volvo Cascavel",
+      "cidade": "Cascavel",
+      "uf": "PR",
+      "endereco": "Avenida Brasil, 1899 - Pacaembu - Cascavel - PR",
+      "telefone": "(45) 3229-8250"
+    },
+    "volvo-servopa": {
+      "nome": "Volvo Servopa",
+      "cidade": "Curitiba",
+      "uf": "PR",
+      "endereco": "Rua Jerônimo Durski, 925 - Batel - Curitiba - PR",
+      "telefone": "(41) 3340-6650"
+    }
+  },
+  "busca": true,
+  "filtros": [
+    "estado",
+    "cidade",
+    "loja",
+    "marca",
+    "modelo",
+    "carroceria",
+    {
+      "campo": "ano",
+      "opcoes": [
+        2025,
+        2024,
+        2023,
+        2022,
+        2020,
+        2018,
+        2015
+      ]
+    },
+    {
+      "campo": "preco",
+      "opcoes": [
+        50000,
+        80000,
+        100000,
+        150000,
+        200000,
+        300000,
+        500000
+      ]
+    },
+    "km",
+    "cambio",
+    "combustivel",
+    "cor"
+  ],
+  "ordenacao": [
+    "destaque",
+    "menor",
+    "maior",
+    "recentes",
+    "km"
+  ],
+  "vendedores": {},
+  "estoque": {
+    "blocosAntes": [
+      {
+        "tipo": "banner",
+        "imagem": "assets/banner-2.webp",
+        "alt": "O maior estoque do Sul do Brasil"
+      }
+    ]
+  },
+  "paginas": [
+    {
+      "caminho": "",
+      "titulo": "Grupo Servopa Seminovos | O maior estoque de seminovos do Sul",
+      "descricao": "Seminovos com 1 ano de garantia: carros, híbridos, elétricos, motos e premium em PR, RS e SP.",
+      "blocos": [
+        {
+          "tipo": "carrossel",
+          "slides": [
+            {
+              "imagem": "assets/banner-1.webp",
+              "alt": "Carta Certa: 100 carros selecionados com 1 ano de garantia",
+              "mensagem": "Olá! Vi a campanha Carta Certa no site e quero saber mais."
+            },
+            {
+              "imagem": "assets/banner-2.webp",
+              "alt": "O maior estoque do Sul do Brasil",
+              "link": "multipla/"
+            },
+            {
+              "imagem": "assets/banner-3.webp",
+              "alt": "Tecnologia e performance: encontre seu elétrico seminovo",
+              "link": "multipla/?combustivel=El%C3%A9trico"
+            },
+            {
+              "imagem": "assets/banner-4.webp",
+              "alt": "Troque de carro hoje mesmo, com 1 ano de garantia",
+              "mensagem": "Olá! Quero trocar de carro hoje mesmo."
+            },
+            {
+              "imagem": "assets/banner-5.webp",
+              "alt": "Luxo: veículos premium com 1 ano de garantia",
+              "link": "multipla/?ord=maior"
+            },
+            {
+              "imagem": "assets/banner-6.webp",
+              "alt": "Sua próxima aventura começa aqui: motos",
+              "link": "multipla/?carroceria=Moto"
+            },
+            {
+              "imagem": "assets/banner-7.webp",
+              "alt": "Atenção: confira os canais oficiais dos bancos parceiros",
+              "link": "https://gruposervopa.com.br/aviso-de-fraude"
+            }
+          ]
+        },
+        {
+          "tipo": "carrocerias",
+          "titulo": "Busque pelo tipo de carroceria"
+        },
+        {
+          "tipo": "busca",
+          "titulo": "Filtre para encontrar o veículo dos seus sonhos.",
+          "botao": "Pesquisar",
+          "atalhos": [
+            {
+              "rotulo": "Motos",
+              "link": "multipla/?carroceria=Moto"
+            },
+            {
+              "rotulo": "Premium",
+              "link": "multipla/?ord=maior"
+            },
+            {
+              "rotulo": "Elétricos",
+              "link": "multipla/?combustivel=El%C3%A9trico"
+            }
+          ]
+        },
+        {
+          "tipo": "listagem",
+          "titulo": "Veículos em estoque",
+          "subtitulo": "Confira alguns destaques",
+          "quantidade": 8,
+          "filtros": false,
+          "botao": "Ver estoque completo"
+        },
+        {
+          "tipo": "chamada",
+          "titulo": "Siga-nos no Instagram",
+          "texto": "@seminovosgruposervopa: novidades do estoque, ofertas e entregas.",
+          "botao": "Abrir o Instagram",
+          "link": "https://www.instagram.com/seminovosgruposervopa"
+        }
+      ]
+    },
+    {
+      "caminho": "lojas",
+      "titulo": "Lojas | Grupo Servopa Seminovos",
+      "descricao": "Encontre a loja Servopa mais perto de você: Paraná e Rio Grande do Sul.",
+      "blocos": [
+        {
+          "tipo": "titulo",
+          "titulo": "Nossas lojas",
+          "subtitulo": "23 lojas no Paraná e no Rio Grande do Sul. Atendimento: 0800-999-2000."
+        },
+        {
+          "tipo": "lojas"
+        }
+      ]
+    },
+    {
+      "caminho": "empresa",
+      "titulo": "Quem somos | Grupo Servopa Seminovos",
+      "descricao": "Conheça o Grupo Servopa Seminovos.",
+      "blocos": [
+        {
+          "tipo": "titulo",
+          "titulo": "Quem somos"
+        },
+        {
+          "tipo": "texto",
+          "html": "<p><strong>[TEXTO PROVISÓRIO: a página /empresa do site atual não pôde ser lida. Substituir pelo texto oficial.]</strong></p><p>O Grupo Servopa Seminovos reúne o estoque de seminovos das concessionárias do Grupo Servopa no Paraná e no Rio Grande do Sul: automóveis, híbridos, elétricos, motos e premium, com 1 ano de garantia.</p><p>No site, na concessionária ou na sua garagem: o seminovo ideal está mais perto de você.</p>"
+        }
+      ]
+    },
+    {
+      "caminho": "contato",
+      "titulo": "Contato | Grupo Servopa Seminovos",
+      "descricao": "Fale com um especialista Servopa.",
+      "blocos": [
+        {
+          "tipo": "titulo",
+          "titulo": "Contato",
+          "subtitulo": "Atendimento: 0800-999-2000 (também no WhatsApp)."
+        },
+        {
+          "tipo": "formulario",
+          "mensagem": "Olá! Vim pelo site e gostaria de falar com um especialista.",
+          "botao": "Enviar pelo WhatsApp",
+          "campos": [
+            {
+              "rotulo": "Nome",
+              "tipo": "linha",
+              "obrigatorio": true,
+              "meia": true
+            },
+            {
+              "rotulo": "Telefone",
+              "tipo": "telefone",
+              "obrigatorio": true,
+              "meia": true
+            },
+            {
+              "rotulo": "Cidade",
+              "tipo": "lista",
+              "opcoes": [
+                "Canoas",
+                "Cascavel",
+                "Curitiba",
+                "Gravataí",
+                "Londrina",
+                "Maringá",
+                "Novo Hamburgo",
+                "Paranaguá",
+                "Ponta Grossa",
+                "Porto Alegre",
+                "São José dos Pinhais",
+                "Umuarama"
+              ]
+            },
+            {
+              "rotulo": "Mensagem",
+              "tipo": "texto-longo",
+              "obrigatorio": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

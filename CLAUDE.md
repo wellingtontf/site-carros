@@ -1,0 +1,83 @@
+# Contexto do projeto: plataforma de sites estáticos de carros
+
+Responda em português informal. Dono do projeto: Wellington (dev PHP/Yii, trabalha no CRM Revenda Mais).
+
+## Objetivo
+Plataforma com ~2500 sites estáticos de revendas de carros, cada um em um domínio próprio. Os sites têm busca, filtros e links personalizados. As atualizações precisam ser muito práticas, porque são muitos sites.
+
+## Decisões de arquitetura (já tomadas)
+1. **Um site por domínio, um estoque por site:** `sites/<dominio>/` tem `site.json` (template, tema, textos, filtros, restrições, motor, vendedores, fotosBase, url e as `lojas` do site), `estoque.json` (o ÚNICO JSON de carros do site; cada carro diz sua `loja`, opcional se o site tem uma loja só) e `assets/` (logo, banner...). O nome da pasta é o domínio e o id do site (não há campo `id`). Não existe mais estoque nem loja compartilhados entre sites (decisão do Wellington: "sempre será passado só um json de estoque de carros").
+2. **Core isolado, visual separado:**
+   - `core/` é só código: `motor/<versao>/engine.js` (busca, filtros em cascata, estado na URL e WhatsApp; não mexe em DOM, roda no navegador e no Node), `ui/` (liga o motor à página), `caminhos.js` (todos os caminhos), `build.js`, `cli.js`, `atualizar.js`, `servidor.js`.
+   - `templates/<nome>/` é autocontido: `template.json`, `paginas/{index,carro,vendido}.html`, `css/`, `js/`, `img/`. Hoje há `barra-topo`, `lateral`, `trokey` e `servopa`. Não existe base compartilhada entre templates.
+   - Páginas de conteúdo (home institucional, vender, lojas, política) são listas de **blocos** em `site.json` → `paginas`; cada tipo de bloco é `templates/<nome>/blocos/<tipo>.html`, a moldura é `paginas/pagina.html`, e pedaços comuns ficam em `parciais/` (`{{> nome}}`). `estoque.caminho` põe a listagem numa subpasta (Trokey: `/estoque/`). `cabecalho` e `rodape` também vêm do `site.json`. Hoje só o template `trokey` tem blocos.
+   - **A listagem do estoque fica SEMPRE em `/multipla/`** (constante `CAMINHO_ESTOQUE` no build); a raiz é a home institucional (página `""` de `paginas`, ou a `HOME_PADRAO` do core: banner + vitrine). Todo template precisa de `paginas/pagina.html` e dos blocos `banner` e `vitrine`. O bloco `listagem` põe o estoque interativo dentro de uma página (ex.: home da Servopa).
+   - **Ordem de exibição vem do estoque:** campo `ordem` (ou a posição no arquivo) → `carros.json` sai nessa ordem (campo `r`) e o motor v2 tem a ordenação `destaque` (padrão). Campos opcionais do carro: `ordem`, `destaque`, `carroceria`.
+   - O web designer mexe só nos templates.
+3. **Motor versionado, com rollout:** `core/motor/rascunho` é o único lugar onde se edita. `congelar vN` copia o rascunho para `core/motor/vN`, que passa a ser imutável. `aplicar vN --sites a,b` ou `--todos` roda os testes antes. Existem `reverter` e `historico`. O site fixa a versão em `"motor": "v1"`.
+4. **Filtros configuráveis por site:** estado, cidade, loja, marca, modelo, ano, preço, km, câmbio, combustível e cor. Estado, cidade e loja funcionam em cascata, e marca filtra modelo. Dá para mudar rótulos, opções e ordem, e há `restricoes` (precoMin, precoMax, anoMin, marcas, estados, cidades).
+5. **Busca com tolerância a erro de digitação:** só tenta aproximar quando não há resultado exato. Palavras com 4 letras ou mais e não numéricas aceitam 1 erro (2 erros se tiver 7 letras ou mais). Ignora acento e maiúsculas, aceita pedaço de palavra e exige todas as palavras digitadas.
+6. **Fotos no AWS S3:** `carros/<id>/<n>-<400|800|1600>.webp`, via `fotosBase`. Se a foto falhar, aparece um placeholder.
+7. **Links:** `?estado=SP&cidade=...&marca=...&ord=menor` (estado da busca), `/carros/<Marca>/<Modelo>/<Versao>/<Marca>-<Modelo>-<Versao>-<ano>-<Cidade>-<Estado>-<id>.html` (página estática por carro, com preview de WhatsApp; regra ÚNICA em `core/ui/link-carro.js`, usada no build, no navegador e nos testes) e `?v=carlos` (roteia o WhatsApp para o vendedor). Link de carro que muda (dados do estoque mudaram) vira redirecionamento para o novo por 180 dias (`retencaoRedirecionamentoDias`); o estado guarda `links`, `vendidos {data, link}` e `redirecionados` por site.
+8. **Origem dos carros:** vêm de outro sistema (Revenda Mais). Ele terá UMA API que gera o JSON de carros de um estoque, e o Wellington chama quando achar melhor (gatilho manual, não é webhook obrigatório).
+
+## Estrutura de arquivos
+```
+core/                         SÓ CÓDIGO (isolado)
+  caminhos.js                 todos os caminhos do projeto (nada monta caminho fora daqui)
+  build.js                    build incremental (estado em .estado/<pasta>/<dominio>.json, pendências em pendente.json)
+  cli.js                      status | congelar | testar | aplicar | reverter | historico | atualizar | publicar
+  atualizar.js                valida, grava sites/<dominio>/estoque.json e reconstrói só aquele site; publicarPendentes()
+  servidor.js                 receptor HTTP: POST /atualizar {"sites":[...]}, PUT /sites/<dominio>/estoque, GET /status
+  motor/rascunho, motor/vN    engine.js (vN imutável)
+  ui/                         ui-util.js, ui-lista.js, ui-carro.js → vão para <site>/motor/ no build
+sites/<dominio>/              site.json, estoque.json, assets/
+templates/<nome>/             template.json, paginas/, css/, js/, img/
+config/                       fontes.exemplo.json, publicacao.exemplo.json (copiar sem .exemplo; ignorados no git), historico.json
+ferramentas/                  gerar-exemplo.js (estoques dos 3 sites de exemplo), importar-trokey.py (teste de migração)
+```
+Saída: `dist/<dominio>/` com `motor/` (core), `css/ js/ img/` (template), `assets/` (site), `index.html`, `carro/<id>/`, `carros.json`, `config.json`, `sitemap.xml`, `robots.txt`.
+Gerados e fora do git: `dist*/`, `.estado/`, `s3-local/` (simula o bucket de fotos; servido em :8081 nos testes locais).
+
+## Como a atualização funciona (já implementado e testado)
+- `node core/cli.js atualizar [dominios] [--publicar] [--forcar] [--completo]` busca em `config/fontes.json` (`{dominio: url | {url, headers}}`, aceita `${VAR}` de ambiente, timeout de 30 s).
+- **Validação:** ids únicos, `loja` existente em `site.json` (obrigatória se o site tem mais de uma loja), marca/modelo/versão/cor/câmbio/combustível preenchidos, ano de 1950 até o ano atual + 2, preço > 0, km ≥ 0, fotos de 0 a 60. Qualquer erro → nada é gravado, e o estoque antigo continua valendo.
+- **Trava de queda:** se o estoque cair mais de 50% (a partir de 10 carros), recusa. `--forcar` libera.
+- Estoque igual ao anterior → nada acontece. O anterior é guardado em `.estado/estoques-anteriores/`.
+- Só o site daquele estoque é refeito, e nele só as páginas dos carros que mudaram, mais o `carros.json`.
+- **Carro que saiu:** a página vira "Este veículo não está mais disponível" (noindex) por `retencaoVendidosDias` (padrão 30, por site) e depois é apagada. Os links antigos dele apontam para essa página.
+- Trocar motor ou filtros não refaz páginas. Trocar template, tema ou textos refaz as páginas do site.
+- **Publicação:** `config/publicacao.json` = `{paralelo, comandoSite}`, com os placeholders `{site} {pasta} {lista} {removidos} {completo}`. Só limpa a pendência dos sites publicados com sucesso.
+- Há trava de execução simultânea (`.estado/atualizar.lock`, expira em 30 min).
+- O servidor junta chamadas seguidas numa só (`ATRASO_MS`, padrão 3000 ms) e roda uma por vez. Aceita até 100 MB no PUT.
+
+## Medições (site de 1000 carros)
+- `carros.json`: 186 KB (15 KB com gzip). Motor + CSS + JS: ~25 KB (~10 KB com gzip). Página de carro: 4 KB. Pasta do site: 12 MB (1000 páginas).
+- Chrome simulando celular (4G rápido, CPU 4x mais lenta): primeira tela 0,6 s, lista pronta 1,2 s, ~263 KB baixados, CLS 0.
+- Em 3G lento (CPU 6x): primeira tela 0,8 s, lista pronta 1,8 s.
+- Busca respondeu em ~140 ms.
+- SEO: a listagem é montada por JS, então o Google descobre os carros pelo `sitemap.xml`. O build gera `sitemap.xml`, `robots.txt` e JSON-LD (`Car` + `Offer`) quando o site tem `url`. As páginas de carro têm title, description, canonical e og:image.
+- A compressão (gzip/brotli) precisa estar ligada no servidor/CDN.
+
+## Regras ao mexer no código
+- **Arquitetura de pastas é prioridade do Wellington:** core isolado em `core/`; cada site em `sites/<dominio>/` com subpastas; cada template inteiro dentro de `templates/<nome>/` (nada solto na raiz de `templates/`). Caminho novo → adicionar em `core/caminhos.js`.
+- Nunca editar versões congeladas do motor (`core/motor/v1`, ...). Só `core/motor/rascunho`.
+- Rodar `node core/cli.js testar` antes de entregar mudanças.
+- Build incremental: depois de mudar o `core/build.js`, rodar `node core/build.js` duas vezes. A segunda deve dizer "sem mudanças".
+- Nos templates, referenciar arquivos sempre com `{{rel}}` (`{{rel}}css/style.css`, `{{rel}}motor/engine.js`). Imagens do `tema` com caminho relativo (`assets/logo.png`) já chegam com o prefixo certo em `{{tema.logo}}`.
+- O template mini-renderer usa `{{x}}` (escapa), `{{{x}}}` (HTML cru, só gerado pelo build), `{{#x}}…{{/x}}` e `{{^x}}…{{/x}}`. Os cards ficam em `<script type="text/html" id="tpl-card">` com tokens `[[campo]]`.
+- Tema por variáveis CSS: `--cor --fundo --texto --raio --fonte --colunas`.
+- Ids que a listagem exige: `q, filtros-dinamicos, ord, contagem, grade, mais, limpar, copiar, tpl-card`.
+- O motor é criado com `Motor.criar({dados:'carros.json', config:'config.json', carregar})`.
+
+## Ainda em aberto
+1. **Hospedagem dos 2500 domínios:** S3+CloudFront, Cloudflare Pages ou outro? Isso define o `comandoSite` do `publicacao.json`. Com `--delete` em `aws s3 sync`, cuidado com a publicação incremental; use `{lista}` para enviar só os arquivos alterados.
+2. **Volume diário de mudanças de veículos:** define se publicar só o que mudou basta ou se precisa de outra abordagem.
+3. **Rollout por ondas:** campo `canal` (estável/beta), `--percentual`, `--grupo`, e roteador por domínio. Não implementado.
+4. **Páginas fixas de cidade/marca** (`/campinas/`, `/honda/`) com carros já no HTML, para SEO da home. Opcional.
+5. **Script de exportação do Revenda Mais:** precisa de um exemplo do formato de exportação, ou da estrutura da tabela de veículos (campos de data de atualização e status).
+6. Cadastrar cada domínio no Google Search Console e enviar o sitemap (por API, dado o volume).
+7. Builds em paralelo para muitos sites, se o tempo ficar alto.
+
+## Primeiro pedido
+Leia este arquivo e o README.md. Rode `node ferramentas/gerar-exemplo.js`, `node core/build.js` (duas vezes) e `node core/cli.js testar`, e me diga se está tudo certo. Depois me ajude a configurar a publicação e a `fontes.json`.

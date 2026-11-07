@@ -1,0 +1,15 @@
+<!-- card da listagem montada no navegador. Campos: [[nome]] [[versao]] [[ano]] [[km]] [[cambio]] [[cor]] [[combustivel]] [[carroceria]] [[preco]] [[loja]] [[local]] [[lojaLocal]] [[href]] [[imgattrs]] [[zap]] [[id]] -->
+<script type="text/html" id="tpl-card">
+<article class="card">
+  <a class="card-foto" href="[[href]]"><img loading="lazy" width="400" height="300" alt="[[nome]] [[versao]]" [[imgattrs]]></a>
+  <div class="card-corpo">
+    <span class="card-ano">[[ano]]</span>
+    <h3><a href="[[href]]">[[nome]]</a></h3>
+    <p class="versao">[[versao]]</p>
+    <p class="preco">[[preco]]</p>
+    <ul class="card-info"><li>[[cambio]]</li><li>[[km]]</li><li>[[combustivel]]</li></ul>
+    <p class="un">[[lojaLocal]]</p>
+    <div class="card-acoes"><a class="ver" href="[[href]]">Ver detalhes</a><a class="card-zap" href="[[zap]]" target="_blank" rel="noopener" aria-label="WhatsApp sobre este carro">{{> icone-zap}}</a></div>
+  </div>
+</article>
+</script>

@@ -1,0 +1,4 @@
+{
+  "paralelo": 8,
+  "comandoSite": "aws s3 sync {pasta} s3://sites-bucket/{site}/ --delete --only-show-errors"
+}

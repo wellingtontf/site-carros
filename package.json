@@ -1,0 +1,13 @@
+{
+  "name": "site-carros",
+  "private": true,
+  "description": "Plataforma de sites estáticos de revendas de carros",
+  "scripts": {
+    "build": "node core/build.js",
+    "testar": "node core/cli.js testar",
+    "status": "node core/cli.js status",
+    "cli": "node core/cli.js",
+    "servidor": "node core/servidor.js",
+    "exemplo": "node ferramentas/gerar-exemplo.js"
+  }
+}

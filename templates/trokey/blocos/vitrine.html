@@ -1,0 +1,19 @@
+<!-- vitrine: titulo, subtitulo, quantidade, botao. Os carros (mais novos primeiro) já saem no HTML: bom para o Google. -->
+<section class="b-vitrine">
+  {{#titulo}}<h2 class="b-titulo">{{titulo}}</h2>{{/titulo}}
+  {{#subtitulo}}<p class="b-sub">{{subtitulo}}</p>{{/subtitulo}}
+  <div class="grade">
+    {{#carros}}<a class="card" href="{{href}}">
+      <img loading="lazy" width="400" height="300" alt="{{nome}}" {{{imgAttrs}}}>
+      <div class="card-corpo">
+        <h3>{{nome}}</h3>
+        <p class="versao">{{versao}}</p>
+        <ul class="chips"><li>{{ano}}</li><li>{{km}}</li><li>{{cambio}}</li></ul>
+        <p class="preco">{{preco}}</p>
+        <p class="un">{{local}}</p>
+        <span class="ver">Ver detalhes</span>
+      </div>
+    </a>{{/carros}}
+  </div>
+  {{#botao}}<p class="b-centro"><a class="b-btn" href="{{estoqueUrl}}">{{botao}}</a></p>{{/botao}}
+</section>

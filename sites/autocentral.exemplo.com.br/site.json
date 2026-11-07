@@ -1,0 +1,61 @@
+{
+  "nome": "Auto Central",
+  "slogan": "Seminovos com procedência em SP, MG e RJ",
+  "motor": "v2",
+  "template": "barra-topo",
+  "tema": {
+    "cor": "#0b5fff"
+  },
+  "textos": {
+    "rodape": "Auto Central · Seminovos com procedência"
+  },
+  "url": "https://autocentral.exemplo.com.br",
+  "whatsapp": "5511999990000",
+  "fotosBase": "https://fotos.exemplo.com.br/",
+  "lojas": {
+    "sp-centro": {
+      "nome": "Auto Central Centro",
+      "cidade": "São Paulo",
+      "uf": "SP",
+      "endereco": "Av. Paulista, 1000 - Bela Vista, São Paulo - SP",
+      "whatsapp": "5511999990001"
+    },
+    "campinas": {
+      "nome": "Auto Central Campinas",
+      "cidade": "Campinas",
+      "uf": "SP",
+      "endereco": "Av. Norte-Sul, 500 - Campinas - SP",
+      "whatsapp": "5519999990002"
+    },
+    "bh": {
+      "nome": "Auto Central BH",
+      "cidade": "Belo Horizonte",
+      "uf": "MG",
+      "endereco": "Av. Afonso Pena, 2000 - Centro, Belo Horizonte - MG",
+      "whatsapp": "5531999990003"
+    },
+    "rio": {
+      "nome": "Auto Central Rio",
+      "cidade": "Rio de Janeiro",
+      "uf": "RJ",
+      "endereco": "Av. das Américas, 3000 - Barra da Tijuca, Rio de Janeiro - RJ",
+      "whatsapp": "5521999990004"
+    }
+  },
+  "busca": true,
+  "filtros": [
+    "estado",
+    "cidade",
+    "loja",
+    "marca",
+    "modelo",
+    "ano",
+    "preco",
+    "km",
+    "cambio"
+  ],
+  "vendedores": {
+    "joao": "5511988881111",
+    "maria": "5519977772222"
+  }
+}

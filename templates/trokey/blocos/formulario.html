@@ -1,0 +1,15 @@
+<!-- formulario: titulo, subtitulo, botao, aviso, mensagem (início da mensagem), campos[{rotulo, tipo (linha|email|telefone|numero|lista|texto-longo), obrigatorio, dica, meia, opcoes[]}]
+     Site estático: ao enviar, monta uma mensagem com os campos preenchidos e abre o WhatsApp. -->
+<section class="b-form">
+  {{#titulo}}<h2 class="b-titulo">{{titulo}}</h2>{{/titulo}}
+  {{#subtitulo}}<p class="b-sub">{{subtitulo}}</p>{{/subtitulo}}
+  <form class="b-form-campos js-form-zap" data-msg="{{mensagem}}">
+    {{#campos}}<label class="b-campo{{#meia}} meia{{/meia}}" for="{{id}}"><span>{{rotulo}}{{#obrigatorio}} *{{/obrigatorio}}</span>
+      {{#ehLinha}}<input id="{{id}}" name="{{nome}}" type="{{tipoHtml}}" placeholder="{{dica}}" {{#obrigatorio}}required{{/obrigatorio}}>{{/ehLinha}}
+      {{#ehLista}}<select id="{{id}}" name="{{nome}}" {{#obrigatorio}}required{{/obrigatorio}}><option value="">Selecione</option>{{#opcoes}}<option>{{.}}</option>{{/opcoes}}</select>{{/ehLista}}
+      {{#ehTextoLongo}}<textarea id="{{id}}" name="{{nome}}" rows="4" placeholder="{{dica}}" {{#obrigatorio}}required{{/obrigatorio}}></textarea>{{/ehTextoLongo}}
+    </label>{{/campos}}
+    <button type="submit" class="b-btn">{{botao}}{{^botao}}Enviar{{/botao}}</button>
+    {{#aviso}}<p class="b-aviso">{{aviso}}</p>{{/aviso}}
+  </form>
+</section>

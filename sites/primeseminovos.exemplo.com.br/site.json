@@ -1,0 +1,65 @@
+{
+  "nome": "Prime Seminovos",
+  "slogan": "A partir de R$ 90 mil, em São Paulo e Rio",
+  "motor": "v2",
+  "template": "lateral",
+  "tema": {
+    "cor": "#111827",
+    "fundo": "#ffffff",
+    "raio": 4,
+    "fonteGoogle": "Poppins",
+    "colunas": 260
+  },
+  "textos": {
+    "rodape": "Prime Seminovos · Atendimento em São Paulo e Rio de Janeiro"
+  },
+  "url": "https://primeseminovos.exemplo.com.br",
+  "whatsapp": "5511955550000",
+  "fotosBase": "https://fotos.exemplo.com.br/",
+  "lojas": {
+    "sp-centro": {
+      "nome": "Auto Central Centro",
+      "cidade": "São Paulo",
+      "uf": "SP",
+      "endereco": "Av. Paulista, 1000 - Bela Vista, São Paulo - SP",
+      "whatsapp": "5511999990001"
+    },
+    "rio": {
+      "nome": "Auto Central Rio",
+      "cidade": "Rio de Janeiro",
+      "uf": "RJ",
+      "endereco": "Av. das Américas, 3000 - Barra da Tijuca, Rio de Janeiro - RJ",
+      "whatsapp": "5521999990004"
+    }
+  },
+  "restricoes": {
+    "precoMin": 90000
+  },
+  "busca": true,
+  "filtros": [
+    {
+      "campo": "cidade",
+      "rotulo": "Onde"
+    },
+    "marca",
+    {
+      "campo": "preco",
+      "rotulo": "Faixa de preço",
+      "opcoes": [
+        100000,
+        150000,
+        200000,
+        300000
+      ]
+    },
+    "ano"
+  ],
+  "ordenacao": [
+    "recentes",
+    "menor",
+    "maior"
+  ],
+  "vendedores": {
+    "carlos": "5511966663333"
+  }
+}

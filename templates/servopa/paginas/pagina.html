@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+{{> head}}
+<title>{{pagina.titulo}}</title>
+<meta name="description" content="{{pagina.descricao}}">
+{{{canon}}}
+</head>
+<body data-page="pagina" data-base="{{base}}" data-rel="{{rel}}">
+{{> cabecalho}}
+<main class="conteudo">
+{{{conteudo}}}
+</main>
+{{> rodape}}
+<script src="{{rel}}motor/engine.js"></script>
+<script src="{{rel}}motor/ui-util.js"></script>
+{{#temListagem}}{{> tpl-card}}
+<script src="{{rel}}motor/link-carro.js"></script>
+<script src="{{rel}}motor/ui-lista.js"></script>{{/temListagem}}
+<script src="{{rel}}js/servopa.js"></script>
+</body>
+</html>

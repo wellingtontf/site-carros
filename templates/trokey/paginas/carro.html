@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+{{> head}}
+<title>{{carro.titulo}} - {{site.nome}}</title>
+<meta name="description" content="{{carro.descricaoCurta}}">
+{{{og}}}
+</head>
+<body data-page="carro" data-rel="{{rel}}" data-id="{{carro.id}}" data-loja="{{carro.lojaId}}" data-titulo="{{carro.titulo}}" data-base="{{base}}">
+{{> cabecalho}}
+<main class="detalhe">
+  <a class="voltar" href="{{estoqueUrl}}">&larr; {{site.textos.voltar}}</a>
+  <h1>{{carro.titulo}}</h1>
+  <div class="galeria">
+    <img id="foto-principal" class="foto-principal" width="800" height="600" alt="{{carro.titulo}}" {{{carro.principalAttrs}}}>
+    <div class="miniaturas">
+      {{#carro.fotos}}<button type="button" class="mini" data-n="{{n}}" aria-label="Foto {{n}}"><img loading="lazy" width="100" height="75" alt="" {{{imgAttrs}}}></button>{{/carro.fotos}}
+    </div>
+  </div>
+  <div class="info">
+    <div class="preco">{{carro.precoFmt}}</div>
+    <dl class="specs">{{#carro.specs}}<dt>{{rotulo}}</dt><dd>{{valor}}</dd>{{/carro.specs}}</dl>
+    {{#carro.endereco}}<p class="endereco">{{carro.endereco}}</p>{{/carro.endereco}}
+    <a class="btn zap" id="zap" href="#">{{site.textos.botaoWhatsapp}}</a>
+    <button type="button" class="btn sec" id="copiar">Copiar link do carro</button>
+  </div>
+  <section><h2>Sobre o veículo</h2><p>{{carro.descricao}}</p></section>
+  <section><h2>Opcionais</h2><ul class="opcionais">{{#carro.opcionais}}<li>{{.}}</li>{{/carro.opcionais}}</ul></section>
+</main>
+{{> rodape}}
+<script src="{{rel}}motor/engine.js"></script>
+<script src="{{rel}}motor/ui-util.js"></script>
+<script src="{{rel}}motor/ui-carro.js"></script>
+<script src="{{rel}}js/trokey.js"></script>
+</body>
+</html>

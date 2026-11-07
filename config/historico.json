@@ -1,0 +1,29 @@
+[
+  {
+    "data": "2026-11-07 20:35",
+    "acao": "aplicar",
+    "versao": "v2",
+    "sites": [
+      {
+        "site": "autocentral.exemplo.com.br",
+        "anterior": "v1",
+        "para": "v2"
+      },
+      {
+        "site": "outletdocarro.exemplo.com.br",
+        "anterior": "v1",
+        "para": "v2"
+      },
+      {
+        "site": "primeseminovos.exemplo.com.br",
+        "anterior": "v1",
+        "para": "v2"
+      },
+      {
+        "site": "trokey.com.br",
+        "anterior": "v1",
+        "para": "v2"
+      }
+    ]
+  }
+]

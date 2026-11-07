@@ -1,0 +1,2 @@
+<!-- banner: imagem, alt, link | titulo, subtitulo (sem imagem: faixa azul com o título) -->
+<section class="b-banner">{{#imagem}}{{#link}}<a href="{{link}}">{{/link}}<img src="{{imagem}}" alt="{{alt}}" width="1920" height="400">{{#link}}</a>{{/link}}{{/imagem}}{{^imagem}}<div class="b-banner-txt"><h1>{{titulo}}</h1>{{#subtitulo}}<p>{{subtitulo}}</p>{{/subtitulo}}</div>{{/imagem}}</section>

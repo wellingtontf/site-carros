@@ -1,0 +1,19 @@
+<div class="faixa-topo">
+  <div class="faixa-in">
+    <span>Seminovos com <strong>1 ano de garantia</strong></span>
+    {{#site.cabecalho.telefone}}<a href="#" class="js-zap" data-msg="Olá! Estava no site e gostaria da ajuda de um especialista!">WhatsApp {{site.cabecalho.telefone}}</a>{{/site.cabecalho.telefone}}
+  </div>
+</div>
+<header class="topo">
+  <a class="marca" href="{{inicioUrl}}">{{#tema.logo}}<img class="logo" src="{{tema.logo}}" alt="{{site.nome}}" height="40">{{/tema.logo}}{{^tema.logo}}<span class="logo-txt"><b>GRUPO SERVOPA</b><i>SEMINOVOS</i></span>{{/tema.logo}}</a>
+  <input type="checkbox" id="menu-abre" class="menu-abre" aria-hidden="true">
+  <label for="menu-abre" class="menu-botao" aria-label="Abrir menu"><span></span><span></span><span></span></label>
+  <nav class="menu">
+    <div class="drop"><button type="button">Encontre por cidade</button>
+      <ul>{{#estoque.cidades}}<li><a href="{{link}}">{{valor}}</a></li>{{/estoque.cidades}}</ul></div>
+    {{#site.cabecalho.menu}}<a href="{{link}}">{{rotulo}}</a>{{/site.cabecalho.menu}}
+    <div class="drop"><button type="button">Sobre</button>
+      <ul>{{#site.cabecalho.sobre}}<li><a href="{{link}}">{{rotulo}}</a></li>{{/site.cabecalho.sobre}}</ul></div>
+    <a class="btn-topo" href="{{estoqueUrl}}">Ver estoque</a>
+  </nav>
+</header>

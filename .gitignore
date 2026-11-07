@@ -1,0 +1,11 @@
+# gerados
+dist/
+dist-preview/
+dist-teste/
+.estado/
+s3-local/
+node_modules/
+
+# configuração com segredos (copie de config/*.exemplo.json)
+config/fontes.json
+config/publicacao.json

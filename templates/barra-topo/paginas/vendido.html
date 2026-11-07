@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Veículo indisponível - {{site.nome}}</title>
+{{{fonteLink}}}
+<link rel="stylesheet" href="{{rel}}css/base.css">
+<link rel="stylesheet" href="{{rel}}css/style.css">
+<style>{{{temaCss}}}</style>
+</head>
+<body data-page="indisponivel" data-rel="{{rel}}">
+<header class="topo">
+  {{#tema.logo}}<img class="logo" src="{{tema.logo}}" alt="{{site.nome}}">{{/tema.logo}}
+  <a class="marca" href="{{inicioUrl}}">{{site.nome}}</a>
+  <span class="slogan">{{site.slogan}}</span>
+</header>
+<main class="detalhe">
+  <h1>{{carro.titulo}}</h1>
+  <section>
+    <h2>Este veículo não está mais disponível</h2>
+    <p>Ele já foi vendido ou saiu do nosso estoque. Veja os outros veículos que temos agora.</p>
+    <p><a class="btn zap" href="{{estoqueUrl}}">Ver estoque</a></p>
+  </section>
+</main>
+{{#site.textos.rodape}}<footer class="rodape">{{site.textos.rodape}}</footer>{{/site.textos.rodape}}
+</body>
+</html>
