@@ -77,6 +77,8 @@ test('todo template tem o mínimo exigido pelo core (páginas e blocos da home p
     for (const p of ['index.html', 'carro.html', 'vendido.html', 'pagina.html']) assert.ok(fs.existsSync(path.join(dir, 'paginas', p)), `${t}: falta paginas/${p}`);
     for (const b of ['banner', 'vitrine', 'titulo', 'texto', 'formulario', 'lojas']) assert.ok(fs.existsSync(path.join(dir, 'blocos', `${b}.html`)), `${t}: falta blocos/${b}.html (home e páginas padrão)`);
     assert.ok(fs.existsSync(path.join(dir, 'template.json')), `${t}: falta template.json`);
+    // as páginas padrão moram no template: sem as legais, os sites dele ficariam fora da LGPD sem ninguém perceber
+    for (const p of ['contato', 'politica-de-privacidade', 'politica-de-cookies', 'lgpd']) assert.ok(fs.existsSync(path.join(dir, 'paginas-padrao', `${p}.json`)), `${t}: falta paginas-padrao/${p}.json`);
     assert.doesNotThrow(() => JSON.parse(fs.readFileSync(path.join(dir, 'template.json'), 'utf8')), `${t}: template.json inválido`);
   }
 });

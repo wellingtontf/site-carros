@@ -659,3 +659,26 @@ test('troca de formato: as páginas no endereço antigo somem, com as pastas vaz
   assert.ok(!A.existe(ID, 'multipla/cidade'), 'multipla/cidade/ inteira removida');
   assert.ok(A.existe(ID, 'multipla/revenda_cidade_nome/Curitiba/index.html'));
 });
+
+test('páginas padrão vêm do TEMPLATE: editar o texto atualiza a página sem refazer as páginas de carro', () => {
+  // cópia do template "teste" (o original é compartilhado entre os testes)
+  const dir = path.join(A.raiz(), 'templates', 'teste-padrao');
+  fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'templates', 'teste'), dir, { recursive: true });
+  A.criarSite(ID, { carros: [A.carro(), A.carro()], site: { template: 'teste-padrao' } });
+  build();
+  assert.ok(A.existe(ID, 'lgpd/index.html'));
+  assert.ok(!A.existe(ID, 'paginas-padrao/lgpd.json'), 'o JSON da página não vai para o site');
+  const arq = path.join(dir, 'paginas-padrao', 'lgpd.json');
+  const j = JSON.parse(fs.readFileSync(arq, 'utf8'));
+  j.blocos.push({ tipo: 'texto', html: '<p>Texto oficial do jurídico</p>' });
+  fs.writeFileSync(arq, JSON.stringify(j));
+  A.limparPendentes();
+  const f = build();
+  assert.match(A.ler(ID, 'lgpd/index.html'), /Texto oficial do jurídico/);
+  assert.equal(f.resumo.alterados + f.resumo.novos, 0);
+  assert.equal(f.resumo.base, false, 'páginas de carro não foram refeitas');
+  // template sem paginas-padrao: o site simplesmente não ganha essas páginas
+  fs.rmSync(path.join(dir, 'paginas-padrao'), { recursive: true });
+  build();
+  assert.ok(!A.existe(ID, 'lgpd/index.html'));
+});

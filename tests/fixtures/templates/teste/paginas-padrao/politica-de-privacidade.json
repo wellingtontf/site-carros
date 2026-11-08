@@ -1,0 +1,11 @@
+{
+  "caminho": "politica-de-privacidade",
+  "rotulo": "Política de Privacidade",
+  "provisorio": true,
+  "titulo": "Política de Privacidade | {{site.nome}}",
+  "descricao": "Como a {{site.nome}} coleta, usa e protege seus dados pessoais.",
+  "blocos": [
+    { "tipo": "titulo", "titulo": "Política de Privacidade" },
+    { "tipo": "texto", "html": "<p><em>[TEXTO MODELO: substituir pelo texto aprovado pelo jurídico. Editar paginas-padrao/politica-de-privacidade.json]</em></p><p>Esta política explica como a <strong>{{empresa.razaoSocial}}{{^empresa.razaoSocial}}{{site.nome}}{{/empresa.razaoSocial}}</strong>{{#empresa.cnpj}} (CNPJ {{empresa.cnpj}}){{/empresa.cnpj}} trata os dados pessoais de quem visita {{site.dominio}}, em conformidade com a Lei Geral de Proteção de Dados (Lei 13.709/2018).</p><h3>Dados que coletamos</h3><p>Os dados que você nos envia ao entrar em contato (nome, telefone, e-mail, mensagem e dados do veículo, quando informados) e dados de navegação (páginas visitadas, dispositivo e cookies, conforme a nossa Política de Cookies).</p><h3>Para que usamos</h3><p>Para responder o seu contato, apresentar veículos e condições de compra, venda ou financiamento, e melhorar o site. Não vendemos seus dados.</p><h3>Com quem compartilhamos</h3><p>Com prestadores que operam o site e o atendimento (hospedagem, sistema de gestão de estoque e atendimento, WhatsApp) e com instituições financeiras quando você pede uma simulação de financiamento.</p><h3>Por quanto tempo guardamos</h3><p>Pelo tempo necessário para o atendimento e para cumprir obrigações legais.</p><h3>Seus direitos</h3><p>Você pode pedir confirmação, acesso, correção, anonimização, portabilidade ou eliminação dos seus dados, e revogar consentimentos. Veja a página <a href=\"{{rel}}lgpd/\">LGPD</a>.</p><h3>Contato</h3><p>{{#empresa.email}}E-mail: <a href=\"mailto:{{empresa.email}}\">{{empresa.email}}</a>. {{/empresa.email}}{{#empresa.encarregado}}Encarregado de dados: {{empresa.encarregado}}. {{/empresa.encarregado}}{{^empresa.email}}Use a página de <a href=\"{{rel}}contato/\">contato</a>.{{/empresa.email}}</p>" }
+  ]
+}

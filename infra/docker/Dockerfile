@@ -1,6 +1,6 @@
 # Imagem única da plataforma (API e trabalhador: o papel é escolhido por PAPEL no Kubernetes).
 #   docker build -f infra/docker/Dockerfile -t site-carros:<versão> .
-# Código (core, api, templates, páginas padrão) vai NA IMAGEM, versionado. Dados (sites, estado, fila, saída) ficam no
+# Código (core, api, templates com as páginas padrão de cada um) vai NA IMAGEM, versionado. Dados (sites, estado, fila, saída) ficam no
 # volume compartilhado montado em /dados (EFS na AWS).
 FROM node:22-alpine
 
@@ -13,13 +13,11 @@ COPY package.json ./
 COPY core ./core
 COPY api ./api
 COPY templates ./templates
-COPY paginas-padrao ./paginas-padrao
 COPY ferramentas ./ferramentas
 
 ENV NODE_ENV=production \
     SITE_CARROS_RAIZ=/dados \
     SITE_CARROS_TEMPLATES=/app/templates \
-    SITE_CARROS_PAGINAS_PADRAO=/app/paginas-padrao \
     PORT=8787 \
     LOG_JSON=1
 

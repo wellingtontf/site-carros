@@ -26,7 +26,8 @@
 // Páginas de conteúdo (home institucional, "quero vender", política...) são listas de BLOCOS no site.json:
 //   "paginas": [ { "caminho": "", "titulo": "...", "blocos": [ { "tipo": "banner", "imagem": "assets/x.webp" }, ... ] } ]
 // Cada tipo de bloco é um HTML do template (templates/<nome>/blocos/<tipo>.html).
-// Páginas que TODO site ganha (contato, privacidade, cookies, LGPD) vêm de paginas-padrao/<nome>.json, com
+// Páginas que TODO site ganha (contato, privacidade, cookies, LGPD...) vêm do TEMPLATE do site:
+// templates/<nome>/paginas-padrao/<nome>.json (cada template é autocontido; o texto legal muda num lugar só por template), com
 // {{site.nome}}, {{site.dominio}}, {{empresa.cnpj}}, {{rel}}... preenchidos por site. O site substitui uma delas com uma
 // página de mesmo "caminho" em "paginas", ou desliga com "paginasPadrao": { "<nome>": false }. Campos de link/imagem com caminho
 // relativo (link, imagem, foto, logo...) recebem o prefixo certo para a página onde aparecem.
@@ -254,12 +255,13 @@ function juntar(site) {
 }
 
 // hoje: "AAAA-MM-DD" (padrão: a data atual; SITE_CARROS_HOJE ou o parâmetro servem para testar prazos de retenção)
-// paginas-padrao/*.json (lidas uma vez por build)
-function lerPaginasPadrao() {
-  if (!fs.existsSync(C.PAGINAS_PADRAO)) return [];
-  return fs.readdirSync(C.PAGINAS_PADRAO).filter((f) => f.endsWith('.json')).sort().map((f) => {
-    const p = lerJSON(path.join(C.PAGINAS_PADRAO, f));
-    if (!p.caminho || !Array.isArray(p.blocos)) throw new Error(`paginas-padrao/${f}: precisa de "caminho" e "blocos"`);
+// <template>/paginas-padrao/*.json (as páginas padrão do template; lidas uma vez por template a cada build)
+function lerPaginasPadrao(dirTpl) {
+  const dir = path.join(dirTpl, 'paginas-padrao');
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort().map((f) => {
+    const p = lerJSON(path.join(dir, f));
+    if (!p.caminho || !Array.isArray(p.blocos)) throw new Error(`${path.relative(ROOT, path.join(dir, f))}: precisa de "caminho" e "blocos"`);
     return { ...p, nome: f.replace(/\.json$/, '') };
   });
 }
@@ -277,12 +279,22 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
   fs.mkdirSync(DIST, { recursive: true });
   const hashTpl = new Map();
   // paginas-extras/ fica de fora: editar uma página livre do template não deve refazer as páginas de carro de todos os sites
-  const tplHash = (dir) => { if (!hashTpl.has(dir)) hashTpl.set(dir, sha(hashDir(dir, (r) => r === 'paginas-extras'))); return hashTpl.get(dir); };
+  // paginas-extras e paginas-padrao ficam de fora: editar o texto de uma página (LGPD, feirão...) não deve refazer as
+  // páginas de carro de todos os sites (as páginas de conteúdo são refeitas sempre; os rótulos entram no hash do site)
+  const tplHash = (dir) => { if (!hashTpl.has(dir)) hashTpl.set(dir, sha(hashDir(dir, (r) => r === 'paginas-extras' || r === 'paginas-padrao'))); return hashTpl.get(dir); };
   const hoje = hojeParam || process.env.SITE_CARROS_HOJE || new Date().toISOString().slice(0, 10);
   const feitos = [];
-  const PADRAO = lerPaginasPadrao();
-  const provisorias = PADRAO.filter((p) => p.provisorio).map((p) => p.nome);
-  if (provisorias.length) console.warn(`  aviso: páginas padrão com TEXTO PROVISÓRIO (falta o texto do jurídico): ${provisorias.map((n) => `paginas-padrao/${n}.json`).join(', ')}`);
+  // páginas padrão por template (cache) e aviso de texto provisório uma vez por template
+  const padraoDe = new Map();
+  const paginasPadraoDo = (dirTpl) => {
+    if (!padraoDe.has(dirTpl)) {
+      const lista = lerPaginasPadrao(dirTpl);
+      const prov = lista.filter((p) => p.provisorio).map((p) => `${p.nome}.json`);
+      if (prov.length) console.warn(`  aviso: ${path.relative(ROOT, path.join(dirTpl, 'paginas-padrao'))}: TEXTO PROVISÓRIO (falta o texto do jurídico) em ${prov.join(', ')}`);
+      padraoDe.set(dirTpl, lista);
+    }
+    return padraoDe.get(dirTpl);
+  };
 
   for (const site of alvo) {
     if (!Sites.ID_SITE.test(String(site.id))) throw new Error(`Pasta de site inválida: "sites/${site.id}" (o nome da pasta é o domínio, ex.: sites/minhaloja.com.br)`);
@@ -306,7 +318,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     const paginasSite = (site.paginas || []).map((p) => ({ ...p, caminho: limparCaminho(p.caminho) }));
     const desligadas = site.paginasPadrao || {};
     // páginas livres dos designers (HTML normal). Prioridade de quem tem o mesmo caminho:
-    //   site.json "paginas" > sites/<dominio>/paginas/ > templates/<nome>/paginas-extras/ > paginas-padrao/
+    //   site.json "paginas" > sites/<dominio>/paginas/ > templates/<nome>/paginas-extras/ > templates/<nome>/paginas-padrao/
     const livres = [
       ...PL.lerPaginasLivres(C.paginasLivresSite(site.id)).map((p) => ({ ...p, origem: `sites/${site.id}/paginas` })),
       ...PL.lerPaginasLivres(path.join(dirTpl, 'paginas-extras')).map((p) => ({ ...p, origem: `templates/${nomeTpl}/paginas-extras`, doTemplate: true })),
@@ -325,8 +337,9 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
         livre: { arquivo: p.arquivo, assets: p.assets, semMoldura: m.livre, onde } });
     }
     // páginas padrão (contato, privacidade, cookies, LGPD): entram se o site não tem uma de mesmo caminho nem desligou
+    const PADRAO = paginasPadraoDo(dirTpl);
     const extrasTpl = PL.lerPaginasLivres(path.join(dirTpl, 'paginas-extras')).map((p) => p.caminho);
-    for (const n of Object.keys(desligadas)) if (!PADRAO.some((p) => p.nome === n) && !extrasTpl.includes(n)) console.warn(`  aviso: site "${site.id}": paginasPadrao "${n}" não existe em paginas-padrao/ nem em templates/${nomeTpl}/paginas-extras/`);
+    for (const n of Object.keys(desligadas)) if (!PADRAO.some((p) => p.nome === n) && !extrasTpl.includes(n)) console.warn(`  aviso: site "${site.id}": paginasPadrao "${n}" não existe em templates/${nomeTpl}/paginas-padrao/ nem em templates/${nomeTpl}/paginas-extras/`);
     for (const p of PADRAO) {
       const caminho = limparCaminho(p.caminho);
       if (desligadas[p.nome] === false || paginasSite.some((x) => x.caminho === caminho)) continue;
@@ -379,7 +392,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     escreverSe(path.join(out, 'motor', 'engine.js'), engine, rel('motor/engine.js'), mud);
     const arquivos = new Map();
     for (const [k, v] of listarArvore(C.UI)) arquivos.set(`motor/${k}`, v);
-    for (const [k, v] of listarArvore(dirTpl, (r) => ['paginas', 'paginas-extras', 'blocos', 'parciais', 'template.json', 'motor', 'assets'].includes(r))) arquivos.set(k, v);
+    for (const [k, v] of listarArvore(dirTpl, (r) => ['paginas', 'paginas-extras', 'paginas-padrao', 'blocos', 'parciais', 'template.json', 'motor', 'assets'].includes(r))) arquivos.set(k, v);
     for (const [k, v] of listarArvore(C.assets(site.id))) arquivos.set(`assets/${k}`, v);
     for (const [k, v] of arquivos) copiarSe(v, path.join(out, k), rel(k), mud);
     const estaticos = new Set(arquivos.keys()); // arquivos copiados (template, assets, páginas livres): o que sumir da origem é apagado

@@ -1,0 +1,18 @@
+{
+  "caminho": "contato",
+  "rotulo": "Contato",
+  "titulo": "Contato | {{site.nome}}",
+  "descricao": "Fale com a {{site.nome}}: WhatsApp, endereços e telefones das lojas.",
+  "blocos": [
+    { "tipo": "titulo", "titulo": "Contato", "subtitulo": "Fale com a {{site.nome}}. Respondemos pelo WhatsApp." },
+    { "tipo": "formulario", "mensagem": "Olá! Vim pelo site da {{site.nome}} e gostaria de falar com vocês.", "botao": "Enviar pelo WhatsApp",
+      "aviso": "Seus dados são usados só para responder o seu contato. Veja a nossa Política de Privacidade.",
+      "campos": [
+        { "rotulo": "Nome", "tipo": "linha", "obrigatorio": true, "meia": true },
+        { "rotulo": "Telefone / WhatsApp", "tipo": "telefone", "obrigatorio": true, "meia": true },
+        { "rotulo": "Loja", "tipo": "lista", "opcoesDe": "lojas" },
+        { "rotulo": "Mensagem", "tipo": "texto-longo", "obrigatorio": true }
+      ] },
+    { "tipo": "lojas" }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "caminho": "lgpd",
+  "rotulo": "LGPD",
+  "provisorio": true,
+  "titulo": "LGPD: seus direitos | {{site.nome}}",
+  "descricao": "Como exercer seus direitos de titular de dados (LGPD) com a {{site.nome}}.",
+  "blocos": [
+    { "tipo": "titulo", "titulo": "LGPD: seus direitos sobre os seus dados" },
+    { "tipo": "texto", "html": "<p><em>[TEXTO MODELO: substituir pelo texto aprovado pelo jurídico. Editar paginas-padrao/lgpd.json]</em></p><p>Pela Lei Geral de Proteção de Dados (Lei 13.709/2018, art. 18), você pode pedir à <strong>{{empresa.razaoSocial}}{{^empresa.razaoSocial}}{{site.nome}}{{/empresa.razaoSocial}}</strong>:</p><ul><li>confirmação de que tratamos seus dados e acesso a eles;</li><li>correção de dados incompletos, inexatos ou desatualizados;</li><li>anonimização, bloqueio ou eliminação de dados desnecessários;</li><li>portabilidade dos dados;</li><li>eliminação dos dados tratados com o seu consentimento;</li><li>informação sobre com quem compartilhamos seus dados;</li><li>revogação do consentimento.</li></ul><h3>Como pedir</h3><p>{{#empresa.email}}Envie um e-mail para <a href=\"mailto:{{empresa.email}}\">{{empresa.email}}</a>{{#empresa.encarregado}} (encarregado: {{empresa.encarregado}}){{/empresa.encarregado}}. {{/empresa.email}}{{^empresa.email}}Fale com a gente pela página de <a href=\"{{rel}}contato/\">contato</a>. {{/empresa.email}}Respondemos no prazo da lei.</p><p>Veja também a <a href=\"{{rel}}politica-de-privacidade/\">Política de Privacidade</a> e a <a href=\"{{rel}}politica-de-cookies/\">Política de Cookies</a>.</p>" }
+  ]
+}

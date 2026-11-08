@@ -13,7 +13,6 @@ function prepararRaiz() {
   for (const d of ['sites', 'config', 'templates']) fs.mkdirSync(path.join(RAIZ, d));
   for (const t of fs.readdirSync(path.join(PROJETO, 'templates'))) fs.symlinkSync(path.join(PROJETO, 'templates', t), path.join(RAIZ, 'templates', t));
   fs.symlinkSync(path.join(__dirname, 'fixtures', 'templates', 'teste'), path.join(RAIZ, 'templates', 'teste'));
-  fs.symlinkSync(path.join(PROJETO, 'paginas-padrao'), path.join(RAIZ, 'paginas-padrao')); // páginas que todo site ganha
   process.env.SITE_CARROS_RAIZ = RAIZ;
   process.on('exit', () => { try { fs.rmSync(RAIZ, { recursive: true, force: true }); } catch (e) { /* tanto faz */ } });
   return RAIZ;
