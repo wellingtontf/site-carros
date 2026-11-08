@@ -63,10 +63,10 @@ test('preço muda: refaz só a página daquele carro + carros.json', () => {
   assert.equal(f.resumo.alterados, 1);
   const escritos = A.pendente(ID).escritos;
   assert.ok(escritos.includes(`${ID}/${linkDe(carros[1])}`) && escritos.includes(`${ID}/carros.json`));
-  // nenhuma OUTRA página de carro; o resto é o que mostra o preço (home, 404 e /multipla têm cards no HTML) e o sitemap (lastmod)
+  // nenhuma OUTRA página de carro; o resto é o que mostra o preço (home, 404 e /multipla têm cards no HTML; estoque.xml) e o sitemap (lastmod)
   assert.deepEqual(escritos.filter((e) => e.includes('/carros/')), [`${ID}/${linkDe(carros[1])}`]);
   // (o sitemap só muda se mudar o dia: o <lastmod> é por dia)
-  assert.deepEqual(escritos.filter((e) => !e.includes('/carros/')).sort(), [`${ID}/404.html`, `${ID}/carros.json`, `${ID}/index.html`, `${ID}/multipla/index.html`].sort());
+  assert.deepEqual(escritos.filter((e) => !e.includes('/carros/')).sort(), [`${ID}/404.html`, `${ID}/carros.json`, `${ID}/estoque.xml`, `${ID}/index.html`, `${ID}/multipla/index.html`].sort());
 });
 
 test('carro que sai: página "indisponível" (noindex) no mesmo link; some do sitemap; apagada após a retenção', () => {

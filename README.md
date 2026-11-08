@@ -270,6 +270,8 @@ GET    /v1/pedidos/<id>                   andamento    (?esperar=30 nas rotas ac
 ```
 A plataforma é agnóstica: não conhece o sistema de origem, cada um converte para o mesmo formato. Cada token só mexe nos sites dele (criar site novo e refazer todos exigem `*`). Chamadas em sequência viram um build só (`ATRASO_MS`, padrão 3 s), na ordem em que chegaram; a fila fica em disco (`.estado/api/`) e sobrevive a reinício. Fotos por URL são baixadas, convertidas e enviadas para a S3 em segundo plano (`config/fotos.json`; em produção nada fica no servidor).
 
+**Saídas de compatibilidade:** cada site publica `estoque.xml`, o estoque em XML (mesma ordem do site; link, fotos e loja com endereço completo) para portais, catálogos e integrações que só leem XML. `"feedXml": { "caminho": "xml/estoque.xml" }` muda o endereço e `"feedXml": false` desliga. O `robots.txt` vem de um modelo único (`config/robots.txt`, trocado por `PUT /v1/robots`), com `"robots"` no site.json para o site que precisar de um próprio.
+
 **Arquitetura:** `core/` é o domínio (build, estoque, cadastro de site, fotos) e não sabe que a API existe; `api/` só traduz HTTP ↔ core (portas e adaptadores). Um teste garante que nada em `core/` importa de `api/`.
 
 O que acontece:

@@ -43,6 +43,7 @@ module.exports = {
   pagina: (nome, arquivo) => path.join(TEMPLATES, nome, 'paginas', arquivo),
   config: (arquivo) => path.join(CONFIG, arquivo),
   clientes: () => path.join(CONFIG, 'clientes.json'),
+  robots: () => path.join(CONFIG, 'robots.txt'), // modelo do robots.txt de todos os sites (core/robots.js)
   pedidos: () => path.join(ESTADO, 'api', 'pedidos'),
   entrada: () => path.join(ESTADO, 'api', 'entrada'),
   fotosEstado: (id) => path.join(ESTADO, 'fotos', `${id}.json`), // fotos por URL já processadas (core/fotos.js)

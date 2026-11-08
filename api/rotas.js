@@ -5,6 +5,7 @@ const { idsSites, ID_SITE } = require('../core/build');
 const AT = require('../core/atualizar');
 const Sites = require('../core/sites');
 const Fotos = require('../core/fotos');
+const Robots = require('../core/robots');
 const C = require('../core/caminhos');
 const CL = require('./clientes');
 const { Erro, corpo, corpoJSON, enviar } = require('./http');
@@ -90,6 +91,30 @@ function criarRotas({ fila }) {
       }
       exigirTodos('refazer todos os sites');
       return responderPedido(res, url, fila.adicionar({ tipo: 'build', site: null, cliente: cliente.nome }));
+    }
+
+    // robots.txt de TODOS os sites: um modelo com {{sitemap}} {{url}} {{dominio}}. Corpo em texto puro ou {"conteudo": "..."}.
+    // Site com "robots" próprio no cadastro mantém o dele. Tirar os sites do Google (Disallow: /) exige ?forcar=1.
+    if (p === '/v1/robots') {
+      if (m === 'GET') {
+        const modelo = Robots.lerModelo();
+        return enviar(res, 200, { modelo: modelo ?? Robots.PADRAO, padrao: modelo == null, marcadores: ['{{sitemap}}', '{{url}}', '{{dominio}}'] });
+      }
+      if (m === 'PUT' || m === 'DELETE') {
+        exigirTodos('mudar o robots.txt de todos os sites');
+        let texto = null;
+        if (m === 'PUT') {
+          const bruto = await corpo(req, LIMITE.outro);
+          // JSON {"conteudo": "..."} (mesmo sem content-type: muito sistema esquece o cabeçalho) ou texto puro
+          const ehJson = /json/i.test(req.headers['content-type'] || '') || /^\s*\{/.test(bruto);
+          texto = ehJson ? (() => { try { return JSON.parse(bruto).conteudo; } catch (e) { throw new Erro(400, `JSON inválido: ${e.message}`); } })() : bruto;
+          const { erros, perigos } = Robots.validarRobots(texto);
+          if (erros.length) throw new Erro(422, 'robots.txt inválido: nada foi gravado', { erros });
+          if (perigos.length && !forcar) throw new Erro(409, 'robots.txt perigoso: confirme com ?forcar=1 se é isso mesmo (vale para TODOS os sites)', { perigos });
+        }
+        Robots.gravarModelo(texto); // DELETE: volta ao padrão
+        return responderPedido(res, url, fila.adicionar({ tipo: 'robots', site: null, cliente: cliente.nome }));
+      }
     }
 
     // puxar das URLs de config/fontes.json

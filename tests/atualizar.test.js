@@ -160,7 +160,7 @@ test('publicar: {lista} só com os arquivos que mudaram (publicação incrementa
   const lista = fs.readFileSync(log, 'utf8').trim().split(',');
   assert.ok(lista.includes('carros.json'));
   assert.ok(lista.some((x) => x.startsWith('carros/') && x.endsWith('.html')));
-  assert.ok(lista.length <= 5, `lista pequena, veio: ${lista}`); // carro, carros.json, home, /multipla, 404 (vitrine)
+  assert.ok(lista.length <= 6, `lista pequena, veio: ${lista}`); // carro, carros.json, estoque.xml, home, /multipla, 404 (vitrine)
 });
 
 test('publicar: nome de arquivo com aspas não injeta comando no shell', async () => {

@@ -283,3 +283,27 @@ test('arquitetura: o core nunca depende da API (api/ → core/, nunca o contrár
   const ruins = core.filter((f) => /require\(['"][./]*\/?api\//.test(fs.readFileSync(f, 'utf8')));
   assert.deepEqual(ruins.map((f) => path.relative(A.PROJETO, f)), []);
 });
+
+test('PUT /v1/robots: robots.txt de TODOS os sites (só token "*"), com trava contra sumir do Google', async () => {
+  const robots = (d) => A.ler(d, 'robots.txt');
+  assert.equal((await reqJ('GET', '/v1/robots')).j.padrao, true);
+  assert.equal((await req('PUT', '/v1/robots', { corpo: 'User-agent: *\nAllow: /\nSitemap: {{sitemap}}' })).status, 403, 'token de um site só');
+  assert.equal((await req('PUT', '/v1/robots', { corpo: 'Sitemap: {{mapa}}', token: tokTodos })).status, 422);
+  const perigo = await reqJ('PUT', '/v1/robots', { corpo: 'User-agent: *\nDisallow: /\nSitemap: {{sitemap}}', token: tokTodos });
+  assert.equal(perigo.status, 409);
+  assert.match(perigo.j.perigos[0], /Google/);
+  assert.match(robots(ID), /Allow: \//, 'nada mudou');
+  const novo = 'User-agent: *\nDisallow: /multipla/?*\nSitemap: {{sitemap}}\n';
+  const r = await reqJ('PUT', '/v1/robots?esperar=20', { corpo: novo, token: tokTodos });
+  assert.equal(r.status, 200, JSON.stringify(r.j));
+  assert.ok(r.j.resultado.alterados >= 2);
+  for (const d of [ID, OUTRO]) assert.equal(robots(d), `User-agent: *\nDisallow: /multipla/?*\nSitemap: https://${d}/sitemap.xml\n`);
+  // também em JSON
+  const j = await reqJ('PUT', '/v1/robots?esperar=20', { corpo: { conteudo: 'User-agent: *\nAllow: /\nSitemap: {{sitemap}}\n# v2' }, token: tokTodos });
+  assert.equal(j.status, 200);
+  assert.match(robots(ID), /# v2/);
+  assert.match((await reqJ('GET', '/v1/robots')).j.modelo, /# v2/);
+  // DELETE volta ao padrão
+  assert.equal((await req('DELETE', '/v1/robots?esperar=20', { token: tokTodos })).status, 200);
+  assert.equal(robots(ID), `User-agent: *\nAllow: /\nSitemap: https://${ID}/sitemap.xml\n`);
+});

@@ -32,6 +32,8 @@ core/                         SÓ CÓDIGO (isolado)
   build.js                    build incremental (estado em .estado/<pasta>/<dominio>.json, pendências em pendente.json)
   cli.js                      status | congelar | testar | aplicar | reverter | historico | atualizar | publicar
   atualizar.js                valida, grava sites/<dominio>/estoque.json e reconstrói só aquele site; publicarPendentes()
+  robots.js                   modelo do robots.txt (config/robots.txt; site.json "robots" vale mais), validação com trava
+                              contra Disallow: / ; atualizar.reescreverRobots() reescreve só o robots.txt de todos os sites
   sites.js                    validarSite / gravarSite (cadastro de site; usado pela API para criar/atualizar sites)
   fotos.js                    fotos por URL: baixa (anti-SSRF), converte (converter-foto.py/Pillow ou comando de config/fotos.json),
                               "enviar" sobe para a S3 a partir de pasta temporária (nada fica no servidor), "apagar" tira as de
@@ -39,7 +41,7 @@ core/                         SÓ CÓDIGO (isolado)
 api/                          API de integração (contrato: api/README.md). Depende do core; o core nunca depende dela
   servidor.js                 liga tudo: token, HTTP, fila, trabalhador de fotos
   rotas.js                    /v1: PUT site (cria se não existe), POST estoques (1..N sites), PUT estoque, PUT/DELETE carro,
-                              POST build (lista ou todos), POST atualizar (fontes), GET pedidos
+                              POST build (lista ou todos), PUT/DELETE robots (todos os sites), POST atualizar (fontes), GET pedidos
   fila.js                     pedidos em disco (.estado/api/): aplica na ordem, valida um a um, 1 build por site por lote
   clientes.js, cli.js         tokens por sistema externo (config/clientes.json, só sha256): node api/cli.js cliente criar <nome> --sites a,b|*
   trabalhador-fotos.js        fotos em segundo plano; quando ficam prontas, pede o build do site
@@ -51,7 +53,7 @@ templates/<nome>/             template.json, paginas/, css/, js/, img/
 config/                       fontes.exemplo.json, publicacao.exemplo.json (copiar sem .exemplo; ignorados no git), historico.json
 ferramentas/                  gerar-exemplo.js, importar-trokey.py (teste de migração), auditar-dist.js (problemas de site estático no ar)
 ```
-Saída: `dist/<dominio>/` com `motor/` (core), `css/ js/ img/` (template), `assets/` (site), `index.html`, `404.html` (links a partir da raiz; `pagina404` no site.json), `carro/<id>/`, `carros.json`, `config.json`, `sitemap.xml`, `robots.txt`.
+Saída: `dist/<dominio>/` com `motor/` (core), `css/ js/ img/` (template), `assets/` (site), `index.html`, `404.html` (links a partir da raiz; `pagina404` no site.json), `estoque.xml` (feed XML de compatibilidade; `feedXml` no site.json), `carro/<id>/`, `carros.json`, `config.json`, `sitemap.xml`, `robots.txt`.
 Gerados e fora do git: `dist*/`, `.estado/`, `s3-local/` (simula o bucket de fotos; servido em :8081 nos testes locais).
 
 ## Como a atualização funciona (já implementado e testado)

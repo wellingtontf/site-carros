@@ -1,6 +1,6 @@
 {
-  "versaoHtml": 5,
-  "hash": "60e4f729650e65abdcec0a60fdc743045c52e81438bf34ff36f746356d4fed9b",
+  "versaoHtml": 6,
+  "hash": "cd705a9e308a32105837ae14783ab8386a5842d99d2f4a599a8fa7ea8e6d8898",
   "arquivos": [
     "404.html",
     "avaliacao/index.html",
@@ -11,6 +11,7 @@
     "carros/Honda/Civic/Touring-15/Honda-Civic-Touring-15-2021-Curitiba-Parana-S1.html",
     "config.json",
     "contato/index.html",
+    "estoque.xml",
     "financiamento/index.html",
     "index.html",
     "lgpd/index.html",

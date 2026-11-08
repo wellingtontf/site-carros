@@ -7,7 +7,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
-const { construir, carregarSite, idsSites, problemasProducao } = require('./build');
+const { construir, carregarSite, idsSites, problemasProducao, registrarPendente } = require('./build');
+const Robots = require('./robots');
 const C = require('./caminhos');
 
 const ROOT = C.ROOT;
@@ -186,4 +187,27 @@ async function atualizar({ sites: ids = null, recebidos = null, refazer = [], fo
   } finally { destravar(); }
 }
 
-module.exports = { atualizar, validarEstoque, gravarEstoque, publicarPendentes };
+// Reescreve SÓ o robots.txt dos sites já gerados (modelo novo em config/robots.txt): segundos para 2500 sites, sem
+// passar pelo build. O que mudou entra nas pendências de publicação. Usa a mesma trava do build.
+function reescreverRobots({ sites = null, pasta = 'dist' } = {}) {
+  if (!travar()) return { status: 'ocupado' };
+  try {
+    const alterados = [], iguais = [], proprio = [], semUrl = [];
+    for (const id of sites || idsSites()) {
+      const site = carregarSite(id);
+      if (!site.url) { semUrl.push(id); continue; }
+      if (typeof site.robots === 'string') proprio.push(id); // o site tem o dele: o modelo não vale para ele
+      const arq = path.join(C.saida(pasta), id, 'robots.txt');
+      if (!fs.existsSync(path.dirname(arq))) continue; // nunca gerado: o build cria com o modelo novo
+      const texto = Robots.textoRobots(site);
+      if (fs.existsSync(arq) && fs.readFileSync(arq, 'utf8') === texto) { iguais.push(id); continue; }
+      fs.writeFileSync(`${arq}.tmp`, texto);
+      fs.renameSync(`${arq}.tmp`, arq);
+      registrarPendente(pasta, id, { escritos: [`${id}/robots.txt`], removidos: [] }, false);
+      alterados.push(id);
+    }
+    return { status: 'ok', alterados, iguais: iguais.length, comRobotsProprio: proprio, semUrl };
+  } finally { destravar(); }
+}
+
+module.exports = { reescreverRobots, atualizar, validarEstoque, gravarEstoque, publicarPendentes };

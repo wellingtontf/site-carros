@@ -42,6 +42,9 @@ O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da
 | PUT | `/v1/sites/{dominio}/carros/{id}` | **inclui ou altera um carro** (corpo = o carro; o `id` vem do endereço) |
 | DELETE | `/v1/sites/{dominio}/carros/{id}` | **tira um carro** (vendido) |
 | POST | `/v1/sites/{dominio}/build` | reconstrói o site sem mudar o estoque |
+| GET | `/v1/robots` | o modelo de robots.txt em uso |
+| PUT | `/v1/robots` | **troca o robots.txt de todos os sites** (ver "robots.txt"; token com `*`) |
+| DELETE | `/v1/robots` | volta todos os sites ao robots.txt padrão |
 | POST | `/v1/atualizar` | puxa o estoque das URLs cadastradas em `config/fontes.json`: `{"sites":["loja1.com.br"]}` |
 | GET | `/v1/pedidos/{pedido}` | andamento de um pedido |
 | GET | `/v1/pedidos?site={dominio}&limite=20` | últimos pedidos do token |
@@ -92,6 +95,23 @@ HTTP 207   (com ?esperar; sem ele, 202)
 ```
 
 Códigos: **202** aceito (sem `?esperar`), **200** todos concluídos, **207** parte concluída e parte não (veja cada pedido e `recusados`), **422** nenhum site aceito. O limite é 200 MB por chamada. Para estoques grandes, prefira um `PUT /v1/sites/{dominio}/estoque` por site.
+
+## robots.txt
+
+`PUT /v1/robots` troca o robots.txt de **todos os sites** de uma vez. O corpo é o texto do robots (ou `{"conteudo": "..."}`), com marcadores que viram os dados de cada site:
+
+```
+User-agent: *
+Disallow: /multipla/?*
+Sitemap: {{sitemap}}
+```
+
+`{{sitemap}}` = `https://<site>/sitemap.xml`, `{{url}}` = `https://<site>` e `{{dominio}}` = `<site>`. Só o robots.txt é reescrito, sem refazer as páginas: leva segundos, mesmo com milhares de sites. A resposta conta quantos mudaram.
+
+- **Trava:** um texto que tira os sites do Google (`Disallow: /` para `*` ou `Googlebot`), ou que vem sem a linha `Sitemap:`, volta **409** com o motivo e nada é gravado. Se for isso mesmo, reenvie com `?forcar=1`.
+- Marcador desconhecido ou texto vazio: **422**.
+- O site que tem `"robots"` no próprio cadastro mantém o dele (aparece em `resultado.comRobotsProprio`).
+- `DELETE /v1/robots` volta ao padrão: `User-agent: *`, `Allow: /` e `Sitemap: {{sitemap}}`.
 
 ## Pedidos
 

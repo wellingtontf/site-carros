@@ -26,6 +26,8 @@ function validarSite(s, dominio) {
   if (s.fotosBase != null && !(typeof s.fotosBase === 'string' && /^https?:\/\/\S+\/$/i.test(s.fotosBase))) e('"fotosBase" precisa ser uma URL terminada em "/"');
   if (s.whatsapp != null && !/^\d{10,15}$/.test(String(s.whatsapp))) e('"whatsapp" só com números, com DDI e DDD (ex.: 5541999990000)');
   for (const k of ['paginas', 'filtros', 'ordenacao']) if (s[k] != null && !Array.isArray(s[k])) e(`"${k}" deve ser lista`);
+  if (s.robots != null) { const r = require('./robots').validarRobots(s.robots); r.erros.forEach((x) => e(`robots: ${x}`)); }
+  if (s.feedXml != null && s.feedXml !== false && !(typeof s.feedXml === 'object' && typeof s.feedXml.caminho === 'string' && /^[a-z0-9][a-z0-9_/-]*\.xml$/.test(s.feedXml.caminho))) e('"feedXml" deve ser false ou { "caminho": "estoque.xml" }');
   // lojas: pelo menos uma; cada carro do estoque aponta para uma delas
   const lojas = s.lojas && typeof s.lojas === 'object' && !Array.isArray(s.lojas) ? s.lojas : null;
   if (!lojas || !Object.keys(lojas).length) e('"lojas" precisa ter pelo menos uma loja: { "matriz": { "nome", "cidade", "uf" } }');

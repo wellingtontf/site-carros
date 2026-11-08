@@ -8,6 +8,7 @@
 //   remover   tira UM carro                               (DELETE /v1/sites/<d>/carros/<id>)
 //   build     refaz o site sem mudar o estoque            (POST /v1/sites/<d>/build, POST /v1/build; site null = TODOS)
 //   buscar    puxa o estoque das URLs de config/fontes.json (POST /v1/atualizar)
+//   robots    reescreve o robots.txt de todos os sites com o modelo novo (PUT/DELETE /v1/robots)
 //
 // Processamento: espera "atraso" ms sem chamada nova (junta rajadas), aplica os pedidos de cada site NA ORDEM em que
 // chegaram, valida o estoque depois de cada um (um carro inválido é recusado sozinho, sem derrubar os outros), grava
@@ -93,6 +94,16 @@ function criarFila({ atraso = 3000, publicar = false, log = console.log, atualiz
         } catch (e) { buscas.forEach((p) => terminar(p, 'erro', [e.message])); }
       }
 
+      // 1b) robots.txt de todos os sites (o modelo já foi gravado na chamada; aqui só reescreve os arquivos)
+      const robots = lote.filter((p) => p.tipo === 'robots');
+      if (robots.length) {
+        try {
+          const r = AT.reescreverRobots();
+          if (r.status === 'ocupado') { ocupado = true; voltar(robots); }
+          else robots.forEach((p) => terminar(p, 'concluido', [], { alterados: r.alterados.length, iguais: r.iguais, comRobotsProprio: r.comRobotsProprio, semUrl: r.semUrl }));
+        } catch (e) { robots.forEach((p) => terminar(p, 'erro', [e.message])); }
+      }
+
       // 2) refazer TODOS os sites (um build só; os pedidos de build de um site, no mesmo lote, já ficam cobertos)
       const todos = lote.filter((p) => p.tipo === 'build' && !p.site);
       if (todos.length) {
@@ -106,7 +117,7 @@ function criarFila({ atraso = 3000, publicar = false, log = console.log, atualiz
 
       // 3) por site, na ordem de chegada
       const porSite = new Map();
-      for (const p of lote.filter((x) => x.tipo !== 'buscar' && !(x.tipo === 'build' && !x.site))) { if (!porSite.has(p.site)) porSite.set(p.site, []); porSite.get(p.site).push(p); }
+      for (const p of lote.filter((x) => !['buscar', 'robots'].includes(x.tipo) && !(x.tipo === 'build' && !x.site))) { if (!porSite.has(p.site)) porSite.set(p.site, []); porSite.get(p.site).push(p); }
       for (const [site, ps] of porSite) {
         try {
           const lojas = Object.keys(carregarSite(site).lojas || {});

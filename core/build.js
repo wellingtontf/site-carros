@@ -19,7 +19,9 @@
 //   <caminho>/index.html                 ← templates/<nome>/paginas/pagina.html + blocos/<tipo>.html ("paginas" no site.json)
 //   multipla/<campo>/<valor>/index.html  ← páginas fixas de filtro (marca, cidade, carroceria): a listagem já filtrada,
 //                                          com título próprio e os carros no HTML (SEO). "paginasFiltro" no site.json
-//   carros.json, config.json, sitemap.xml (com <lastmod> = quando cada página mudou de verdade), robots.txt
+//   carros.json, config.json, sitemap.xml (com <lastmod> = quando cada página mudou de verdade), robots.txt (core/robots.js)
+//   estoque.xml                          ← o estoque em XML, para quem só lê XML (portais, catálogos, integrações antigas).
+//                                          "feedXml": { "caminho": "xml/estoque.xml" } muda o endereço; "feedXml": false desliga
 //
 // Páginas de conteúdo (home institucional, "quero vender", política...) são listas de BLOCOS no site.json:
 //   "paginas": [ { "caminho": "", "titulo": "...", "blocos": [ { "tipo": "banner", "imagem": "assets/x.webp" }, ... ] } ]
@@ -35,6 +37,7 @@ const C = require('./caminhos');
 const LinkCarro = require('./ui/link-carro.js'); // regra do link da página do carro (a mesma usada no navegador)
 const PL = require('./paginas-livres'); // páginas livres dos web designers (HTML normal)
 const Fotos = require('./fotos'); // fotos por URL: quantas já estão prontas
+const Robots = require('./robots'); // modelo do robots.txt (um para todos os sites; o site pode ter o seu)
 
 const ROOT = C.ROOT;
 const ESTADO = C.ESTADO;
@@ -95,11 +98,15 @@ const RETENCAO_PADRAO_DIAS = 30; // quanto tempo a página de um carro que saiu 
 const REDIRECIONAMENTO_PADRAO_DIAS = 180; // quanto tempo um link antigo de carro (que mudou de endereço) continua redirecionando
 
 const sha = (s) => crypto.createHash('sha1').update(s).digest('hex');
+// XML: tira caracteres que o XML não aceita (controle) e escapa os especiais
+const xmlEsc = (s) => String(s).replace(/[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD\u{10000}-\u{10FFFF}]/gu, '')
+  .replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
+const FEED_OK = /^[a-z0-9][a-z0-9_-]*(\/[a-z0-9][a-z0-9_-]*)*\.xml$/;
 // VERSAO_HTML: aumente quando uma mudança NESTE arquivo alterar o HTML/JSON gerado. Mudar a versão refaz as páginas de
 // TODOS os sites (com 2500 sites, ~1 milhão de arquivos para publicar), então não amarramos isso ao arquivo inteiro:
 // um comentário ou refatoração não deve refazer nada. O teste tests/snapshot-html.test.js avisa se a saída mudou e a
 // versão não (e vice-versa). Templates, tema, textos e dados do site já entram no hash de cada site por conta própria.
-const VERSAO_HTML = 5; // 2: cards no HTML, filtros, <lastmod>; 3: páginas padrão; 4: link do estoque, URLs codificadas, formato revendamais; 5: 404.html, ?v= nos css/js, canonical nas páginas livres
+const VERSAO_HTML = 6; // 6: estoque.xml; 2: cards no HTML, filtros, <lastmod>; 3: páginas padrão; 4: link do estoque, URLs codificadas, formato revendamais; 5: 404.html, ?v= nos css/js, canonical nas páginas livres
 const RENDER_VERSION = `html-${VERSAO_HTML}`;
 
 const lerJSON = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -410,6 +417,24 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       JSON.stringify(carros.map((c, r) => ({ i: c.id, m: c.marca, o: c.modelo, v: c.versao, a: c.ano, p: c.preco, k: c.km, c: c.cor, b: c.cambio, f: c.combustivel, n: c.fotos, u: c.loja, cd: c.cidade, uf: c.uf, r, ...(c.carroceria ? { cr: c.carroceria } : {}), ...(c.link ? { l: c.link } : {}) }))), // l = link vindo do estoque
       rel('carros.json'), mud
     );
+    // estoque em XML (compatibilidade): mesma ordem do site, links e fotos com endereço completo. Só com "url".
+    // Entra em "estaticos": se o caminho mudar ou o feed for desligado, o arquivo antigo é apagado (e despublicado).
+    const feed = site.feedXml === false ? null : { caminho: 'estoque.xml', ...(site.feedXml && typeof site.feedXml === 'object' ? site.feedXml : {}) };
+    if (feed && site.url) {
+      if (!FEED_OK.test(feed.caminho) || feed.caminho === 'sitemap.xml' || RESERVADOS.has(feed.caminho.split('/')[0]))
+        throw new Error(`Site "${site.id}": feedXml.caminho inválido "${feed.caminho}" (ex.: "estoque.xml" ou "xml/estoque.xml")`);
+      const raiz = site.url.replace(/\/$/, '');
+      const t = (k, v) => (v === '' || v == null ? '' : `<${k}>${xmlEsc(v)}</${k}>`);
+      const veiculo = (c, i) => `  <veiculo>${[
+        t('id', c.id), t('ordem', i + 1), t('marca', c.marca), t('modelo', c.modelo), t('versao', c.versao), t('ano', c.ano), t('preco', c.preco),
+        t('km', c.km), t('cor', c.cor), t('cambio', c.cambio), t('combustivel', c.combustivel), t('carroceria', c.carroceria), t('destaque', c.destaque ? 'sim' : 'nao'),
+        t('loja', c.loja), t('cidade', c.cidade), t('uf', c.uf), t('link', `${raiz}/${url(caminhoCarro(c))}`),
+        base && c.fotos ? `<fotos>${Array.from({ length: c.fotos }, (_, k) => t('foto', foto(base, c.id, k + 1, 1600))).join('')}</fotos>` : '',
+        c.opcionais.length ? `<opcionais>${c.opcionais.map((o) => t('opcional', o)).join('')}</opcionais>` : '', t('descricao', c.descricao),
+      ].join('')}</veiculo>`;
+      escreverSe(path.join(out, feed.caminho), `<?xml version="1.0" encoding="UTF-8"?>\n<estoque site="${xmlEsc(site.id)}" total="${carros.length}">\n${carros.map(veiculo).join('\n')}${carros.length ? '\n' : ''}</estoque>\n`, rel(feed.caminho), mud);
+      estaticos.add(feed.caminho);
+    }
     const usadas = [...new Set(carros.map((c) => c.lojaId))].sort();
     escreverSe(
       path.join(out, 'config.json'),
@@ -715,7 +740,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       const urls = [...geradas.map((g) => [`${raizUrl}/${url(g.replace(/index\.html$/, ''))}`, datas[g]]), ...carros.map((c) => [`${raizUrl}/${url(links[c.id])}`, datas[links[c.id]]])];
       escreverSe(path.join(out, 'sitemap.xml'),
         `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(([u, d]) => `<url><loc>${esc(u)}</loc>${d ? `<lastmod>${d}</lastmod>` : ''}</url>`).join('\n')}\n</urlset>\n`, rel('sitemap.xml'), mud);
-      escreverSe(path.join(out, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${raizUrl}/sitemap.xml\n`, rel('robots.txt'), mud);
+      escreverSe(path.join(out, 'robots.txt'), Robots.textoRobots(site), rel('robots.txt'), mud);
     }
 
     // carros que saíram: a página vira "indisponível" (o link compartilhado no WhatsApp não pode dar erro)
@@ -790,7 +815,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
   return { pasta, feitos };
 }
 
-module.exports = { construir, listarSites, carregarSite, idsSites, ID_SITE, render, resolverLinks, problemasProducao, VERSAO_HTML };
+module.exports = { construir, listarSites, carregarSite, idsSites, ID_SITE, render, resolverLinks, problemasProducao, registrarPendente, VERSAO_HTML };
 
 if (require.main === module) {
   const a = process.argv.slice(2);
