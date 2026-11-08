@@ -711,34 +711,18 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       for (let d = path.dirname(path.join(out, arq)); d.startsWith(out + path.sep); d = path.dirname(d)) { try { fs.rmdirSync(d); } catch (e) { break; } }
     }
     // página que saiu do site.json (ou listagem que mudou de lugar): apaga
-    // página que MUDOU de endereço: o antigo redireciona para o novo (link compartilhado e Google não quebram).
-    //  - quem estava em /contato/ e agora está em /paginas/contato/ (por 180 dias, como os carros)
-    //  - formato Revenda Mais: as páginas sempre existiram na raiz (/contato, /financiamento): redireciona sempre
-    // Decidido ANTES de apagar as páginas que saíram, senão a limpeza apagaria (e despublicaria) o endereço antigo.
-    const diasRedirPag = site.retencaoRedirecionamentoDias ?? REDIRECIONAMENTO_PADRAO_DIAS;
-    const paginasMovidas = incremental ? { ...(estadoAnt.paginasMovidas || {}) } : {};
-    if (incremental) for (const velho of estadoAnt.paginas || []) {
-      const novo = `${PASTA_PAGINAS}/${velho}`;
-      if (!geradas.includes(velho) && !paginasMovidas[velho] && geradas.includes(novo)) paginasMovidas[velho] = { para: novo.replace(/index\.html$/, ''), desde: hoje };
-    }
-    if (site.formatoUrls === 'revendamais') for (const p of paginasSite) if (p.caminho) paginasMovidas[`${p.caminho}/index.html`] = { para: `${endPagina(p.caminho)}/`, desde: null };
-    for (const [velho, m] of Object.entries(paginasMovidas)) {
-      const vencido = m.desde && (Date.parse(hoje) - Date.parse(m.desde)) / 86400000 > diasRedirPag;
-      if (geradas.includes(velho) || !geradas.includes(`${m.para}index.html`) || vencido) {
-        delete paginasMovidas[velho];
-        // venceu ou o destino sumiu: o arquivo do redirecionamento sai (e é despublicado), com as pastas que ficarem vazias
-        if (!geradas.includes(velho) && fs.existsSync(path.join(out, velho))) {
-          fs.rmSync(path.join(out, velho), { force: true });
-          mud.removidos.push(rel(velho));
-          for (let d = path.dirname(path.join(out, velho)); d.startsWith(out + path.sep); d = path.dirname(d)) { try { fs.rmdirSync(d); } catch (e) { break; } }
-        }
-        continue;
-      }
-      const para = prefixo(path.posix.dirname(velho)) + url(m.para);
-      escreverSe(path.join(out, velho), htmlRedirecionamento(para, site.url ? `${site.url.replace(/\/$/, '')}/${url(m.para)}` : para, 'Esta página mudou de endereço'), rel(velho), mud);
+    // Páginas de conteúdo SÓ existem em /paginas/: o build nunca gera nada delas fora dali (decisão do Wellington).
+    // Endereço antigo de página (/contato/, /lojas, /sobre/nos/ — de antes da mudança para /paginas/ ou do site antigo
+    // do Revenda Mais) é redirecionado com 301 pela HOSPEDAGEM (infra/cloudfront/roteador.js), sem arquivo no site.
+    // Limpeza: os redirecionamentos em HTML que versões anteriores do build deixaram na raiz saem (e são despublicados).
+    for (const velho of Object.keys((incremental && estadoAnt.paginasMovidas) || {})) {
+      if (geradas.includes(velho) || !fs.existsSync(path.join(out, velho))) continue;
+      fs.rmSync(path.join(out, velho), { force: true });
+      mud.removidos.push(rel(velho));
+      for (let d = path.dirname(path.join(out, velho)); d.startsWith(out + path.sep); d = path.dirname(d)) { try { fs.rmdirSync(d); } catch (e) { break; } }
     }
     for (const arqRel of (incremental && estadoAnt.paginas) || []) {
-      if (geradas.includes(arqRel) || paginasMovidas[arqRel]) continue;
+      if (geradas.includes(arqRel)) continue;
       fs.rmSync(path.join(out, arqRel), { force: true });
       mud.removidos.push(rel(arqRel));
       // apaga as pastas que ficarem vazias, subindo (multipla/cidade/curitiba → multipla/cidade); para na primeira com conteúdo
@@ -856,7 +840,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     }
 
     if (!efemero) {
-      gravarEstado(pasta, site.id, { render: RENDER_VERSION, base: baseHash, carros: hashes, links, titulos, vendidos, redirecionados, paginas: geradas, paginasMovidas, datas, estaticos: [...estaticos].sort(), em: new Date().toISOString() });
+      gravarEstado(pasta, site.id, { render: RENDER_VERSION, base: baseHash, carros: hashes, links, titulos, vendidos, redirecionados, paginas: geradas, datas, estaticos: [...estaticos].sort(), em: new Date().toISOString() });
       registrarPendente(pasta, site.id, mud, !incremental);
     }
 

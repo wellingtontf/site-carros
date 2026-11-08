@@ -38,3 +38,17 @@ test('distribuição única: pasta do site pelo domínio (com ou sem www)', () =
     assert.equal(R.handler(ev('/', { host: 'evil/../x' })).statusCode, 400);
   } finally { R._definirPrefixo(false); }
 });
+
+test('página fora de /paginas/ (endereço antigo) → 301 para /paginas/, mantendo a busca; pastas do site não', () => {
+  for (const [de, para] of [['/contato', '/paginas/contato/'], ['/contato/', '/paginas/contato/'], ['/financiamento', '/paginas/financiamento/'], ['/sobre/nos/', '/paginas/sobre/nos/']]) {
+    const r = R.handler(ev(de));
+    assert.equal(r.statusCode, 301, de);
+    assert.equal(r.headers.location.value, para, de);
+  }
+  assert.equal(R.handler(ev('/contato/', { qs: { v: { value: 'carlos' } } })).headers.location.value, '/paginas/contato/?v=carlos');
+  assert.equal(R.handler(ev('/paginas/contato/')).uri, '/paginas/contato/index.html');
+  assert.equal(R.handler(ev('/multipla/marca/toyota/')).uri, '/multipla/marca/toyota/index.html');
+  assert.equal(R.handler(ev('/assets/logo.png')).uri, '/assets/logo.png');
+  assert.equal(R.handler(ev('/sitemap.xml')).uri, '/sitemap.xml');
+  assert.equal(R.handler(ev('/')).uri, '/index.html');
+});

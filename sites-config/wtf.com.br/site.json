@@ -1,0 +1,22 @@
+{
+  "rascunho": true,
+  "template": "barra-topo",
+  "tema": {
+    "cor": "#0b5fff"
+  },
+  "busca": true,
+  "fotosBase": "https://fotos.exemplo.com.br/",
+  "inquilino": "revenda-mais",
+  "nome": "wtf.com.br",
+  "url": "https://wtf.com.br",
+  "motor": "v2",
+  "lojas": {
+    "teste": {
+      "nome": "Loja Teste WTF",
+      "cidade": "São Paulo",
+      "uf": "SP",
+      "endereco": "Av. Paulista, 1000 - São Paulo - SP",
+      "whatsapp": "5511999990000"
+    }
+  }
+}

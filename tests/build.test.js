@@ -699,7 +699,7 @@ test('páginas padrão vêm do TEMPLATE: editar o texto atualiza a página sem r
   assert.ok(!A.existe(ID, 'paginas/lgpd/index.html'));
 });
 
-test('páginas ficam em /paginas/<nome>/; o endereço antigo redireciona; links simples ("contato/", "/lojas/") são ajustados', () => {
+test('páginas ficam em /paginas/<nome>/; links simples ("contato/", "/lojas/") são ajustados', () => {
   A.criarSite(ID, { carros: [A.carro()], site: { cabecalho: { menu: [{ rotulo: 'Lojas', link: 'lojas/' }, { rotulo: 'Estoque', link: 'multipla/' }] },
     paginas: [{ caminho: 'lojas', titulo: 'Lojas', blocos: [{ tipo: 'lojas' }] }] } });
   const pasta = path.join(A.raiz(), 'sites-config', ID, 'paginas');
@@ -715,26 +715,24 @@ test('páginas ficam em /paginas/<nome>/; o endereço antigo redireciona; links 
   assert.deepEqual(A.verificarSiteGerado(ID), []);
 });
 
-test('mudança de endereço: página que estava na raiz redireciona (e o formato Revenda Mais mantém sempre a raiz)', () => {
-  A.criarSite(ID, { carros: [A.carro()], site: { paginas: [{ caminho: 'lojas', blocos: [{ tipo: 'lojas' }] }] } });
+test('páginas só em /paginas/: nada na raiz (nem no formato Revenda Mais); redirecionamento antigo na raiz é apagado', () => {
+  A.criarSite(ID, { carros: [A.carro()], site: { formatoUrls: 'revendamais', paginas: [{ caminho: 'lojas', blocos: [{ tipo: 'lojas' }] }] } });
   build({ hoje: '2026-01-01' });
-  // simula o estado de antes da mudança: a página estava na raiz
+  for (const p of ['lojas', 'contato', 'lgpd', 'financiamento']) {
+    assert.ok(A.existe(ID, `paginas/${p}/index.html`), `/paginas/${p}/`);
+    assert.ok(!A.existe(ID, `${p}`), `nada em /${p}/ (o 301 é da hospedagem)`);
+  }
+  // site gerado por uma versão antiga do build: tinha redirecionamentos em HTML na raiz
+  fs.mkdirSync(A.saida(ID, 'contato'), { recursive: true });
+  fs.writeFileSync(A.saida(ID, 'contato/index.html'), '<meta http-equiv="refresh" content="0; url=../paginas/contato/">');
   const arqEst = path.join(A.raiz(), '.estado', 'sites-public', `${ID}.json`);
   const est = JSON.parse(fs.readFileSync(arqEst, 'utf8'));
-  est.paginas = est.paginas.map((p) => p.replace(/^paginas\//, ''));
+  est.paginasMovidas = { 'contato/index.html': { para: 'paginas/contato/', desde: null } };
   fs.writeFileSync(arqEst, JSON.stringify(est));
   A.limparPendentes();
   build({ hoje: '2026-01-02' });
-  const r = A.ler(ID, 'lojas/index.html');
-  assert.match(r, /http-equiv="refresh" content="0; url=\.\.\/paginas\/lojas\/"/);
-  assert.match(r, /noindex/);
-  assert.ok(!A.pendente(ID).removidos.includes(`${ID}/lojas/index.html`), 'o endereço antigo não sai do ar');
-  assert.ok(!A.ler(ID, 'sitemap.xml').includes(`${ID}/lojas/<`), 'redirecionamento fora do sitemap');
-  build({ hoje: '2026-08-01' }); // 180 dias depois: some
-  assert.ok(!A.existe(ID, 'lojas/index.html'));
-  // formato Revenda Mais: /lojas, /contato... sempre redirecionam (o Google conhece esses endereços do site antigo)
-  const cfg = A.lerSite(ID); cfg.formatoUrls = 'revendamais'; A.gravarSite(ID, cfg);
-  build({ hoje: '2026-08-02' });
-  assert.match(A.ler(ID, 'contato/index.html'), /url=\.\.\/paginas\/contato\//);
-  assert.match(A.ler(ID, 'lojas/index.html'), /url=\.\.\/paginas\/lojas\//);
+  assert.ok(!A.existe(ID, 'contato'), 'redirecionamento antigo apagado (com a pasta)');
+  assert.ok(A.pendente(ID).removidos.includes(`${ID}/contato/index.html`), 'e despublicado');
+  assert.equal(JSON.parse(fs.readFileSync(arqEst, 'utf8')).paginasMovidas, undefined);
+  assert.deepEqual(A.verificarSiteGerado(ID), []);
 });
