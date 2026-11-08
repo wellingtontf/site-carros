@@ -303,7 +303,8 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
   // paginas-extras e paginas-padrao ficam de fora: editar o texto de uma página (LGPD, feirão...) não deve refazer as
   // páginas de carro de todos os sites (as páginas de conteúdo são refeitas sempre; os rótulos entram no hash do site)
   Comp.limparCache();
-  const hashComponentes = fs.existsSync(C.COMPONENTES) ? sha(hashDir(C.COMPONENTES)) : ''; // mudou um componente: refaz as páginas
+  // mudou um componente: refaz as páginas. Só as pastas dos componentes contam (o README.md da raiz de componentes/ não)
+  const hashComponentes = fs.existsSync(C.COMPONENTES) ? sha(hashDir(C.COMPONENTES, (r) => !r.includes(path.sep))) : '';
   const tplHash = (dir) => { if (!hashTpl.has(dir)) hashTpl.set(dir, sha(hashDir(dir, (r) => r === 'paginas-extras' || r === 'paginas-padrao'))); return hashTpl.get(dir); };
   const hoje = hojeParam || process.env.SITE_CARROS_HOJE || new Date().toISOString().slice(0, 10);
   const feitos = [];
