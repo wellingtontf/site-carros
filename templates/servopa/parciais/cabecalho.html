@@ -1,11 +1,11 @@
 <div class="faixa-topo">
   <div class="faixa-in">
-    <span>Seminovos com <strong>1 ano de garantia</strong></span>
+    <span>{{site.cabecalho.aviso}}{{#site.cabecalho.avisoDestaque}} <strong>{{site.cabecalho.avisoDestaque}}</strong>{{/site.cabecalho.avisoDestaque}}</span>
     {{#site.cabecalho.telefone}}<a href="#" class="js-zap" data-msg="Olá! Estava no site e gostaria da ajuda de um especialista!">WhatsApp {{site.cabecalho.telefone}}</a>{{/site.cabecalho.telefone}}
   </div>
 </div>
 <header class="topo">
-  <a class="marca" href="{{inicioUrl}}">{{#tema.logo}}<img class="logo" src="{{tema.logo}}" alt="{{site.nome}}" width="221" height="28" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="logo-txt" hidden><b>GRUPO SERVOPA</b><i>SEMINOVOS</i></span>{{/tema.logo}}{{^tema.logo}}<span class="logo-txt"><b>GRUPO SERVOPA</b><i>SEMINOVOS</i></span>{{/tema.logo}}</a>
+  <a class="marca" href="{{inicioUrl}}">{{#tema.logo}}<img class="logo" src="{{tema.logo}}" alt="{{site.nome}}" width="221" height="28" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="logo-txt" hidden><b>{{site.nome}}</b></span>{{/tema.logo}}{{^tema.logo}}<span class="logo-txt"><b>{{site.nome}}</b></span>{{/tema.logo}}</a>
   <input type="checkbox" id="menu-abre" class="menu-abre" aria-hidden="true">
   <label for="menu-abre" class="menu-botao" aria-label="Abrir menu"><span></span><span></span><span></span></label>
   <nav class="menu">

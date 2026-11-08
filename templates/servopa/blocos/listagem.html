@@ -2,7 +2,7 @@
      filtros (true/false: mostra a barra de filtros), botao (link para o estoque completo). Os primeiros cards já saem no HTML (Google). -->
 <section class="b-listagem">
   <div class="b-listagem-topo">
-    <div>{{#titulo}}<h2>{{titulo}} <small>({{estoque.total}})</small></h2>{{/titulo}}{{#subtitulo}}<p>{{subtitulo}} <small>({{estoque.destaques}})</small></p>{{/subtitulo}}</div>
+    <div>{{#titulo}}<h2>{{titulo}} <small>({{estoque.total}})</small></h2>{{/titulo}}{{#subtitulo}}<p>{{subtitulo}}{{#estoque.destaques}} <small>({{estoque.destaques}})</small>{{/estoque.destaques}}</p>{{/subtitulo}}</div>
     <a class="b-link" href="{{estoqueUrl}}">{{botao}}{{^botao}}Ver estoque completo{{/botao}} &rsaquo;</a>
   </div>
   <div class="{{^filtros}}oculto{{/filtros}}">{{> filtros}}<div class="ordenar-linha"><span id="contagem"></span> <select id="ord" aria-label="Ordenar"></select></div></div>

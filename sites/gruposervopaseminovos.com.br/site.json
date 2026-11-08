@@ -22,6 +22,8 @@
     "voltar": "Voltar ao estoque"
   },
   "cabecalho": {
+    "aviso": "Seminovos com",
+    "avisoDestaque": "1 ano de garantia",
     "telefone": "0800-999-2000",
     "menu": [
       {
