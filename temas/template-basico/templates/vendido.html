@@ -1,22 +1,12 @@
-<!doctype html>
-<html lang="pt-BR">
-<head>
-{{> head}}
-<meta name="robots" content="noindex">
-<title>Veículo indisponível - {{site.nome}}</title>
-</head>
-<body data-page="indisponivel" data-rel="{{rel}}">
-{{> cabecalho}}
-<main class="detalhe">
+{{$head}}<meta name="robots" content="noindex">
+<title>Veículo indisponível - {{site.nome}}</title>{{/head}}
+{{$atributos}} data-page="indisponivel" data-rel="{{rel}}"{{/atributos}}
+{{$conteudo}}<main class="detalhe">
   <h1>{{carro.titulo}}</h1>
   <section>
     <h2>Este veículo não está mais disponível</h2>
     <p>Ele já foi vendido ou saiu do nosso estoque. Veja os outros veículos que temos agora.</p>
     <p><a class="btn zap" href="{{estoqueUrl}}">Ver estoque</a></p>
   </section>
-</main>
-{{> rodape}}
-<script src="{{rel}}motor/engine.js"></script>
-<script src="{{rel}}js/template-basico.js"></script>
-</body>
-</html>
+</main>{{/conteudo}}
+{{$scripts}}{{/scripts}}

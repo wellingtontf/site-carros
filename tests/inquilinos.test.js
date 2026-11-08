@@ -123,7 +123,7 @@ test('templates PRÓPRIOS do inquilino (no volume, sem deploy): só ele usa; mes
   const copiar = (dest, marca) => {
     fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'temas', 'teste'), dest, { recursive: true });
     const p = path.join(dest, 'templates', 'multipla.html');
-    fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace('</body>', `<!-- ${marca} --></body>`));
+    fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace('{{/conteudo}}', `<!-- ${marca} -->{{/conteudo}}`));
   };
   copiar(path.join(A.raiz(), 'inquilinos', 'webmotors', 'temas', 'visual-wm'), 'visual-proprio-wm');
   copiar(path.join(A.raiz(), 'inquilinos', 'webmotors', 'temas', 'teste'), 'teste-substituido-wm');

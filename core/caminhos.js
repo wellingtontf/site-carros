@@ -12,6 +12,7 @@
 //   componentes/<nome>/      componentes (filtro, estoque...) que todo tema e toda página usam: {{componente nome}}
 //   temas/<nome>/             o TEMA (visual; estrutura no padrão Shopify; o web designer só mexe aqui)
 //     config/settings_schema.json  nome, descrição e opções do tema
+//     layout/tema.html           moldura única (head, cabeçalho, rodapé, scripts) com os espaços {{$nome}}{{/nome}}
 //     templates/{home,multipla,carro,vendido,pagina}.html  um por tipo de página
 //     secoes/  snippets/  assets/ (css/, js/, img/ → raiz do site gerado)
 //     paginas-padrao/, paginas-extras/  páginas de TODOS os sites do tema
@@ -59,7 +60,7 @@ module.exports = {
   componentesSite: (id) => path.join(SITES, id, 'componentes'), // opções dos componentes no site inteiro: <nome>.json
   tema: (nome) => path.join(TEMAS, nome),
   // estrutura de um tema (padrão Shopify): o resto do core usa estes nomes, nunca o texto da pasta
-  TEMA: { schema: path.join('config', 'settings_schema.json'), templates: 'templates', secoes: 'secoes', snippets: 'snippets', assets: 'assets',
+  TEMA: { schema: path.join('config', 'settings_schema.json'), layout: path.join('layout', 'tema.html'), templates: 'templates', secoes: 'secoes', snippets: 'snippets', assets: 'assets',
     paginasPadrao: 'paginas-padrao', paginasExtras: 'paginas-extras' },
   // estrutura antiga (antes de 2026-11-08): só para dar erro claro e migrar (ferramentas/migrar-temas.js)
   TEMA_ANTIGO: ['template.json', 'paginas', 'blocos', 'parciais'],

@@ -77,6 +77,11 @@ test('todo tema tem a estrutura do padrão Shopify e o mínimo exigido pelo core
     for (const p of ['home.html', 'multipla.html', 'carro.html', 'vendido.html', 'pagina.html']) assert.ok(fs.existsSync(path.join(dir, 'templates', p)), `${t}: falta templates/${p}`);
     for (const b of ['banner', 'vitrine', 'titulo', 'texto', 'formulario', 'lojas']) assert.ok(fs.existsSync(path.join(dir, 'secoes', `${b}.html`)), `${t}: falta secoes/${b}.html (home e páginas padrão)`);
     assert.ok(fs.existsSync(path.join(dir, 'config', 'settings_schema.json')), `${t}: falta config/settings_schema.json`);
+    // moldura única (padrão Shopify): head, cabeçalho, rodapé e scripts comuns ficam no layout, não repetidos em cada template
+    assert.ok(fs.existsSync(path.join(dir, 'layout', 'tema.html')), `${t}: falta layout/tema.html`);
+    for (const p of ['home.html', 'multipla.html', 'carro.html', 'vendido.html', 'pagina.html']) {
+      assert.match(fs.readFileSync(path.join(dir, 'templates', p), 'utf8'), /^\{\{\$[a-z]/, `${t}: templates/${p} não usa o layout (comece com um bloco {{$...}})`);
+    }
     for (const velho of ['template.json', 'paginas', 'blocos', 'parciais', 'css', 'js', 'img']) assert.ok(!fs.existsSync(path.join(dir, velho)), `${t}: "${velho}" é da estrutura antiga (node ferramentas/migrar-temas.js)`);
     // web/multipla.json do site (seções antes/depois da lista) só aparece se o tema tiver o lugar deles
     const mult = fs.readFileSync(path.join(dir, 'templates', 'multipla.html'), 'utf8');
@@ -115,7 +120,7 @@ test('cada tipo de página tem o seu arquivo no tema: a home usa home.html (não
   const sitesTmp = path.join(raiz, 'sites-home');
   const tpl = path.join(raiz, 'temas', 'home-propria');
   fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'temas', 'teste'), tpl, { recursive: true });
-  fs.writeFileSync(path.join(tpl, 'templates', 'home.html'), fs.readFileSync(path.join(tpl, 'templates', 'home.html'), 'utf8').replace('<body', '<body data-moldura="home"'));
+  fs.writeFileSync(path.join(tpl, 'templates', 'home.html'), fs.readFileSync(path.join(tpl, 'templates', 'home.html'), 'utf8').replace('{{/conteudo}}', '<i data-moldura="home"></i>{{/conteudo}}'));
   const id = 'home-propria.teste.com.br';
   fs.mkdirSync(path.join(sitesTmp, id), { recursive: true });
   fs.writeFileSync(path.join(sitesTmp, id, 'site.json'), JSON.stringify({ nome: 'X', motor: 'v2', tema: 'home-propria', url: `https://${id}`, lojas: { u: { nome: 'U', cidade: 'Curitiba', uf: 'PR' } } }));

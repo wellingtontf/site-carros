@@ -568,6 +568,31 @@ test('padrão Shopify: tema e site com os nomes antigos dão erro claro; ferrame
   fs.rmSync(dir, { recursive: true });
 });
 
+test('layout/tema.html: o template preenche os blocos {{$...}}, o resto vem do layout (com padrão); sem blocos = documento inteiro; erros claros', () => {
+  const dir = path.join(A.raiz(), 'temas', 'com-layout');
+  fs.cpSync(path.join(__dirname, 'fixtures', 'temas', 'teste'), dir, { recursive: true });
+  const tpl = (f, t) => fs.writeFileSync(path.join(dir, 'templates', f), t);
+  fs.mkdirSync(path.join(dir, 'layout'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'layout', 'tema.html'), '<!doctype html><html><head><meta charset="utf-8"><title>{{$titulo}}{{site.nome}}{{/titulo}}</title>{{$head}}{{/head}}</head>' +
+    '<body{{$atributos}} data-rel="{{rel}}"{{/atributos}}><header>MOLDURA</header>{{$conteudo}}{{/conteudo}}<footer>{{$rodape}}padrão do rodapé{{/rodape}}</footer><script src="{{rel}}motor/ui-site.js"></script></body></html>\n');
+  tpl('pagina.html', '{{$conteudo}}<main>{{{conteudo}}}</main>{{/conteudo}}\n{{$rodape}}rodapé da página{{/rodape}}\n');
+  tpl('home.html', '<!doctype html><html><head><meta charset="utf-8"><title>{{pagina.titulo}}</title></head><body data-rel="{{rel}}">HOME INTEIRA{{{conteudo}}}<script src="{{rel}}motor/ui-site.js"></script></body></html>');
+  A.criarSite(ID, { carros: [A.carro()], site: { tema: 'com-layout', paginas: [{ caminho: 'sobre', titulo: 'Sobre', secoes: [{ tipo: 'texto', html: '<p>oi</p>' }] }] } });
+  build({ completo: true });
+  const sobre = A.ler(ID, 'paginas/sobre/index.html');
+  assert.match(sobre, /<header>MOLDURA<\/header><main>.*oi.*<\/main><footer>rodapé da página<\/footer>/s, 'o conteúdo entra na moldura; o bloco do template vale mais que o padrão');
+  assert.match(sobre, new RegExp(`<title>Site ${ID}</title>`), 'bloco que o template não preenche fica com o padrão do layout');
+  assert.match(A.ler(ID, 'index.html'), /<body data-rel="">HOME INTEIRA/, 'home.html sem blocos {{$...}} continua sendo o documento inteiro');
+  assert.doesNotMatch(A.ler(ID, 'index.html'), /MOLDURA/);
+  const erro = (t, re) => { tpl('pagina.html', t); assert.throws(() => build({ completo: true }), re); };
+  erro('{{$conteudo}}x{{/conteudo}}\n<p>solto</p>', /texto fora dos blocos.*solto/);
+  erro('{{$menu}}x{{/menu}}', /layout\/tema\.html não tem o bloco \{\{\$menu\}\} \(tem: titulo, head, atributos, conteudo, rodape\)/);
+  erro('{{$conteudo}}a{{/conteudo}}{{$conteudo}}b{{/conteudo}}', /bloco \{\{\$conteudo\}\} aparece duas vezes/);
+  fs.rmSync(path.join(dir, 'layout'), { recursive: true });
+  erro('{{$conteudo}}x{{/conteudo}}', /templates\/[a-z]+\.html usa o layout.*não tem layout\/tema\.html/);
+  fs.rmSync(dir, { recursive: true });
+});
+
 // ---------- páginas livres dos web designers (core/paginas-livres.js) ----------
 const pastaLivre = (...p) => A.pastaPaginas(ID, ...p);
 const escrever = (arq, txt) => { fs.mkdirSync(path.dirname(arq), { recursive: true }); fs.writeFileSync(arq, txt); };

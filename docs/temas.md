@@ -13,7 +13,8 @@ Hoje há `barra-topo`, `lateral` e `template-basico`. Um inquilino pode ter tema
 |---|---|---|
 | **tema** | o pacote visual inteiro (o web designer faz) | `temas/<nome>/`; o site escolhe com `"tema": "<nome>"` |
 | **configurações** | o que muda de uma revenda para outra dentro do tema: cor, fonte, logo, raio | `"configuracoes"` no `site.json` (no Shopify, `settings_data.json`) |
-| **template** | o arquivo de UM tipo de página (home, listagem, carro...) | `temas/<nome>/templates/` |
+| **layout** | a moldura comum a todas as páginas: head, cabeçalho, rodapé, scripts | `temas/<nome>/layout/tema.html` |
+| **template** | o arquivo de UM tipo de página (home, listagem, carro...): só o que é dele | `temas/<nome>/templates/` |
 | **seção** | um pedaço configurável de página (banner, vitrine, texto...) | `temas/<nome>/secoes/`; as páginas listam em `"secoes"` |
 | **snippet** | um pedaço pequeno reaproveitado (head, cabeçalho, card) | `temas/<nome>/snippets/` (`{{> nome}}`) |
 
@@ -23,7 +24,9 @@ Hoje há `barra-topo`, `lateral` e `template-basico`. Um inquilino pode ter tema
 temas/<nome>/
   config/
     settings_schema.json   nome e descrição do tema (e, em breve, as opções que ele aceita)
-  templates/               UM ARQUIVO POR TIPO DE PÁGINA (os 5 são obrigatórios)
+  layout/
+    tema.html              a moldura de todas as páginas (no Shopify, layout/theme.liquid)
+  templates/               UM ARQUIVO POR TIPO DE PÁGINA (os 5 são obrigatórios), só com os blocos dele
   secoes/                  um HTML por tipo de seção (banner, vitrine, texto...)
   snippets/                pedaços reaproveitados com {{> nome}} (cabeçalho, rodapé, head)
   assets/                  css/, js/, img/: vão para a RAIZ do site gerado (assets/css/style.css → /css/style.css)
@@ -31,12 +34,55 @@ temas/<nome>/
   paginas-extras/          páginas HTML que todo site do tema ganha
 ```
 
-Comparando com o Shopify: `layout/` (moldura única) e `locales/` (textos padrão) ainda não existem aqui (próximas
-etapas); `paginas-padrao/` e `paginas-extras/` não têm equivalente lá e continuam com esses nomes.
+Comparando com o Shopify: `locales/` (textos padrão) ainda não existe aqui (próxima etapa); `paginas-padrao/` e `paginas-extras/` não têm equivalente lá e continuam com esses nomes.
 
 Nome antigo (antes de 2026-11-08: `templates/<nome>/` com `template.json`, `paginas/`, `blocos/`, `parciais/`, `css/` na
 raiz) dá erro claro no build. `node ferramentas/migrar-temas.js` converte tudo (temas, sites e inquilinos;
 `--simular` só mostra).
+
+## O layout (`layout/tema.html`)
+
+O layout é a página inteira com **espaços** que cada template preenche. É a herança de templates do Mustache (a mesma
+família de `{{ }}` que o build já usa):
+
+```html
+<!-- layout/tema.html -->
+<!doctype html>
+<html lang="pt-BR">
+<head>
+{{> head}}
+{{$head}}{{/head}}
+</head>
+<body{{$atributos}} data-page="pagina" data-base="{{base}}" data-rel="{{rel}}"{{/atributos}}>
+{{> cabecalho}}
+{{$conteudo}}{{/conteudo}}
+{{> rodape}}
+<script src="{{rel}}motor/engine.js"></script>
+{{$scripts}}<script src="{{rel}}motor/ui-util.js"></script>
+{{/scripts}}<script src="{{rel}}js/template-basico.js"></script>
+</body>
+</html>
+```
+```html
+<!-- templates/pagina.html: só o que é desta página -->
+{{$head}}<title>{{pagina.titulo}}</title>
+<meta name="description" content="{{pagina.descricao}}">
+{{{canon}}}{{/head}}
+{{$conteudo}}<main class="conteudo">
+{{{conteudo}}}
+</main>{{/conteudo}}
+```
+
+- `{{$nome}}...{{/nome}}` no layout marca um espaço; o que está dentro é o **padrão** (vale quando o template não preenche).
+  Ex.: o `{{$atributos}}` acima já traz os atributos do `<body>` das páginas de conteúdo; o `carro.html` troca pelos dele.
+- No template, cada `{{$nome}}...{{/nome}}` preenche o espaço de mesmo nome. O conteúdo vale **exatamente** como foi
+  escrito (quebras de linha inclusive).
+- Os nomes são livres: os temas de hoje usam `head`, `atributos`, `cabecalho` (barra-topo e lateral), `conteudo` e `scripts`.
+- Erros claros: texto fora dos blocos no template (ele sumiria), bloco que o layout não tem, bloco repetido, template com
+  blocos num tema sem `layout/tema.html`.
+- Template **sem nenhum** `{{$...}}` é o documento inteiro e não usa o layout (como o `layout none` do Shopify): serve para
+  uma página que foge da moldura. Os temas do projeto usam o layout nos 5 (um teste cobra).
+- Mudar o layout muda **todas** as páginas do tema: cabeçalho, rodapé ou um script novo se editam num lugar só.
 
 ## Os 5 arquivos de `templates/`
 
@@ -117,7 +163,8 @@ cada item com `valor`, `total`, `link`, `chave`). Dentro de uma seção, os camp
 ## Criar um tema
 
 1. Copie um tema parecido: `cp -r temas/barra-topo temas/meu-tema`.
-2. Ajuste `config/settings_schema.json`, os 5 arquivos de `templates/`, `assets/css/` e as seções.
+2. Ajuste `config/settings_schema.json`, o `layout/tema.html` (cabeçalho, rodapé), os 5 arquivos de `templates/`,
+   `assets/css/` e as seções.
 3. Use num site: `"tema": "meu-tema"` no `site.json` (ou libere para o inquilino em `"temas"` do `inquilino.json`).
 4. `npm test`: o teste de temas confere a estrutura, arquivos obrigatórios, seções, ids, links quebrados e marcadores
    sobrando em todos os temas.

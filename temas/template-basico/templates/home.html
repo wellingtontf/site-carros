@@ -1,22 +1,11 @@
-<!doctype html>
-<html lang="pt-BR">
-<head>
-{{> head}}
-<title>{{pagina.titulo}}</title>
+{{$head}}<title>{{pagina.titulo}}</title>
 <meta name="description" content="{{pagina.descricao}}">
-{{{canon}}}
-</head>
-<body data-page="pagina" data-base="{{base}}" data-rel="{{rel}}">
-{{> cabecalho}}
-<main class="conteudo">
+{{{canon}}}{{/head}}
+{{$conteudo}}<main class="conteudo">
 {{{conteudo}}}
-</main>
-{{> rodape}}
-<script src="{{rel}}motor/engine.js"></script>
-<script src="{{rel}}motor/ui-util.js"></script>
+</main>{{/conteudo}}
+{{$scripts}}<script src="{{rel}}motor/ui-util.js"></script>
 {{#temListagem}}{{> tpl-card}}
 <script src="{{rel}}motor/link-carro.js"></script>
 <script src="{{rel}}motor/ui-lista.js"></script>{{/temListagem}}
-<script src="{{rel}}js/template-basico.js"></script>
-</body>
-</html>
+{{/scripts}}

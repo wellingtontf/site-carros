@@ -11,8 +11,8 @@
 //
 // O que vai para cada site gerado:
 //   motor/engine.js + motor/ui-*.js      ← core (motor da versão do site + ui)
-// Tema (temas/<nome>/, estrutura do Shopify): config/settings_schema.json, templates/ (um por tipo de página), secoes/,
-// snippets/ ({{> nome}}), assets/, paginas-padrao/, paginas-extras/.
+// Tema (temas/<nome>/, estrutura do Shopify): config/settings_schema.json, layout/tema.html (moldura única),
+// templates/ (um por tipo de página), secoes/, snippets/ ({{> nome}}), assets/, paginas-padrao/, paginas-extras/.
 //   css/ js/ img/ ...                    ← temas/<nome>/assets/ (na raiz do site)
 //   assets/                              ← sites-config/<dominio>/assets/
 //   index.html                           ← a HOME: temas/<nome>/templates/home.html + sites-config/<dominio>/web/index.json (sem ela, HOME_PADRAO)
@@ -293,6 +293,26 @@ function lerPaginasPadrao(dirTpl) {
     return { ...p, nome: f.replace(/\.json$/, '') };
   });
 }
+// herança de templates (Mustache): {{$nome}}conteúdo{{/nome}}. O conteúdo vale exatamente como está escrito (quebras de
+// linha inclusive), então o designer decide o espaçamento. Texto fora dos blocos no template = erro (ele sumiria).
+const BLOCO_LAYOUT = /\{\{\$([a-z][a-zA-Z0-9-]*)\}\}([\s\S]*?)\{\{\/\1\}\}/g;
+function comLayout(tpl, dirTpl, onde) {
+  if (!/\{\{\$[a-z]/.test(tpl)) return tpl; // documento inteiro: sem layout
+  const arq = path.join(dirTpl, C.TEMA.layout);
+  if (!fs.existsSync(arq)) throw new Error(`${onde} usa o layout ({{$...}}), mas o tema não tem layout/tema.html`);
+  const blocos = new Map();
+  const fora = tpl.replace(BLOCO_LAYOUT, (_, n, conteudo) => {
+    if (blocos.has(n)) throw new Error(`${onde}: o bloco {{$${n}}} aparece duas vezes`);
+    blocos.set(n, conteudo); return '';
+  });
+  if (fora.trim()) throw new Error(`${onde}: texto fora dos blocos {{$...}}{{/...}} (com layout, tudo do template fica dentro de um bloco): "${fora.trim().slice(0, 60)}"`);
+  const layout = fs.readFileSync(arq, 'utf8');
+  const doLayout = new Set();
+  const html = layout.replace(BLOCO_LAYOUT, (_, n, padrao) => { doLayout.add(n); return blocos.has(n) ? blocos.get(n) : padrao; });
+  const sobra = [...blocos.keys()].filter((n) => !doLayout.has(n));
+  if (sobra.length) throw new Error(`${onde}: o layout/tema.html não tem o bloco ${sobra.map((n) => `{{$${n}}}`).join(', ')} (tem: ${[...doLayout].join(', ') || 'nenhum'})`);
+  return html;
+}
 // preenche {{site.nome}}, {{rel}}... em todos os textos de uma página padrão
 const preencherTextos = (o, ctx) => (typeof o === 'string' ? render(o, ctx) : Array.isArray(o) ? o.map((x) => preencherTextos(x, ctx))
   : o && typeof o === 'object' ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, preencherTextos(v, ctx)])) : o);
@@ -491,7 +511,10 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       if (nivel > 5) throw new Error(`Tema "${nomeTpl}": snippets aninhados demais (${n})`);
       return parciais(fs.readFileSync(arq, 'utf8'), nivel + 1);
     });
-    const pagina = (arquivo) => parciais(fs.readFileSync(path.join(dirTpl, C.TEMA.templates, arquivo), 'utf8'));
+    // LAYOUT (temas/<nome>/layout/tema.html; no Shopify, layout/theme.liquid): a moldura comum a todas as páginas.
+    // Herança de templates do Mustache: o layout marca espaços com padrão ({{$head}}{{/head}}, {{$scripts}}...{{/scripts}})
+    // e o template preenche só os que precisa. Template sem nenhum {{$...}} é o documento inteiro (sem layout).
+    const pagina = (arquivo) => parciais(comLayout(fs.readFileSync(path.join(dirTpl, C.TEMA.templates, arquivo), 'utf8'), dirTpl, `temas/${nomeTpl}/templates/${arquivo}`));
 
     // dados que o motor lê
     escreverSe(

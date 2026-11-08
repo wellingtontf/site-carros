@@ -146,6 +146,10 @@ css e js saem com `?v=<hash do conteúdo>` no endereço: a CDN guarda por muito 
 
 ## 9. Gerar as páginas HTML
 
+Toda página parte do template do tipo dela (`templates/<tipo>.html`) **encaixado no layout** (`layout/tema.html`):
+os blocos `{{$...}}` do template preenchem os espaços do layout, e depois os snippets (`{{> nome}}`) entram. Template sem
+blocos é o documento inteiro ([temas.md](temas.md#o-layout-layouttemahtml)).
+
 ### 9.1 Listagem: `multipla/index.html`
 
 1. Usa `temas/<nome>/templates/multipla.html`.

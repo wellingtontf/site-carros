@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+{{> head}}
+{{$head}}{{/head}}
+</head>
+<body{{$atributos}} data-page="pagina" data-base="{{base}}" data-rel="{{rel}}"{{/atributos}}>
+{{> cabecalho}}
+{{$conteudo}}{{/conteudo}}
+{{> rodape}}
+<script src="{{rel}}motor/engine.js"></script>
+{{$scripts}}<script src="{{rel}}motor/ui-util.js"></script>
+{{/scripts}}<script src="{{rel}}js/template-basico.js"></script>
+</body>
+</html>
