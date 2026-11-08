@@ -35,7 +35,8 @@ O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da
 | GET | `/v1/lotes/{lote}` | andamento de uma operação em vários sites (contagem por status e problemas) |
 | GET | `/v1/sites` | sites que o token pode alterar, com o total de carros e a data da última atualização |
 | POST | `/v1/sites` | **cria um site novo com toda a estrutura**: sem domínio = próximo rascunho (`siteN.carro57.com.br`); ou `{"dominio": "novaloja.com.br"}` (ver "Site novo") |
-| PUT | `/v1/sites/{dominio}` | **cria o site, se não existir, ou atualiza o cadastro** (ver "Cadastro do site") e gera o site |
+| PUT | `/v1/sites/{dominio}` | **grava o `site.json` inteiro**: cria o site, se não existir, ou substitui o cadastro (ver "Cadastro do site"), e gera o site |
+| PATCH | `/v1/sites/{dominio}` | **grava só os campos enviados** do `site.json`; o resto fica como está (ver "Cadastro do site") |
 | POST | `/v1/sites/{dominio}/promover` | **rascunho → site definitivo**: `{"dominio": "lojafinal.com.br"}` (ver "Rascunho e promoção") |
 | POST | `/v1/sites/{dominio}/dominio` | site **já no ar** troca de domínio, levando tudo junto: `{"novo": "outro.com.br"}` (ver "Trocar o domínio") |
 | DELETE | `/v1/sites/{dominio}?confirmar={dominio}` | **remove o site** (recuperável: vai para `.estado/removidos/`); fotos saem do armazenamento; roda o `remover` da infra. Token `*`; 409 se houver pedidos na fila |
@@ -104,6 +105,15 @@ Para um site que **já está no ar** e muda de domínio (caso raro; rascunho usa
 - Exige token `*`. Responde **409** se o domínio novo já existe ou se o site tem pedidos na fila (espere terminarem) e **422** para domínio inválido.
 
 ## Cadastro do site
+
+**PUT ou PATCH?** O `PUT` substitui o `site.json` inteiro: use quando o seu sistema é o dono do cadastro todo. O `PATCH` muda só os campos enviados: use quando o seu sistema cuida de **parte** do cadastro (telefone, WhatsApp, lojas...) e outros mantêm o resto (cabeçalho, rodapé e tema montados pelo designer). Um `PUT` parcial apagaria esses campos.
+
+```
+PATCH /v1/sites/loja1.com.br
+{ "whatsapp": "5541988887777", "lojas": { "matriz": { "whatsapp": "5541900000000" } }, "slogan": null }
+```
+
+O `PATCH` segue o JSON Merge Patch (RFC 7396): objeto mescla campo a campo (no exemplo, só o WhatsApp da loja `matriz` muda), `null` apaga o campo e texto, número ou lista substituem. O resultado passa pela mesma validação do `PUT` (422 e nada gravado se ficar inválido) e o site é refeito. O `inquilino` não muda por aqui.
 
 `PUT /v1/sites/{dominio}`: o domínio vem no endereço e o corpo é o cadastro completo (ele substitui o anterior). Se o site não existe, ele é criado (resposta 201; exige token com acesso a todos, `*`). Se existe, o cadastro é atualizado (202). Nos dois casos, o site é gerado em seguida.
 

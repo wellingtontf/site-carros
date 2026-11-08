@@ -57,7 +57,7 @@ core/                         SÓ CÓDIGO (isolado)
                               carro que saiu; sem "enviar" grava em "pasta" (teste local). Estado em .estado/fotos/<dominio>.json
 api/                          API de integração (contrato: api/README.md). Depende do core; o core nunca depende dela
   servidor.js                 liga tudo: token, HTTP, fila, trabalhador de fotos
-  rotas.js                    /v1: POST sites (site novo só com domínio), POST sites/<d>/dominio (troca domínio), PUT site (cria se não existe), POST estoques (1..N sites), PUT estoque, PUT/DELETE carro,
+  rotas.js                    /v1: PUT sites/<d> (site.json inteiro) e PATCH sites/<d> (só os campos enviados, JSON Merge Patch; Sites.mesclar), POST sites (site novo só com domínio), POST sites/<d>/dominio (troca domínio), PUT site (cria se não existe), POST estoques (1..N sites), PUT estoque, PUT/DELETE carro,
                               POST build (lista ou todos), PUT/DELETE robots (todos os sites), POST atualizar (fontes), GET pedidos
   fila.js                     pedidos em disco (.estado/api/): aplica na ordem, valida um a um, 1 build por site por lote
   clientes.js, cli.js         tokens por sistema externo (config/clientes.json, só sha256): node api/cli.js cliente criar <nome> --sites a,b|*

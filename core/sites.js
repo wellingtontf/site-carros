@@ -148,6 +148,14 @@ function cadastroNovo(dominio, parcial = {}, inquilino = Inq.PADRAO) {
   return { ...limpo(modelo), ...parcial, ...(inquilino !== Inq.PADRAO ? { inquilino } : {}), ...(ehDominioRascunho(dominio) ? { rascunho: true } : {}), nome: parcial.nome || dominio, url: parcial.url || `https://${dominio}`, motor: parcial.motor || modelo.motor || ultimaVersao(), template: parcial.template || modelo.template || 'barra-topo' };
 }
 
+// JSON Merge Patch (RFC 7396): objeto mescla campo a campo, null apaga o campo, o resto (texto, número, lista) substitui
+function mesclar(base, patch) {
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return patch;
+  const r = base && typeof base === 'object' && !Array.isArray(base) ? { ...base } : {};
+  for (const [k, v] of Object.entries(patch)) { if (v === null) delete r[k]; else r[k] = mesclar(r[k], v); }
+  return r;
+}
+
 function gravarSite(dominio, obj) {
   const arq = C.siteJson(dominio);
   const criado = !fs.existsSync(arq);
@@ -217,4 +225,4 @@ function arquivarArquivos(dominio, { pasta = 'dist' } = {}) {
   return { arquivo: path.relative(C.ROOT, destino) };
 }
 
-module.exports = { arquivarArquivos, proximoRascunho, ehDominioRascunho, inquilinoDoRascunho, padraoRascunho, ID_SITE, listar, existe, carregar, carregarTodos, lojas, estoque, resumo, resumos, validarSite, cadastroNovo, gravarSite, criarArquivos, renomearArquivos };
+module.exports = { mesclar, arquivarArquivos, proximoRascunho, ehDominioRascunho, inquilinoDoRascunho, padraoRascunho, ID_SITE, listar, existe, carregar, carregarTodos, lojas, estoque, resumo, resumos, validarSite, cadastroNovo, gravarSite, criarArquivos, renomearArquivos };

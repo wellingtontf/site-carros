@@ -217,6 +217,22 @@ function criarRotas({ fila }) {
       return responderPedido(res, url, fila.adicionar({ tipo: 'build', site: dominio, cliente: cliente.nome }), criado ? 201 : 202);
     }
 
+    // ATUALIZAR SÓ ALGUNS CAMPOS do site.json (outro sistema que cuida de parte do cadastro: telefone, lojas, WhatsApp...)
+    // sem apagar o que outros mantêm (cabeçalho, rodapé, tema do designer). JSON Merge Patch (RFC 7396):
+    //   {"whatsapp": "5541...", "lojas": {"centro": {"whatsapp": "..."}}, "slogan": null}   (null apaga o campo)
+    if (m === 'PATCH' && resto === '') {
+      const d = site(dominio);
+      const patch = await corpoJSON(req, LIMITE.site);
+      if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new Erro(400, 'o corpo deve ser um objeto com os campos a mudar');
+      if ('inquilino' in patch) throw new Erro(422, 'não dá para mudar o inquilino de um site pelo cadastro');
+      const { id, ...atual } = Sites.carregar(d);
+      const novo = Sites.mesclar(atual, patch);
+      const erros = Sites.validarSite(novo, d);
+      if (erros.length) throw new Erro(422, 'cadastro inválido: nada foi gravado', { erros });
+      Sites.gravarSite(d, novo);
+      return responderPedido(res, url, fila.adicionar({ tipo: 'build', site: d, cliente: cliente.nome }));
+    }
+
     const d = site(dominio);
     if (m === 'GET' && resto === '') {
       return enviar(res, 200, { ...Sites.resumo(d), cadastro: Sites.carregar(d), fotos: Fotos.resumo(d), pedidos: fila.listar({ site: d, limite: 5 }).map(visao) });

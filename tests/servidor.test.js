@@ -450,3 +450,24 @@ test('DELETE /v1/sites/<d>?confirmar=<d>: tira o site (recuperável), apaga a sa
   assert.equal((await req('GET', `/v1/sites/${D}`, { token: tokTodos })).status, 404);
   assert.deepEqual(CL.listarClientes().find((c) => c.nome === 'crm-vai-sair').sites, [ID]);
 });
+
+test('PATCH /v1/sites/<d>: grava só os campos enviados (o resto do site.json fica), null apaga, validação vale', async () => {
+  const D = 'patch.teste.com.br';
+  A.criarSite(D, { carros: [A.carro()], site: { slogan: 'Antigo', cabecalho: { menu: [{ rotulo: 'Estoque', link: 'multipla/' }] }, tema: { cor: '#111111' } } });
+  const r = await reqJ('PATCH', `/v1/sites/${D}?esperar=20`, { corpo: { whatsapp: '5541988887777', lojas: { centro: { whatsapp: '5541900000000' } }, slogan: null }, token: tokTodos });
+  assert.equal(r.status, 200, JSON.stringify(r.j));
+  const cad = A.lerSite(D);
+  assert.equal(cad.whatsapp, '5541988887777');
+  assert.equal(cad.lojas.centro.whatsapp, '5541900000000');
+  assert.equal(cad.lojas.centro.nome, 'Loja Centro', 'campo da loja que não veio continua');
+  assert.ok(cad.lojas.sul, 'loja que não veio continua');
+  assert.equal(cad.slogan, undefined, 'null apaga');
+  assert.deepEqual([cad.tema.cor, cad.cabecalho.menu[0].rotulo], ['#111111', 'Estoque'], 'o que outros mantêm não some');
+  // inválido: nada gravado
+  const ruim = await reqJ('PATCH', `/v1/sites/${D}`, { corpo: { template: 'nao-existe' }, token: tokTodos });
+  assert.equal(ruim.status, 422);
+  assert.equal(A.lerSite(D).template, 'teste');
+  assert.equal((await req('PATCH', `/v1/sites/${D}`, { corpo: { inquilino: 'outro' }, token: tokTodos })).status, 422);
+  assert.equal((await req('PATCH', '/v1/sites/nao-existe.com.br', { corpo: {}, token: tokTodos })).status, 404);
+  assert.equal((await req('PATCH', `/v1/sites/${D}`, { corpo: { whatsapp: '5541977776666' } })).status, 403, 'token sem acesso ao site');
+});
