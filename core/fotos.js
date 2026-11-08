@@ -185,6 +185,17 @@ async function processarSite(site, { log = console.log, cfg = lerConfig(Inq.doSi
   return { processados: Object.keys(feitos), erros: nErros, falhas };
 }
 
+// site removido: as fotos de TODOS os carros saem do armazenamento (comando "apagar"; sem "enviar", da pasta local)
+async function apagarFotosDoSite(site, { log = console.log } = {}) {
+  const cfg = lerConfig(Inq.doSite(site));
+  const e = lerEstado(site);
+  if (!cfg || !Object.keys(e).length) return { apagados: 0, pendentes: 0 };
+  const antes = Object.keys(e).length;
+  await limparSaidos(site, e, new Set(), cfg, log);
+  gravarEstado(site, e);
+  return { apagados: antes - Object.keys(e).length, pendentes: Object.keys(e).length };
+}
+
 // algo a fazer neste site? (fotos pendentes ou carros que saíram com fotos guardadas)
 function temTrabalho(site) {
   if (pendentes(site).length) return true;
@@ -192,4 +203,4 @@ function temTrabalho(site) {
   return Object.keys(lerEstado(site)).some((id) => !ids.has(id));
 }
 
-module.exports = { lerConfig, contarFotos, lerEstadoFotos: lerEstado, pendentes, temTrabalho, resumo, processarSite, hashUrls, ipInterno, LARGURAS };
+module.exports = { apagarFotosDoSite, lerConfig, contarFotos, lerEstadoFotos: lerEstado, pendentes, temTrabalho, resumo, processarSite, hashUrls, ipInterno, LARGURAS };

@@ -81,9 +81,24 @@ kubectl -n site-carros exec deploy/api -- node api/cli.js cliente criar wm-integ
 6. `kubectl apply -k infra/k8s`.
 7. Copiar os dados atuais para o EFS (`sites/`, `inquilinos/`, `config/`, `.estado/`) e rodar um `POST /v1/build` com o token admin.
 
+## Scripts de infra (`ferramentas/infra/`)
+
+O `infra.json` de cada inquilino chama estes scripts com os IDs daquele inquilino (distribuição multi-tenant, bucket, regex dos rascunhos). Exemplo em `config/infra.exemplo.json`. Todos aceitam `SIMULAR=1` (só mostram os comandos) e podem rodar de novo sem estragar nada.
+
+| Script | Faz |
+|---|---|
+| `criar.sh <site>` | `create-distribution-tenant` com `--parameters Name=pasta,Value=<site>`. Rascunho só com o endereço (certificado curinga); definitivo com `www` e certificado gerenciado (`ValidationTokenHost=cloudfront`) |
+| `promover.sh <rascunho> <site>` | cria o tenant definitivo e depois tira o rascunho do ar (tenant + `s3 rm` do prefixo) |
+| `remover.sh <site>` | tira o tenant e os arquivos do S3 |
+| `renomear.sh <antigo> <novo>` | cria o tenant novo; **o 301 do domínio antigo ainda é manual** |
+
+A distribuição multi-tenant de cada inquilino precisa ter `OriginPath: /{{pasta}}` e o parâmetro `pasta` em `TenantConfig.ParameterDefinitions`. Isso está confirmado na documentação da AWS ([create-distribution-tenant](https://docs.aws.amazon.com/cli/latest/reference/cloudfront/create-distribution-tenant.html), [exemplo de distribuição](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/example_cloudfront_CreateDistribution_section.html)). Com isso, a resposta de erro `/404.html` cai na pasta de cada site.
+
 ## Limites conhecidos e próximos passos
 
-- **Travas expiram em 30 min**, sem renovação durante o trabalho: um build de mais de 30 min (não acontece hoje) poderia ser pego por outro pod. Se acontecer, entra a renovação periódica da trava.
-- **Leitura de pedidos (`GET /v1/pedidos`) varre a pasta** do EFS. Com muitos pedidos guardados (7 dias), isso fica lento; o consumo normal (por id e por lote) não varre nada.
-- **Templates vão na imagem:** uma mudança de designer exige build e deploy da imagem. Isso é bom para versionar e reverter. Se os designers precisarem publicar sem deploy, os templates vão para o EFS (`SITE_CARROS_TEMPLATES`).
-- **Nada aqui foi aplicado numa conta AWS ainda.** Os manifestos têm sintaxe validada, mas os IDs (conta, EFS, certificado, ECR) são exemplos.
+- **Travas:** são renovadas enquanto o trabalho dura (o build síncrono também renova) e expiram em 5 min (`SITE_CARROS_TRAVA_EXPIRA_MS`) quando o pod morre.
+- **Listagem de pedidos:** por site e por cliente usa um índice (`.estado/api/indice/`); só a listagem sem filtro (admin) lê a pasta de pedidos.
+- **Templates:** os da imagem são a base versionada (deploy). Cada inquilino pode ter os **próprios** em `inquilinos/<id>/templates/<nome>/` (no EFS), que o designer publica sem deploy. Eles valem só para os sites do inquilino e, com o mesmo nome, substituem o da imagem só para ele.
+- **Fila em arquivos:** fica, por aguentar o volume previsto. A troca por SQS + DynamoDB, se um dia for preciso, é só em `api/fila.js`.
+- **A validar no piloto:** `delete-distribution-tenant` pode exigir desativar o tenant antes; o 301 de `renomear.sh` é manual.
+- **Nada aqui foi aplicado numa conta AWS ainda.** Manifestos com sintaxe validada e scripts testados em modo simulado. Os IDs (conta, EFS, distribuição, certificado, ECR) são exemplos.

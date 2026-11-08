@@ -117,3 +117,30 @@ test('publicação e infra com a configuração DO inquilino ({inquilino} dispon
   assert.equal(c.status, 201, JSON.stringify(c.j));
   assert.match(fs.readFileSync(log, 'utf8'), /^infra-wm webmotors infra-wm\.com\.br$/m);
 });
+
+test('templates PRÓPRIOS do inquilino (no volume, sem deploy): só ele usa; mesmo nome substitui o da imagem só para ele', () => {
+  const { construir } = require('../core/build.js');
+  const copiar = (dest, marca) => {
+    fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'templates', 'teste'), dest, { recursive: true });
+    const p = path.join(dest, 'paginas', 'index.html');
+    fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace('</body>', `<!-- ${marca} --></body>`));
+  };
+  copiar(path.join(A.raiz(), 'inquilinos', 'webmotors', 'templates', 'visual-wm'), 'visual-proprio-wm');
+  copiar(path.join(A.raiz(), 'inquilinos', 'webmotors', 'templates', 'teste'), 'teste-substituido-wm');
+  A.criarSite('tpl-wm.com.br', { carros: [A.carro()], site: { inquilino: 'webmotors', template: 'visual-wm' } });
+  A.criarSite('tpl-wm2.com.br', { carros: [A.carro()], site: { inquilino: 'webmotors', template: 'teste' } });
+  A.criarSite('tpl-rm.com.br', { carros: [A.carro()], site: { inquilino: 'revenda-mais', template: 'teste' } });
+  A.silencioso(() => construir({ sites: ['tpl-wm.com.br', 'tpl-wm2.com.br', 'tpl-rm.com.br'] }));
+  assert.match(A.ler('tpl-wm.com.br', 'multipla/index.html'), /visual-proprio-wm/);
+  assert.match(A.ler('tpl-wm2.com.br', 'multipla/index.html'), /teste-substituido-wm/, 'o "teste" da Webmotors vale para ela');
+  assert.doesNotMatch(A.ler('tpl-rm.com.br', 'multipla/index.html'), /substituido/, 'a Revenda Mais continua com o da imagem');
+  // outro inquilino não enxerga o template próprio da Webmotors
+  const erros = Sites.validarSite({ ...Sites.carregar('tpl-rm.com.br'), id: undefined, template: 'visual-wm' }, 'tpl-rm.com.br');
+  assert.ok(erros.some((e) => /template "visual-wm" não existe/.test(e)), JSON.stringify(erros));
+  // o template próprio vale mesmo fora da lista "templates" do inquilino
+  assert.deepEqual(Sites.validarSite({ nome: 'x', motor: 'v2', template: 'visual-wm', inquilino: 'webmotors' }, 'novo-wm.com.br'), []);
+  // editar o template próprio refaz as páginas (o hash do template entra no do site)
+  fs.appendFileSync(path.join(A.raiz(), 'inquilinos', 'webmotors', 'templates', 'visual-wm', 'css', 'base.css'), '\n/* mudou */');
+  const { r } = A.silencioso(() => construir({ sites: ['tpl-wm.com.br'] }));
+  assert.equal(r.feitos[0].resumo.base, true, 'mudança no template refaz as páginas');
+});

@@ -2,6 +2,8 @@
 //   criarSite(dominio, parcial)    estrutura nova (sites/<dominio>/...) → gera o site → comando "criar" da infra
 //   promoverSite(rascunho, final)  RASCUNHO → DEFINITIVO: domínio final, tira o "rascunho" (volta ao Google), descarta o
 //                                  histórico do rascunho, gera do zero → comando "promover" da infra
+//   removerSite(dominio)           tira o site: fotos do armazenamento, arquivos para .estado/removidos/ (recuperável),
+//                                  saída apagada → comando "remover" da infra (tirar da hospedagem/CDN)
 //   renomearSite(antigo, novo)     site JÁ NO AR muda de domínio: leva tudo, inclusive o histórico de SEO → "renomear" (301)
 //   rodarInfra(acao, valores)      roda um comando de config/infra.json
 // Tudo com a trava de execução (core/trava.js): não roda ao mesmo tempo que um build.
@@ -10,12 +12,14 @@
 //   criar      {site} {pasta}            ex.: criar bucket/distribuição na CDN, certificado e DNS do domínio novo
 //   promover   {rascunho} {site} {pasta} ex.: hospedagem do domínio definitivo + derrubar a do endereço de rascunho
 //   renomear   {antigo} {novo} {pasta}   ex.: hospedagem do domínio novo + 301 de TODO o domínio antigo para o novo
+//   remover    {site}                    ex.: apagar o distribution tenant, o prefixo do site no S3 e o certificado
 // Sem config/infra.json, os arquivos e o build são feitos e a resposta avisa que a infra ficou por fazer.
 const fs = require('fs');
 const { execFile } = require('child_process');
 const path = require('path');
 const C = require('./caminhos');
 const Sites = require('./sites');
+const Fotos = require('./fotos');
 const { construir, problemasProducao } = require('./build');
 const { comTrava, chaveSite } = require('./trava');
 
@@ -110,4 +114,16 @@ async function promoverSite(dominio, { final = null, url = null, pasta = 'dist',
     infra: await rodarInfra('promover', { rascunho: dominio, site: destino, pasta: path.join(pasta, destino) }, Inq.doSite(destino)) };
 }
 
-module.exports = { criarSite, promoverSite, renomearSite, rodarInfra };
+async function removerSite(dominio, { pasta = 'dist', log = console.log } = {}) {
+  if (!Sites.existe(dominio)) return { status: 'invalido', erros: [`site "${dominio}" não existe`] };
+  const inquilino = Inq.doSite(dominio);
+  const r = await comTrava(chaveSite(dominio), async () => {
+    const fotos = await Fotos.apagarFotosDoSite(dominio, { log }); // antes de arquivar: o estado das fotos diz o que apagar
+    return { status: 'ok', fotos, ...Sites.arquivarArquivos(dominio, { pasta }) };
+  });
+  if (r.status !== 'ok') return r;
+  log(`${dominio}: site removido (cópia em ${r.arquivo})`);
+  return { status: 'ok', site: dominio, inquilino, arquivo: r.arquivo, fotos: r.fotos, infra: await rodarInfra('remover', { site: dominio }, inquilino) };
+}
+
+module.exports = { removerSite, criarSite, promoverSite, renomearSite, rodarInfra };

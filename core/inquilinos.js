@@ -5,6 +5,9 @@
 //                                    templates ausente = todos; rascunhos ausente = sem rascunho automático
 //   inquilinos/<id>/config/<arquivo> fotos.json, infra.json, publicacao.json, robots.txt, site-modelo.json
 //                                    (o que não estiver aqui vem de config/<arquivo>, a configuração global)
+//   inquilinos/<id>/templates/<nome> templates PRÓPRIOS do inquilino. Ficam no volume (EFS): o designer publica sem
+//                                    deploy da imagem. Valem só para os sites do inquilino; com o mesmo nome de um
+//                                    template da imagem (templates/), substituem o da imagem só para ele.
 //
 // Inquilino "padrao": o de quem não diz nada (sites sem "inquilino", tokens sem inquilino). Usa só config/ global.
 // O domínio é único na plataforma inteira: dois inquilinos nunca disputam o mesmo domínio.
@@ -37,7 +40,14 @@ function arquivoConfig(id, arquivo) {
   return C.config(arquivo);
 }
 const lerConfig = (id, arquivo, padrao = null) => lerJSON(arquivoConfig(id, arquivo), padrao);
-const templatePermitido = (id, nome) => { const t = carregar(id).templates; return !t || t.includes(nome); };
+// pasta do template para um inquilino: o dele, se existir; senão o da imagem (templates/<nome>)
+function dirTemplate(id, nome) {
+  if (id && id !== PADRAO && /^[a-z0-9-]+$/.test(String(nome))) { const p = path.join(C.inquilinoTemplates(id), nome); if (fs.existsSync(path.join(p, 'template.json'))) return p; }
+  return C.template(nome);
+}
+const temTemplateProprio = (id, nome) => dirTemplate(id, nome) !== C.template(nome);
+// template próprio sempre vale; os da imagem seguem a lista "templates" do inquilino (ausente = todos)
+const templatePermitido = (id, nome) => { if (temTemplateProprio(id, nome)) return true; const t = carregar(id).templates; return !t || t.includes(nome); };
 
 function criar(id, { nome, templates = null, rascunhos = null } = {}) {
   if (!ID_OK.test(String(id)) || id === PADRAO) throw new Error('id do inquilino: minúsculas, números e hífen (ex.: webmotors); "padrao" é reservado');
@@ -51,4 +61,4 @@ function criar(id, { nome, templates = null, rascunhos = null } = {}) {
   return carregar(id);
 }
 
-module.exports = { PADRAO, listar, existe, carregar, doSite, arquivoConfig, lerConfig, templatePermitido, criar };
+module.exports = { PADRAO, listar, existe, carregar, doSite, arquivoConfig, lerConfig, templatePermitido, dirTemplate, temTemplateProprio, criar };

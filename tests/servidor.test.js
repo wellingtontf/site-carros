@@ -431,3 +431,21 @@ test('POST /v1/sites sem domínio: cria o próximo rascunho da sequência (siteN
   assert.equal(p.status, 422);
   assert.equal((await req('POST', `/v1/sites/${a.j.site}/promover`, { token: tokTodos })).status, 422, 'no próprio endereço de rascunho não');
 });
+
+test('DELETE /v1/sites/<d>?confirmar=<d>: tira o site (recuperável), apaga a saída, tira dos tokens', async () => {
+  const D = 'vai-sair.com.br';
+  A.criarSite(D, { carros: [A.carro()] });
+  const tokD = CL.criarCliente('crm-vai-sair', [D, ID]);
+  assert.equal((await req('POST', `/v1/sites/${D}/build?esperar=20`, { token: tokTodos })).status, 200);
+  assert.ok(A.existe(D, 'index.html'));
+  assert.equal((await req('DELETE', `/v1/sites/${D}?confirmar=${D}`, { token: tokD })).status, 403, 'só token "*" remove');
+  assert.equal((await req('DELETE', `/v1/sites/${D}`, { token: tokTodos })).status, 422, 'sem confirmar');
+  assert.equal((await req('DELETE', `/v1/sites/${D}?confirmar=${ID}`, { token: tokTodos })).status, 422, 'confirmação de outro domínio');
+  const r = await reqJ('DELETE', `/v1/sites/${D}?confirmar=${D}&esperar=20`, { token: tokTodos });
+  assert.equal(r.status, 200, JSON.stringify(r.j));
+  assert.ok(!fs.existsSync(path.join(A.raiz(), 'sites', D)) && !A.existe(D, ''), 'site e saída fora');
+  assert.ok(fs.existsSync(path.join(A.raiz(), r.j.resultado.arquivo, 'site', 'site.json')), 'cópia recuperável');
+  assert.equal(A.pendente(D), undefined);
+  assert.equal((await req('GET', `/v1/sites/${D}`, { token: tokTodos })).status, 404);
+  assert.deepEqual(CL.listarClientes().find((c) => c.nome === 'crm-vai-sair').sites, [ID]);
+});

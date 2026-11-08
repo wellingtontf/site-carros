@@ -38,6 +38,7 @@ O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da
 | PUT | `/v1/sites/{dominio}` | **cria o site, se não existir, ou atualiza o cadastro** (ver "Cadastro do site") e gera o site |
 | POST | `/v1/sites/{dominio}/promover` | **rascunho → site definitivo**: `{"dominio": "lojafinal.com.br"}` (ver "Rascunho e promoção") |
 | POST | `/v1/sites/{dominio}/dominio` | site **já no ar** troca de domínio, levando tudo junto: `{"novo": "outro.com.br"}` (ver "Trocar o domínio") |
+| DELETE | `/v1/sites/{dominio}?confirmar={dominio}` | **remove o site** (recuperável: vai para `.estado/removidos/`); fotos saem do armazenamento; roda o `remover` da infra. Token `*`; 409 se houver pedidos na fila |
 | POST | `/v1/sites/{dominio}/infra` | refaz o passo de hospedagem: `{"acao": "criar"}`, ou `{"acao": "promover" \| "renomear", "antigo": "..."}` |
 | GET | `/v1/sites/{dominio}` | resumo: cadastro, total de carros, fotos pendentes/com erro, últimos pedidos |
 | POST | `/v1/estoques` | **estoque de 1 ou N sites numa chamada** (ver "Vários sites numa chamada") |

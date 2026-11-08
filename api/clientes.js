@@ -69,6 +69,13 @@ function renomearSiteNosClientes(antigo, novo) {
   for (const c of Object.values(todos)) if (Array.isArray(c.sites) && c.sites.includes(antigo)) { c.sites = c.sites.map((s) => (s === antigo ? novo : s)); mudou = true; }
   if (mudou) gravarClientes(todos);
 }
+// site removido: sai da lista de sites dos tokens (quem tinha "*" não muda)
+function removerSiteDosClientes(dominio) {
+  const todos = lerClientes();
+  let mudou = false;
+  for (const c of Object.values(todos)) if (Array.isArray(c.sites) && c.sites.includes(dominio)) { c.sites = c.sites.filter((s) => s !== dominio); mudou = true; }
+  if (mudou) gravarClientes(todos);
+}
 const listarClientes = () => Object.entries(lerClientes()).map(([nome, c]) => ({ nome, inquilino: c.inquilino || Inq.PADRAO, sites: c.sites || [], ativo: c.ativo !== false, criado: c.criado || '' }));
 
-module.exports = { autenticar, pode, criarCliente, removerCliente, renomearSiteNosClientes, listarClientes, lerClientes, sha256 };
+module.exports = { autenticar, pode, criarCliente, removerCliente, renomearSiteNosClientes, removerSiteDosClientes, listarClientes, lerClientes, sha256 };

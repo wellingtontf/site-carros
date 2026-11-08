@@ -223,6 +223,16 @@ function criarRotas({ fila }) {
     }
     if (m === 'GET' && resto === '/estoque') return enviar(res, 200, Sites.estoque(d));
 
+    // APAGAR O SITE: DELETE /v1/sites/<d>?confirmar=<d> (repetir o domínio evita apagar o site errado por engano).
+    // Não destrói: os arquivos vão para .estado/removidos/ (recuperável); fotos saem do armazenamento; infra "remover".
+    if (m === 'DELETE' && resto === '') {
+      exigirTodos('remover um site');
+      if (url.searchParams.get('confirmar') !== d) throw new Erro(422, `para remover, repita o domínio: ?confirmar=${d}`);
+      const pend = fila.pendentesDoSite(d);
+      if (pend.length) throw new Erro(409, `o site tem ${pend.length} pedido(s) na fila; espere terminarem para remover`, { pedidos: pend.map((x) => x.id) });
+      return responderPedido(res, url, fila.adicionar({ tipo: 'remover-site', site: d, cliente: cliente.nome }));
+    }
+
     // PROMOVER RASCUNHO A DEFINITIVO: {"dominio": "lojafinal.com.br", "url": "https://www.lojafinal.com.br"} (os dois
     // opcionais; sem domínio, só deixa de ser rascunho no próprio endereço). Volta ao Google, gerado do zero, infra "promover"
     if (m === 'POST' && resto === '/promover') {

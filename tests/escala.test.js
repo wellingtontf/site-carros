@@ -105,3 +105,42 @@ test('publicação não perde o que foi gerado DURANTE a publicação', () => {
   ok.confirmar(); // publicou 1 e 2
   assert.deepEqual(P.ler('dist-x', 'a.com.br').escritos, ['a.com.br/3.html'], 'o 3 fica para a próxima');
 });
+
+test('trava é renovada enquanto o trabalho dura (assíncrono e build síncrono longo)', async () => {
+  const T = require('../core/trava.js');
+  process.env.SITE_CARROS_TRAVA_EXPIRA_MS = '300';
+  try {
+    let tentouNoMeio = null;
+    await T.comTrava('longo', async () => {
+      await new Promise((ok) => setTimeout(ok, 800)); // bem mais que o prazo de 300 ms
+      tentouNoMeio = T.travar('longo');
+    });
+    assert.equal(tentouNoMeio, false, 'outro pod não pega o site no meio do trabalho');
+    // trabalho síncrono (como o build): sem o temporizador, quem renova é o próprio laço
+    let roubou = null;
+    await T.comTrava('sincrono', () => {
+      const fim = Date.now() + 800;
+      while (Date.now() < fim) T.renovarMinhas();
+      roubou = T.travar('sincrono');
+    });
+    assert.equal(roubou, false);
+    // e quem morre sem soltar: expira no prazo
+    T.travar('morto');
+    const velho = Date.now() / 1000 - 1;
+    fs.utimesSync(T.arquivo('morto'), velho, velho);
+    assert.equal(T.travar('morto'), true, 'trava de quem parou de renovar expira');
+  } finally { delete process.env.SITE_CARROS_TRAVA_EXPIRA_MS; }
+});
+
+test('listar pedidos de um site lê só o índice dele (não a pasta inteira)', () => {
+  const { criarFila } = require('../api/fila.js');
+  const f = criarFila();
+  const a = f.adicionar({ tipo: 'build', site: 'indice-a.com.br', cliente: 'x' });
+  f.adicionar({ tipo: 'build', site: 'indice-b.com.br', cliente: 'y' });
+  const a2 = f.adicionar({ tipo: 'build', site: 'indice-a.com.br', cliente: 'y' });
+  assert.deepEqual(f.listar({ site: 'indice-a.com.br' }).map((p) => p.id), [a2.id, a.id]);
+  assert.deepEqual(f.listar({ site: 'indice-a.com.br', cliente: 'x' }).map((p) => p.id), [a.id]);
+  assert.equal(f.listar({ cliente: 'y' }).length, 2);
+  // o índice não lê pedido de outro site: apagar os do site b não muda a lista do a
+  assert.equal(f.listar({ site: 'indice-a.com.br', limite: 1 }).length, 1);
+});

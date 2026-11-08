@@ -12,7 +12,7 @@ const Fotos = require('../core/fotos');
 const Inq = require('../core/inquilinos');
 const { comTrava } = require('../core/trava');
 
-function criarTrabalhador({ fila, atraso = 3000, publicar = false, log = console.log, aoRenomear = () => {}, intervalo = Math.min(1000, atraso) } = {}) {
+function criarTrabalhador({ fila, atraso = 3000, publicar = false, log = console.log, aoRenomear = () => {}, aoRemover = () => {}, intervalo = Math.min(1000, atraso) } = {}) {
   let parado = false, girando = false, timer = null, ultimoLimpar = 0, ultimo = null;
   const ativos = new Set(); // chaves sendo processadas por este trabalhador
 
@@ -24,6 +24,22 @@ function criarTrabalhador({ fila, atraso = 3000, publicar = false, log = console
 
   async function processarPrincipal(site, ps) {
     const fins = { concluido: [], outros: [] };
+    // 0) remover o site: o resto dos pedidos dele perde o sentido
+    const rem = ps.find((x) => x.tipo === 'remover-site');
+    if (rem) {
+      try {
+        const r = await Ops.removerSite(site, { log });
+        if (r.status === 'ocupado') { fila.voltar(ps); return fins; }
+        if (r.status !== 'ok') fila.terminar(rem, 'invalido', r.erros || [r.status]);
+        else {
+          aoRemover(site);
+          const infraOk = r.infra.status !== 'falhou';
+          fila.terminar(rem, infraOk ? 'concluido' : 'erro', infraOk ? [] : [`site removido, mas a infra falhou: ${r.infra.mensagem}`], r);
+        }
+      } catch (e) { fila.terminar(rem, 'erro', [e.message]); }
+      ps.filter((p) => p !== rem && p.status === 'processando').forEach((p) => fila.terminar(p, 'erro', [`o site "${site}" foi removido`]));
+      return fins;
+    }
     // 1) criar / promover / renomear: antes de tudo (e o que vier depois para o domínio antigo não tem mais site)
     for (const p of ps.filter((x) => ['criar', 'promover', 'renomear'].includes(x.tipo))) {
       try {

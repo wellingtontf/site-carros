@@ -47,6 +47,7 @@ const fila = criarFila();
 const trabalhador = ehTrabalhador ? criarTrabalhador({
   fila, atraso: +process.env.ATRASO_MS || 3000, publicar: /^(1|true|sim)$/i.test(process.env.PUBLICAR || ''), log,
   aoRenomear: (antigo, novo) => CL.renomearSiteNosClientes(antigo, novo), // tokens acompanham a troca de domínio
+  aoRemover: (site) => CL.removerSiteDosClientes(site),
 }) : null;
 const rotear = ehApi ? criarRotas({ fila }) : null;
 

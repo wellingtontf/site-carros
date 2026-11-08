@@ -1,6 +1,7 @@
 {
-  "_comentario": "Copie para config/infra.json. Comandos que ligam a plataforma à hospedagem (rodam na raiz do projeto, por /bin/sh). Placeholders: {site} {pasta} {antigo} {novo} {rascunho}. Devem poder rodar de novo sem estragar nada (POST /v1/sites/<d>/infra refaz).",
-  "criar": "ferramentas/infra/criar.sh {site} {pasta}",
-  "promover": "ferramentas/infra/promover.sh {rascunho} {site} {pasta}",
-  "renomear": "ferramentas/infra/renomear.sh {antigo} {novo} {pasta}"
+  "_comentario": "Copie para inquilinos/<id>/config/infra.json (ou config/infra.json para o inquilino padrao). Comandos que ligam a plataforma à hospedagem (CloudFront SaaS Manager + S3), com os IDs do inquilino. Placeholders: {site} {pasta} {antigo} {novo} {rascunho} {inquilino}. Podem rodar de novo sem estragar nada (POST /v1/sites/<d>/infra refaz). Veja ferramentas/infra/comum.sh.",
+  "criar": "DISTRIBUICAO=E1EXEMPLO RASCUNHO_RE='^site[0-9]+\\.carro57\\.com\\.br$' ferramentas/infra/criar.sh {site}",
+  "promover": "DISTRIBUICAO=E1EXEMPLO BUCKET=sites-revenda-mais RASCUNHO_RE='^site[0-9]+\\.carro57\\.com\\.br$' ferramentas/infra/promover.sh {rascunho} {site}",
+  "renomear": "DISTRIBUICAO=E1EXEMPLO ferramentas/infra/renomear.sh {antigo} {novo}",
+  "remover": "DISTRIBUICAO=E1EXEMPLO BUCKET=sites-revenda-mais ferramentas/infra/remover.sh {site}"
 }

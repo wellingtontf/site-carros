@@ -103,7 +103,7 @@ function validarSite(s, dominio) {
   if (donoRascunho && donoRascunho !== inq) e(`"${dominio}" é endereço de rascunho de outro inquilino`);
   if (!txt(s.template)) e('"template" vazio ou ausente');
   else if (!Inq.templatePermitido(inq, s.template)) e(`o template "${s.template}" não está liberado para o inquilino "${inq}"`);
-  else if (!/^[a-z0-9-]+$/.test(s.template) || !fs.existsSync(path.join(C.template(s.template), 'template.json'))) e(`template "${s.template}" não existe`);
+  else if (!/^[a-z0-9-]+$/.test(s.template) || !fs.existsSync(path.join(Inq.dirTemplate(inq, s.template), 'template.json'))) e(`template "${s.template}" não existe`);
   if (!txt(s.motor)) e('"motor" vazio ou ausente (ex.: "v2")');
   else if (!/^[a-z0-9]+$/.test(s.motor) || !fs.existsSync(path.join(C.motor(s.motor), 'engine.js'))) e(`motor "${s.motor}" não existe`);
   if (s.url != null && !(typeof s.url === 'string' && /^https:\/\/[^\s/]+\/?$/i.test(s.url))) e('"url" precisa ser https://dominio (sem caminho)');
@@ -123,7 +123,7 @@ function validarSite(s, dominio) {
   // blocos das páginas precisam existir no template (senão o build para)
   if (Array.isArray(s.paginas) && txt(s.template)) {
     s.paginas.forEach((p, i) => (p && Array.isArray(p.blocos) ? p.blocos : []).forEach((b) => {
-      if (!b || !/^[a-z0-9-]+$/.test(String(b.tipo)) || !fs.existsSync(path.join(C.template(s.template), 'blocos', `${b.tipo}.html`))) e(`página ${i + 1}: bloco "${b && b.tipo}" não existe no template "${s.template}"`);
+      if (!b || !/^[a-z0-9-]+$/.test(String(b.tipo)) || !fs.existsSync(path.join(Inq.dirTemplate(inq, s.template), 'blocos', `${b.tipo}.html`))) e(`página ${i + 1}: bloco "${b && b.tipo}" não existe no template "${s.template}"`);
     }));
   }
   // o estoque que já está no ar precisa continuar válido com as lojas novas
@@ -196,4 +196,21 @@ function renomearArquivos(antigo, novo, { pasta = 'dist' } = {}) {
   return { trocas, desfazer };
 }
 
-module.exports = { proximoRascunho, ehDominioRascunho, inquilinoDoRascunho, padraoRascunho, ID_SITE, listar, existe, carregar, carregarTodos, lojas, estoque, resumo, resumos, validarSite, cadastroNovo, gravarSite, criarArquivos, renomearArquivos };
+// tira o site da plataforma SEM destruir: cadastro, estoque e estado vão para .estado/removidos/<dominio>-<data>/
+// (dá para recuperar). Só a saída gerada (dist/<dominio>) é apagada. Pendências de publicação e fontes.json saem.
+function arquivarArquivos(dominio, { pasta = 'dist' } = {}) {
+  if (!existe(dominio)) throw new Error(`site "${dominio}" não existe`);
+  const destino = path.join(C.ESTADO, 'removidos', `${dominio}-${new Date().toISOString().replace(/[:.]/g, '-')}`);
+  const mover = (de, para) => { if (!fs.existsSync(de)) return; fs.mkdirSync(path.dirname(para), { recursive: true }); fs.renameSync(de, para); };
+  mover(C.site(dominio), path.join(destino, 'site'));
+  mover(path.join(C.ESTADO, pasta, `${dominio}.json`), path.join(destino, 'estado-build.json'));
+  mover(C.fotosEstado(dominio), path.join(destino, 'fotos.json'));
+  for (const d of ['estoques-anteriores', 'sites-anteriores']) mover(path.join(C.ESTADO, d, `${dominio}.json`), path.join(destino, `${d}.json`));
+  fs.rmSync(path.join(C.saida(pasta), dominio), { recursive: true, force: true });
+  require('./pendentes').remover(pasta, dominio);
+  const fontes = lerJSON(C.config('fontes.json'), null);
+  if (fontes && dominio in fontes) { delete fontes[dominio]; gravarJSON(C.config('fontes.json'), fontes); }
+  return { arquivo: path.relative(C.ROOT, destino) };
+}
+
+module.exports = { arquivarArquivos, proximoRascunho, ehDominioRascunho, inquilinoDoRascunho, padraoRascunho, ID_SITE, listar, existe, carregar, carregarTodos, lojas, estoque, resumo, resumos, validarSite, cadastroNovo, gravarSite, criarArquivos, renomearArquivos };

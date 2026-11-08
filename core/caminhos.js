@@ -37,6 +37,7 @@ module.exports = {
   inquilino: (id) => path.join(INQUILINOS, id),
   inquilinoJson: (id) => path.join(INQUILINOS, id, 'inquilino.json'),
   inquilinoConfig: (id, arquivo) => path.join(INQUILINOS, id, 'config', arquivo),
+  inquilinoTemplates: (id) => path.join(INQUILINOS, id, 'templates'), // templates PRÓPRIOS do inquilino (no volume: sem deploy)
   MOTOR: path.join(CORE, 'motor'),
   UI: path.join(CORE, 'ui'),
   motor: (versao) => path.join(CORE, 'motor', versao),

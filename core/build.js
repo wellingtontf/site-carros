@@ -38,8 +38,10 @@ const LinkCarro = require('./ui/link-carro.js'); // regra do link da página do 
 const PL = require('./paginas-livres'); // páginas livres dos web designers (HTML normal)
 const Fotos = require('./fotos'); // fotos por URL: quantas já estão prontas
 const Robots = require('./robots');
+const Inq = require('./inquilinos'); // inquilino do site: template próprio dele, se houver
 const Sites = require('./sites'); // repositório de sites: o único que lê a pasta sites/
-const Pendentes = require('./pendentes'); // o que falta publicar, um arquivo por site // modelo do robots.txt (um para todos os sites; o site pode ter o seu)
+const Pendentes = require('./pendentes'); // o que falta publicar, um arquivo por site
+const { renovarMinhas } = require('./trava'); // build longo: mantém as travas do trabalhador vivas // modelo do robots.txt (um para todos os sites; o site pode ter o seu)
 
 const ROOT = C.ROOT;
 const ESTADO = C.ESTADO;
@@ -275,7 +277,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
   fs.mkdirSync(DIST, { recursive: true });
   const hashTpl = new Map();
   // paginas-extras/ fica de fora: editar uma página livre do template não deve refazer as páginas de carro de todos os sites
-  const tplHash = (nome) => { if (!hashTpl.has(nome)) hashTpl.set(nome, sha(hashDir(C.template(nome), (r) => r === 'paginas-extras'))); return hashTpl.get(nome); };
+  const tplHash = (dir) => { if (!hashTpl.has(dir)) hashTpl.set(dir, sha(hashDir(dir, (r) => r === 'paginas-extras'))); return hashTpl.get(dir); };
   const hoje = hojeParam || process.env.SITE_CARROS_HOJE || new Date().toISOString().slice(0, 10);
   const feitos = [];
   const PADRAO = lerPaginasPadrao();
@@ -289,8 +291,10 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     const arqMotor = path.join(C.motor(versao), 'engine.js');
     if (!fs.existsSync(arqMotor)) throw new Error(`Site "${site.id}": motor "${versao}" não existe (core/motor/${versao}/engine.js)`);
     const nomeTpl = site.template;
-    if (!nomeTpl || !fs.existsSync(C.template(nomeTpl))) throw new Error(`Site "${site.id}": template "${nomeTpl}" não existe (templates/${nomeTpl}/)`);
-    const faltam = [...PAGINAS.map((p) => [C.pagina(nomeTpl, p), `paginas/${p}`]), ...BLOCOS_OBRIGATORIOS.map((b) => [path.join(C.template(nomeTpl), 'blocos', `${b}.html`), `blocos/${b}.html`])]
+    // template próprio do inquilino (inquilinos/<id>/templates/<nome>, sem deploy) ou o da imagem (templates/<nome>)
+    const dirTpl = nomeTpl ? Inq.dirTemplate(Inq.doSite(site), nomeTpl) : null;
+    if (!nomeTpl || !fs.existsSync(dirTpl)) throw new Error(`Site "${site.id}": template "${nomeTpl}" não existe (templates/${nomeTpl}/)`);
+    const faltam = [...PAGINAS.map((p) => [path.join(dirTpl, 'paginas', p), `paginas/${p}`]), ...BLOCOS_OBRIGATORIOS.map((b) => [path.join(dirTpl, 'blocos', `${b}.html`), `blocos/${b}.html`])]
       .filter(([arq]) => !fs.existsSync(arq)).map(([, nome]) => nome);
     if (faltam.length) throw new Error(`Template "${nomeTpl}" incompleto: falta ${faltam.join(', ')}`);
 
@@ -305,11 +309,11 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     //   site.json "paginas" > sites/<dominio>/paginas/ > templates/<nome>/paginas-extras/ > paginas-padrao/
     const livres = [
       ...PL.lerPaginasLivres(C.paginasLivresSite(site.id)).map((p) => ({ ...p, origem: `sites/${site.id}/paginas` })),
-      ...PL.lerPaginasLivres(C.paginasLivresTemplate(nomeTpl)).map((p) => ({ ...p, origem: `templates/${nomeTpl}/paginas-extras`, doTemplate: true })),
+      ...PL.lerPaginasLivres(path.join(dirTpl, 'paginas-extras')).map((p) => ({ ...p, origem: `templates/${nomeTpl}/paginas-extras`, doTemplate: true })),
     ];
     const vistosLivres = new Map();
     for (const p of livres) {
-      const onde = `${p.origem}/${path.relative(p.origem.startsWith('sites') ? C.paginasLivresSite(site.id) : C.paginasLivresTemplate(nomeTpl), p.arquivo)}`;
+      const onde = `${p.origem}/${path.relative(p.origem.startsWith('sites') ? C.paginasLivresSite(site.id) : path.join(dirTpl, 'paginas-extras'), p.arquivo)}`;
       if (vistosLivres.get(p.caminho) === p.origem) throw new Error(`Página "${p.caminho}" duplicada em ${p.origem} (existe ${p.caminho}.html e ${p.caminho}/index.html)`);
       if (paginasSite.some((x) => x.caminho === p.caminho) || vistosLivres.has(p.caminho)) continue; // quem vem antes ganha
       if (p.doTemplate && desligadas[p.caminho] === false) continue;
@@ -321,7 +325,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
         livre: { arquivo: p.arquivo, assets: p.assets, semMoldura: m.livre, onde } });
     }
     // páginas padrão (contato, privacidade, cookies, LGPD): entram se o site não tem uma de mesmo caminho nem desligou
-    const extrasTpl = PL.lerPaginasLivres(C.paginasLivresTemplate(nomeTpl)).map((p) => p.caminho);
+    const extrasTpl = PL.lerPaginasLivres(path.join(dirTpl, 'paginas-extras')).map((p) => p.caminho);
     for (const n of Object.keys(desligadas)) if (!PADRAO.some((p) => p.nome === n) && !extrasTpl.includes(n)) console.warn(`  aviso: site "${site.id}": paginasPadrao "${n}" não existe em paginas-padrao/ nem em templates/${nomeTpl}/paginas-extras/`);
     for (const p of PADRAO) {
       const caminho = limparCaminho(p.caminho);
@@ -359,7 +363,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     // nomes (não as contagens) de cidades/marcas/carrocerias entram: menus e rodapés podem listá-los em todas as páginas.
     // Contagens ("1052 veículos") mudam a toda hora: use-as só na listagem e nas páginas de conteúdo (sempre refeitas).
     const nomesEstoque = ['cidade', 'marca', 'carroceria', 'combustivel'].map((k) => [...new Set(carros.map((c) => c[k]))].sort().join('|'));
-    const baseHash = sha(JSON.stringify([RENDER_VERSION, tplHash(nomeTpl), site.nome, site.slogan, site.url, site.cor, site.tema, site.textos, site.fotosBase, site.cabecalho, site.rodape, site.lojas, nomesEstoque,
+    const baseHash = sha(JSON.stringify([RENDER_VERSION, tplHash(dirTpl), site.nome, site.slogan, site.url, site.cor, site.tema, site.textos, site.fotosBase, site.cabecalho, site.rodape, site.lojas, nomesEstoque,
       paginasSite.filter((p) => p.rotulo).map((p) => [p.rotulo, p.caminho]), // links legais aparecem no rodapé das páginas de carro
       ...(site.rascunho ? ['rascunho'] : [])])); // só entra quando é rascunho: os sites definitivos não refazem nada por causa disso
     const estadoAnt = completo || efemero ? null : lerEstado(pasta, site.id);
@@ -375,7 +379,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     escreverSe(path.join(out, 'motor', 'engine.js'), engine, rel('motor/engine.js'), mud);
     const arquivos = new Map();
     for (const [k, v] of listarArvore(C.UI)) arquivos.set(`motor/${k}`, v);
-    for (const [k, v] of listarArvore(C.template(nomeTpl), (r) => ['paginas', 'paginas-extras', 'blocos', 'parciais', 'template.json', 'motor', 'assets'].includes(r))) arquivos.set(k, v);
+    for (const [k, v] of listarArvore(dirTpl, (r) => ['paginas', 'paginas-extras', 'blocos', 'parciais', 'template.json', 'motor', 'assets'].includes(r))) arquivos.set(k, v);
     for (const [k, v] of listarArvore(C.assets(site.id))) arquivos.set(`assets/${k}`, v);
     for (const [k, v] of arquivos) copiarSe(v, path.join(out, k), rel(k), mud);
     const estaticos = new Set(arquivos.keys()); // arquivos copiados (template, assets, páginas livres): o que sumir da origem é apagado
@@ -397,12 +401,12 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     const escreverHtml = (arqRel, html) => escreverSe(path.join(out, arqRel), rascunho(versionar(html, arqRel)), rel(arqRel), mud);
     // {{> nome}} inclui templates/<nome>/parciais/<nome>.html (cabeçalho, rodapé... escritos uma vez só)
     const parciais = (txt, nivel = 0) => txt.replace(/\{\{>\s*([a-z0-9-]+)\s*\}\}/g, (_, n) => {
-      const arq = path.join(C.template(nomeTpl), 'parciais', `${n}.html`);
+      const arq = path.join(dirTpl, 'parciais', `${n}.html`);
       if (!fs.existsSync(arq)) throw new Error(`Template "${nomeTpl}": parcial "${n}" não existe (templates/${nomeTpl}/parciais/${n}.html)`);
       if (nivel > 5) throw new Error(`Template "${nomeTpl}": parciais aninhadas demais (${n})`);
       return parciais(fs.readFileSync(arq, 'utf8'), nivel + 1);
     });
-    const pagina = (arquivo) => parciais(fs.readFileSync(C.pagina(nomeTpl, arquivo), 'utf8'));
+    const pagina = (arquivo) => parciais(fs.readFileSync(path.join(dirTpl, 'paginas', arquivo), 'utf8'));
 
     // dados que o motor lê
     escreverSe(
@@ -498,7 +502,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     const tplBlocos = new Map();
     const tplBloco = (tipo) => {
       if (!tplBlocos.has(tipo)) {
-        const arq = path.join(C.template(nomeTpl), 'blocos', `${tipo}.html`);
+        const arq = path.join(dirTpl, 'blocos', `${tipo}.html`);
         if (!/^[a-z0-9-]+$/.test(String(tipo)) || !fs.existsSync(arq)) throw new Error(`Site "${site.id}": bloco "${tipo}" não existe no template "${nomeTpl}" (templates/${nomeTpl}/blocos/${tipo}.html)`);
         tplBlocos.set(tipo, parciais(fs.readFileSync(arq, 'utf8')));
       }
@@ -686,6 +690,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     const links = {};
     let novos = 0, alterados = 0, inalterados = 0;
     for (const c of carros) {
+      renovarMinhas(); // barato: só toca no arquivo da trava a cada 1/3 do prazo
       const titulo = `${c.marca} ${c.modelo} ${c.versao} ${c.ano}`;
       titulos[c.id] = titulo;
       const link = caminhoCarro(c);

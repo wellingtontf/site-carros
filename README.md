@@ -162,7 +162,7 @@ Você só cria **arquivos HTML** numa pasta. Sem JSON, sem configuração, sem p
 - **Opcional**, dados do site: `{{site.nome}}`, `{{estoque.total}}`, `{{#estoque.marcas}}<a href="{{link}}">{{valor}}</a>{{/estoque.marcas}}`.
 - Nome do arquivo: letras minúsculas, números e hífen (`feirao-de-novembro.html`). Não use `multipla`, `carros`, `motor`, `css`, `js`, `img`, `assets` (são do sistema).
 - Um site **troca** a página do template criando uma com o mesmo nome em `sites/<dominio>/paginas/`, ou **desliga**: `"paginasPadrao": { "financiamento": false }` no `site.json`.
-- Exemplos prontos: `sites/autocentral.exemplo.com.br/paginas/` (feirão com imagem; Black Friday livre) e `templates/barra-topo/paginas-extras/financiamento.html`.
+- Exemplo pronto: `templates/barra-topo/paginas-extras/financiamento.html`. (Os exemplos de página de site, feirão com imagem e Black Friday livre, estavam no site `autocentral.exemplo.com.br`, removido em 2026-11-08; continuam no histórico do git.)
 - Gerar e ver: `node core/build.js` e abrir `dist/<dominio>/`. Arquivo apagado da pasta some do site no próximo build.
 
 ## Páginas padrão (todo site ganha): `paginas-padrao/`

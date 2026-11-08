@@ -5,6 +5,7 @@
 //   .estado/api/entrada/<id>.json                    o corpo recebido, até ser processado
 //   .estado/api/fila/<canal>/<chave>/<marca>.json    "tem trabalho": canal principal|fotos, chave = o site
 //   .estado/api/lotes/<id>.json                      pedidos de uma operação em vários sites ("todos")
+//   .estado/api/indice/{site,cliente}/<x>/<id>       índice para listar pedidos de um site/cliente sem varrer todos
 //
 // Tipos: estoque | carro | remover | build | robots | buscar | criar | promover | renomear (canal principal); fotos (canal fotos).
 // Status: na_fila → processando → concluido | invalido | recusado | erro.
@@ -20,6 +21,8 @@ const dirPedidos = () => C.pedidos();
 const dirEntrada = () => C.entrada();
 const dirFila = (canal) => path.join(base(), 'fila', canal);
 const dirLotes = () => path.join(base(), 'lotes');
+const dirIndice = (tipo, valor) => path.join(base(), 'indice', tipo, String(valor).replace(/[^a-z0-9._-]/gi, '_'));
+const indexar = (p) => { for (const [t, v] of [['site', p.site], ['cliente', p.cliente]]) if (v) { fs.mkdirSync(dirIndice(t, v), { recursive: true }); fs.writeFileSync(path.join(dirIndice(t, v), p.id), ''); } };
 const arqPedido = (id) => path.join(dirPedidos(), `${id}.json`);
 const arqEntrada = (id) => path.join(dirEntrada(), `${id}.json`);
 const lerJSON = (p, padrao = null) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (e) { return padrao; } };
@@ -37,6 +40,7 @@ function criarFila() {
     const p = { id, tipo, site, carro, cliente, forcar: !!forcar, lote, canal, status: 'na_fila', criado: new Date().toISOString(), inicio: null, fim: null, erros: [], resultado: null };
     if (corpo !== undefined) gravar(arqEntrada(id), corpo);
     gravar(arqPedido(id), p);
+    indexar(p);
     // a marca na fila vai por último: o trabalhador só vê o pedido quando tudo dele já está gravado
     gravar(path.join(dirFila(canal), site, `${String(Date.now()).padStart(15, '0')}-${id}.json`), { id });
     return p;
@@ -56,10 +60,12 @@ function criarFila() {
   const marcas = (canal, chave) => lerDir(path.join(dirFila(canal), chave)).filter((f) => f.endsWith('.json')).sort();
   const pendentesDoSite = (site, canal = 'principal') => marcas(canal, site).map((f) => obter(f.replace(/^\d+-|\.json$/g, ''))).filter((p) => p && !FINAIS.has(p.status));
   const carrosNaFila = (site) => new Set(pendentesDoSite(site).filter((p) => p.tipo === 'carro').map((p) => p.carro));
+  // mais recentes primeiro (os ids crescem com o tempo). Com site/cliente, lê só o índice dele, não a pasta toda.
   function listar({ site = null, cliente = null, limite = 20 } = {}) {
     const r = [];
-    for (const f of lerDir(dirPedidos()).filter((x) => x.endsWith('.json')).sort().reverse()) { // ids crescem com o tempo
-      const p = lerJSON(path.join(dirPedidos(), f));
+    const ids = site ? lerDir(dirIndice('site', site)) : cliente ? lerDir(dirIndice('cliente', cliente)) : lerDir(dirPedidos()).filter((x) => x.endsWith('.json')).map((x) => x.slice(0, -5));
+    for (const id of ids.sort().reverse()) {
+      const p = obter(id);
       if (p && (!site || p.site === site) && (!cliente || p.cliente === cliente)) r.push(p);
       if (r.length >= limite) break;
     }
@@ -124,6 +130,12 @@ function criarFila() {
       if (p && FINAIS.has(p.status) && Date.parse(p.fim || p.criado) < limite) fs.rmSync(path.join(dirPedidos(), f), { force: true });
     }
     for (const f of lerDir(dirLotes())) { const l = lerJSON(path.join(dirLotes(), f)); if (l && Date.parse(l.criado) < limite) fs.rmSync(path.join(dirLotes(), f), { force: true }); }
+    // índice sem pedido (pedido apagado acima)
+    for (const t of ['site', 'cliente']) for (const v of lerDir(path.join(base(), 'indice', t))) {
+      const d = path.join(base(), 'indice', t, v);
+      for (const id of lerDir(d)) if (!fs.existsSync(arqPedido(id))) fs.rmSync(path.join(d, id), { force: true });
+      try { fs.rmdirSync(d); } catch (e) { /* ainda tem pedido */ }
+    }
   }
 
   return { FINAIS, adicionar, obter, lerCorpo, aguardar, pendentesDoSite, carrosNaFila, listar, estado, criarLote, lote, aguardarLote,
