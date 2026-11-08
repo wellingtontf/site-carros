@@ -116,6 +116,24 @@ test('falha no envio para o armazenamento: o carro continua pendente (tenta de n
   assert.equal(F.pendentes(ID).length, 0);
 });
 
+test('produção: com "enviar", nada fica no servidor; carro que sai tem as fotos apagadas do armazenamento', async () => {
+  // "bucket" faz o papel da S3: o comando enviar copia a pasta temporária para lá
+  config({ enviar: 'mkdir -p bucket/carros && rm -rf bucket/{destino} && cp -r {dir} bucket/{destino}', apagar: 'rm -rf bucket/{destino}' });
+  A.criarSite(ID, { carros: [A.carro({ id: 'C1', fotos: [`${base}/ok1`, `${base}/ok2`] }), A.carro({ id: 'C2', fotos: [`${base}/ok3`] })] });
+  await F.processarSite(ID, silencioso);
+  const bucket = (id) => path.join(A.raiz(), 'bucket', 'carros', id);
+  assert.equal(fs.readdirSync(bucket('C1')).length, 6);
+  assert.ok(!fs.existsSync(path.join(A.raiz(), 'fotos-teste')), 'nenhuma foto gravada no servidor');
+  assert.ok(!fs.existsSync(path.join(A.raiz(), 's3-local')));
+  // C2 vendido: sai do estoque → fotos dele saem do armazenamento
+  A.gravarEstoque(ID, [A.carro({ id: 'C1', fotos: [`${base}/ok1`, `${base}/ok2`] })]);
+  assert.ok(F.temTrabalho(ID));
+  await F.processarSite(ID, silencioso);
+  assert.ok(!fs.existsSync(bucket('C2')), 'fotos do carro que saiu continuam no armazenamento');
+  assert.ok(fs.existsSync(bucket('C1')));
+  assert.ok(!F.temTrabalho(ID));
+});
+
 test('conversor real (Pillow): gera webp de verdade nos 3 tamanhos, sem ampliar', { skip: spawnSync('python3', ['-c', 'import PIL']).status !== 0 && 'Pillow não instalado' }, async () => {
   config({ converter: undefined });
   A.criarSite(ID, { carros: [A.carro({ id: 'C1', fotos: [`${base}/ok1`] })] });
@@ -129,11 +147,11 @@ test('conversor real (Pillow): gera webp de verdade nos 3 tamanhos, sem ampliar'
 test('pela API: PUT de carro com URLs → site no ar sem foto → fotos prontas → site refeito com as fotos', async () => {
   A.criarSite(ID, { carros: [A.carro({ id: 'C0' })] });
   A.silencioso(() => construir({ sites: [ID] }));
-  const CL = require('../core/clientes.js');
+  const CL = require('../api/clientes.js');
   const tok = CL.criarCliente('teste-fotos', [ID]);
   const porta = await new Promise((ok) => { const s = net.createServer().listen(0, () => { const p = s.address().port; s.close(() => ok(p)); }); });
   let saida = '';
-  const srv = spawn(process.execPath, [path.join(A.PROJETO, 'core', 'servidor.js')], { env: { ...process.env, PORT: String(porta), ATRASO_MS: '50', TOKEN_ATUALIZAR: '', SITE_CARROS_RAIZ: A.raiz() } });
+  const srv = spawn(process.execPath, [path.join(A.PROJETO, 'api', 'servidor.js')], { env: { ...process.env, PORT: String(porta), ATRASO_MS: '50', TOKEN_ATUALIZAR: '', SITE_CARROS_RAIZ: A.raiz() } });
   srv.stdout.on('data', (d) => (saida += d)); srv.stderr.on('data', (d) => (saida += d));
   try {
     const esperar = async (cond, ms = 10000) => { const fim = Date.now() + ms; while (Date.now() < fim) { if (await cond()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; };

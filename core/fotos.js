@@ -1,6 +1,8 @@
 // Fotos vindas de qualquer sistema: o carro manda "fotos": ["https://.../a.jpg", ...] (ou só a quantidade, como antes,
 // quando as fotos já estão no armazenamento). A plataforma baixa, converte para webp (400/800/1600) e grava no padrão
-// que o site usa: <pasta>/carros/<id>/<n>-<largura>.webp  (n = 1..fotos, só as que deram certo, renumeradas).
+// que o site usa: carros/<id>/<n>-<largura>.webp  (n = 1..fotos, só as que deram certo, renumeradas).
+// EM PRODUÇÃO AS FOTOS NÃO FICAM NO SERVIDOR: com "enviar" configurado, a conversão é feita numa pasta temporária,
+// o comando sobe para a S3 (ou outro armazenamento) e a pasta é apagada. Sem "enviar" (teste local), grava em "pasta".
 //
 // Roda à parte do build (as fotos de 1000 carros levam minutos): enquanto um carro não tem fotos prontas, o build usa
 // fotos = 0 (o site mostra o marcador, nunca imagem quebrada); quando ficam prontas, o site é refeito e só a página
@@ -8,9 +10,11 @@
 // Mesmas URLs na mesma ordem = nada a fazer. Mudou qualquer URL do carro = refaz as fotos daquele carro.
 //
 // config/fotos.json (veja config/fotos.exemplo.json):
-//   pasta       onde gravar (padrão "s3-local", que o teste local serve em :8081); aceita {site}
+//   enviar      PRODUÇÃO: comando por carro: {dir} (pasta temporária com as fotos) {destino} ("carros/<id>") {site}
+//               ex.: aws s3 sync {dir} s3://bucket/{destino} --delete   (--delete tira as fotos que sobraram de uma lista maior)
+//   apagar      PRODUÇÃO: comando por carro que saiu do estoque: {destino} {site}  (ex.: aws s3 rm s3://bucket/{destino} --recursive)
+//   pasta       SÓ SEM "enviar" (teste local): onde gravar (padrão "s3-local", servido em :8081); aceita {site}
 //   converter   comando por foto: {entrada} {saida} {larguras}   (padrão: python3 core/converter-foto.py, precisa do Pillow)
-//   enviar      comando por carro depois de converter: {dir} {destino} {site}  (ex.: aws s3 sync {dir} s3://bucket/{destino} --delete)
 //   paralelo    carros ao mesmo tempo (padrão 4)
 //   permitirRedeLocal  true (ou lista de IPs) só em teste: por padrão, URL que aponta para a rede interna é recusada (SSRF: numa máquina
 //                      da AWS, http://169.254.169.254 entrega as credenciais da máquina para quem pedir)
@@ -37,6 +41,7 @@ function lerConfig() {
     pasta: cfg.pasta || 's3-local',
     converter: cfg.converter || `python3 ${aspas(path.join(C.CORE, 'converter-foto.py'))} {entrada} {saida} {larguras}`,
     enviar: cfg.enviar || '',
+    apagar: cfg.apagar || '',
     paralelo: Math.max(1, cfg.paralelo || 4),
     permitirRedeLocal: cfg.permitirRedeLocal === true || (Array.isArray(cfg.permitirRedeLocal) ? cfg.permitirRedeLocal : false), // true ou lista de IPs
   };
@@ -123,9 +128,9 @@ async function processarCarro(site, c, cfg) {
         prontas.push(sai);
       } catch (e) { erros.push(`foto ${i + 1}: ${e.message}`); }
     }
-    const pasta = path.resolve(C.ROOT, cfg.pasta.replace(/\{site\}/g, site));
     const destino = `carros/${c.id}`;
-    const dir = path.join(pasta, destino);
+    // com "enviar": pasta temporária (apagada no fim); sem: a pasta local que faz o papel do armazenamento
+    const dir = cfg.enviar ? path.join(tmp, 'saida') : path.join(path.resolve(C.ROOT, cfg.pasta.replace(/\{site\}/g, site)), destino);
     fs.rmSync(dir, { recursive: true, force: true }); // sobra de uma lista maior não pode aparecer como foto
     fs.mkdirSync(dir, { recursive: true });
     prontas.forEach((sai, k) => LARGURAS.forEach((w) => fs.renameSync(`${sai}-${w}.webp`, path.join(dir, `${k + 1}-${w}.webp`))));
@@ -134,11 +139,28 @@ async function processarCarro(site, c, cfg) {
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 }
 
+// carro que saiu do estoque: as fotos dele saem do armazenamento (comando "apagar"; sem ele, da pasta local).
+// Se apagar falhar, fica no estado e tenta de novo na próxima vez.
+async function limparSaidos(site, e, ids, cfg, log) {
+  for (const id of Object.keys(e).filter((x) => !ids.has(x))) {
+    try {
+      if (cfg.enviar) { if (cfg.apagar) await rodar(cfg.apagar.replace(/\{destino\}/g, aspas(`carros/${id}`)).replace(/\{site\}/g, aspas(site))); }
+      else fs.rmSync(path.join(path.resolve(C.ROOT, cfg.pasta.replace(/\{site\}/g, site)), 'carros', id), { recursive: true, force: true });
+      delete e[id];
+    } catch (err) { log(`${site}: não consegui apagar as fotos de ${id}: ${err.message}`); }
+  }
+}
+
 // processa as fotos pendentes de um site → { processados: [ids], erros: n }
 async function processarSite(site, { log = console.log, cfg = lerConfig() } = {}) {
   if (!cfg) throw new Error('crie config/fotos.json (veja config/fotos.exemplo.json) para processar fotos por URL');
   const lista = pendentes(site);
-  if (!lista.length) return { processados: [], erros: 0 };
+  if (!lista.length) {
+    const e = lerEstado(site);
+    const ids = new Set((lerJSON(C.estoque(site), { carros: [] }).carros || []).map((c) => c.id));
+    if (Object.keys(e).some((id) => !ids.has(id))) { await limparSaidos(site, e, ids, cfg, log); gravarEstado(site, e); }
+    return { processados: [], erros: 0, falhas: [] };
+  }
   log(`${site}: processando fotos de ${lista.length} carro(s)`);
   const fila = [...lista];
   const feitos = {};
@@ -150,37 +172,21 @@ async function processarSite(site, { log = console.log, cfg = lerConfig() } = {}
       try { feitos[c.id] = await processarCarro(site, c, cfg); } catch (e) { falhas.push(`${c.id}: ${e.message}`); }
     }
   }));
-  // relê o estado na hora de gravar (outro processamento pode ter gravado no meio) e tira carros que saíram do estoque
+  // relê o estado na hora de gravar (outro processamento pode ter gravado no meio)
   const ids = new Set((lerJSON(C.estoque(site), { carros: [] }).carros || []).map((c) => c.id));
-  const e = Object.fromEntries(Object.entries({ ...lerEstado(site), ...feitos }).filter(([id]) => ids.has(id)));
+  const e = { ...lerEstado(site), ...feitos };
+  await limparSaidos(site, e, ids, cfg, log);
   gravarEstado(site, e);
   const nErros = Object.values(feitos).filter((x) => x.erros.length).length;
   log(`${site}: fotos prontas de ${Object.keys(feitos).length} carro(s)${nErros ? ` · ${nErros} com foto que falhou (GET /v1/sites/${site})` : ''}${falhas.length ? ` · ${falhas.length} carro(s) ficam pendentes: ${falhas.slice(0, 3).join('; ')}` : ''}`);
   return { processados: Object.keys(feitos), erros: nErros, falhas };
 }
 
-// trabalhador em segundo plano (servidor): um site por vez; ao terminar um site, aoTerminar(site) pede o build dele
-function criarTrabalhador({ log = console.log, aoTerminar = () => {} } = {}) {
-  const fila = new Set();
-  let rodando = false, avisou = false;
-  async function girar() {
-    if (rodando) return;
-    rodando = true;
-    try {
-      while (fila.size) {
-        const site = fila.values().next().value;
-        fila.delete(site);
-        const cfg = lerConfig();
-        if (!cfg) { if (!avisou) log('aviso: há fotos por URL, mas falta config/fotos.json'); avisou = true; continue; }
-        try { const r = await processarSite(site, { log, cfg }); if (r.processados.length) aoTerminar(site); }
-        catch (e) { log(`${site}: erro nas fotos: ${e.message}`); }
-      }
-    } finally { rodando = false; }
-  }
-  return {
-    agendar: (site) => { if (pendentes(site).length) { fila.add(site); setImmediate(girar); } },
-    ocupado: () => rodando || fila.size > 0,
-  };
+// algo a fazer neste site? (fotos pendentes ou carros que saíram com fotos guardadas)
+function temTrabalho(site) {
+  if (pendentes(site).length) return true;
+  const ids = new Set((lerJSON(C.estoque(site), { carros: [] }).carros || []).map((c) => c.id));
+  return Object.keys(lerEstado(site)).some((id) => !ids.has(id));
 }
 
-module.exports = { lerConfig, contarFotos, lerEstadoFotos: lerEstado, pendentes, resumo, processarSite, criarTrabalhador, hashUrls, ipInterno, LARGURAS };
+module.exports = { lerConfig, contarFotos, lerEstadoFotos: lerEstado, pendentes, temTrabalho, resumo, processarSite, hashUrls, ipInterno, LARGURAS };

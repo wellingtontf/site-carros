@@ -6,7 +6,7 @@
 //   estoque   troca o estoque inteiro do site            (PUT /v1/sites/<d>/estoque)
 //   carro     inclui ou altera UM carro                   (PUT /v1/sites/<d>/carros/<id>)
 //   remover   tira UM carro                               (DELETE /v1/sites/<d>/carros/<id>)
-//   build     refaz o site sem mudar o estoque            (POST /v1/sites/<d>/build)
+//   build     refaz o site sem mudar o estoque            (POST /v1/sites/<d>/build, POST /v1/build; site null = TODOS)
 //   buscar    puxa o estoque das URLs de config/fontes.json (POST /v1/atualizar)
 //
 // Processamento: espera "atraso" ms sem chamada nova (junta rajadas), aplica os pedidos de cada site NA ORDEM em que
@@ -15,9 +15,9 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const C = require('./caminhos');
-const { carregarSite } = require('./build');
-const AT = require('./atualizar');
+const C = require('../core/caminhos');
+const { carregarSite, idsSites } = require('../core/build');
+const AT = require('../core/atualizar');
 
 const DIAS_GUARDAR = 7; // pedidos terminados ficam consultáveis por 7 dias
 const FINAIS = new Set(['concluido', 'invalido', 'recusado', 'erro']);
@@ -93,9 +93,20 @@ function criarFila({ atraso = 3000, publicar = false, log = console.log, atualiz
         } catch (e) { buscas.forEach((p) => terminar(p, 'erro', [e.message])); }
       }
 
-      // 2) por site, na ordem de chegada
+      // 2) refazer TODOS os sites (um build só; os pedidos de build de um site, no mesmo lote, já ficam cobertos)
+      const todos = lote.filter((p) => p.tipo === 'build' && !p.site);
+      if (todos.length) {
+        try {
+          const ids = idsSites();
+          const r = await atualizar({ recebidos: {}, refazer: ids, log });
+          if (r.status === 'ocupado') { ocupado = true; voltar(todos); }
+          else todos.forEach((p) => terminar(p, 'concluido', [], { build: true, sites: ids.length }));
+        } catch (e) { todos.forEach((p) => terminar(p, 'erro', [e.message])); }
+      }
+
+      // 3) por site, na ordem de chegada
       const porSite = new Map();
-      for (const p of lote.filter((x) => x.tipo !== 'buscar')) { if (!porSite.has(p.site)) porSite.set(p.site, []); porSite.get(p.site).push(p); }
+      for (const p of lote.filter((x) => x.tipo !== 'buscar' && !(x.tipo === 'build' && !x.site))) { if (!porSite.has(p.site)) porSite.set(p.site, []); porSite.get(p.site).push(p); }
       for (const [site, ps] of porSite) {
         try {
           const lojas = Object.keys(carregarSite(site).lojas || {});
@@ -135,7 +146,7 @@ function criarFila({ atraso = 3000, publicar = false, log = console.log, atualiz
         }
       }
 
-      // 3) publicar (se ligado) o que foi gerado
+      // 4) publicar (se ligado) o que foi gerado
       const feitos = lote.filter((p) => p.status === 'concluido');
       if (publicar && feitos.length) {
         try {

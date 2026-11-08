@@ -7,9 +7,9 @@ Contrato para qualquer sistema que mande carros para os sites da plataforma: Rev
 Cada sistema recebe um **token próprio**, limitado aos sites dele. Quem administra a plataforma cria o token:
 
 ```
-node core/cli.js cliente criar crm-x --sites loja1.com.br,loja2.com.br   # ou --sites "*" para todos
-node core/cli.js cliente listar
-node core/cli.js cliente remover crm-x                                    # o token deixa de valer na hora
+node api/cli.js cliente criar crm-x --sites loja1.com.br,loja2.com.br   # ou --sites "*" para todos
+node api/cli.js cliente listar
+node api/cli.js cliente remover crm-x                                    # o token deixa de valer na hora
 ```
 
 O token aparece uma vez só (`sc_...`). A plataforma guarda apenas o hash dele. Envie o token em toda chamada:
@@ -32,7 +32,10 @@ O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da
 |---|---|---|
 | GET | `/v1/saude` | sem token: diz se a API está de pé |
 | GET | `/v1/sites` | sites que o token pode alterar, com o total de carros e a data da última atualização |
-| GET | `/v1/sites/{dominio}` | resumo do site e últimos pedidos |
+| PUT | `/v1/sites/{dominio}` | **cria o site, se não existir, ou atualiza o cadastro** (ver "Cadastro do site") e gera o site |
+| GET | `/v1/sites/{dominio}` | resumo: cadastro, total de carros, fotos pendentes/com erro, últimos pedidos |
+| POST | `/v1/estoques` | **estoque de 1 ou N sites numa chamada** (ver "Vários sites numa chamada") |
+| POST | `/v1/build` | **reconstrói sites** sem mudar estoque: `{"sites":["a.com.br","b.com.br"]}`; vazio = **todos** (token com `*`) |
 | GET | `/v1/sites/{dominio}/estoque` | o estoque atual (para conferir ou reconciliar) |
 | PUT | `/v1/sites/{dominio}/estoque` | **troca o estoque inteiro**: `{"carros":[...]}` (a lista pura também vale) |
 | GET | `/v1/sites/{dominio}/carros/{id}` | um carro |
@@ -47,6 +50,48 @@ Parâmetros das rotas que alteram dados:
 
 - `?esperar=30`: segura a resposta até o pedido terminar (máximo de 120 s). Sem ele, a resposta é imediata (202) e você acompanha o pedido.
 - `?forcar=1`: libera a trava de queda de estoque (ver abaixo).
+
+## Cadastro do site
+
+`PUT /v1/sites/{dominio}`: o domínio vem no endereço e o corpo é o cadastro completo (ele substitui o anterior). Se o site não existe, ele é criado (resposta 201; exige token com acesso a todos, `*`). Se existe, o cadastro é atualizado (202). Nos dois casos, o site é gerado em seguida.
+
+```json
+{
+  "nome": "Loja Nova Seminovos",
+  "template": "servopa",
+  "motor": "v2",
+  "url": "https://lojanova.com.br",
+  "whatsapp": "5541999990000",
+  "fotosBase": "https://fotos.plataforma.com.br/",
+  "tema": { "cor": "#0533ce", "logo": "https://cdn.lojanova.com.br/logo.webp" },
+  "lojas": {
+    "matriz": { "nome": "Matriz", "cidade": "Curitiba", "uf": "PR", "endereco": "Rua X, 100", "whatsapp": "5541999990001" }
+  }
+}
+```
+
+Obrigatórios: `nome`, `template`, `motor` e `lojas` (pelo menos uma, cada uma com `nome`, `cidade` e `uf`). Os opcionais (`cabecalho`, `rodape`, `paginas`, `filtros`, `tema`...) seguem o mesmo formato do `site.json` (README do projeto). A API recusa (422, nada gravado): template ou motor inexistente, bloco que o template não tem, `url` sem https e loja removida que ainda tem carros no estoque. O cadastro anterior fica guardado como cópia de segurança.
+
+## Vários sites numa chamada
+
+`POST /v1/estoques` atualiza **exatamente os sites que vierem no corpo**: um, alguns ou todos.
+
+```json
+{ "sites": {
+    "loja1.com.br": { "carros": [ ... ] },
+    "loja2.com.br": [ ... ]
+} }
+```
+
+Cada site é independente: os válidos entram na fila e os inválidos voltam em `recusados`, com o motivo. Um site com erro não segura os outros.
+
+```json
+HTTP 207   (com ?esperar; sem ele, 202)
+{ "pedidos": [ { "pedido": "p...", "site": "loja1.com.br", "status": "concluido", ... } ],
+  "recusados": { "loja2.com.br": { "codigo": 422, "erro": "estoque inválido: nada foi gravado", "erros": ["carro #3 ..."] } } }
+```
+
+Códigos: **202** aceito (sem `?esperar`), **200** todos concluídos, **207** parte concluída e parte não (veja cada pedido e `recusados`), **422** nenhum site aceito. O limite é 200 MB por chamada. Para estoques grandes, prefira um `PUT /v1/sites/{dominio}/estoque` por site.
 
 ## Pedidos
 

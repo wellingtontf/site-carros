@@ -10,8 +10,10 @@
     "testar": "node core/cli.js testar",
     "status": "node core/cli.js status",
     "cli": "node core/cli.js",
-    "servidor": "node core/servidor.js",
-    "exemplo": "node ferramentas/gerar-exemplo.js"
+    "servidor": "node api/servidor.js",
+    "exemplo": "node ferramentas/gerar-exemplo.js",
+    "api": "node api/servidor.js",
+    "cliente": "node api/cli.js cliente"
   },
   "engines": {
     "node": ">=20"

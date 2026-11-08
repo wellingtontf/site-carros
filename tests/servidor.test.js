@@ -1,4 +1,4 @@
-// API de integração (core/servidor.js + core/fila.js + core/clientes.js): tokens por cliente, permissões por site,
+// API de integração (api/servidor.js + api/rotas.js + api/fila.js + api/clientes.js): tokens por cliente, permissões por site,
 // validação na hora (422), estoque inteiro, carro avulso, rajadas, fila que sobrevive a reinício e trava de queda.
 const A = require('./ajuda');
 A.prepararRaiz();
@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const net = require('net');
 const { spawn } = require('child_process');
-const CL = require('../core/clientes.js');
+const CL = require('../api/clientes.js');
 
 const ID = 'loja-a.com.br';
 const OUTRO = 'loja-b.com.br';
@@ -28,7 +28,7 @@ const carrosJson = (id = ID) => JSON.parse(fs.readFileSync(A.saida(id, 'carros.j
 async function subir(env = {}) {
   const porta = await portaLivre();
   const s = { url: `http://127.0.0.1:${porta}`, saida: '' };
-  s.proc = spawn(process.execPath, [path.join(A.PROJETO, 'core', 'servidor.js')], {
+  s.proc = spawn(process.execPath, [path.join(A.PROJETO, 'api', 'servidor.js')], {
     env: { ...process.env, PORT: String(porta), TOKEN_ATUALIZAR: ADMIN, ATRASO_MS: '50', SITE_CARROS_RAIZ: A.raiz(), ...env },
   });
   s.proc.stdout.on('data', (d) => (s.saida += d));
@@ -205,7 +205,81 @@ test('pedido na fila sobrevive a reinício do servidor', async () => {
 
 test('sem nenhum token configurado ou com TOKEN_ATUALIZAR curto: o servidor nem sobe', async () => {
   for (const env of [{ TOKEN_ATUALIZAR: 'curto' }, { TOKEN_ATUALIZAR: '', SITE_CARROS_RAIZ: fs.mkdtempSync(path.join(require('os').tmpdir(), 'sc-vazio-')) }]) {
-    const p = spawn(process.execPath, [path.join(A.PROJETO, 'core', 'servidor.js')], { env: { ...process.env, SITE_CARROS_RAIZ: A.raiz(), ...env } });
+    const p = spawn(process.execPath, [path.join(A.PROJETO, 'api', 'servidor.js')], { env: { ...process.env, SITE_CARROS_RAIZ: A.raiz(), ...env } });
     assert.equal(await new Promise((ok) => p.on('exit', ok)), 1);
   }
+});
+
+// ---------- cadastro de site, lote de estoques, refazer todos ----------
+const cadastro = (extra = {}) => ({ nome: 'Loja Nova', motor: 'v2', template: 'teste', url: 'https://loja-nova.com.br', whatsapp: '5541999990000', lojas: { matriz: { nome: 'Matriz', cidade: 'Curitiba', uf: 'PR' } }, ...extra });
+
+test('PUT /v1/sites/<d>: cria o site (201) e já gera; token limitado não cria site novo', async () => {
+  const NOVO = 'loja-nova.com.br';
+  assert.equal((await req('PUT', `/v1/sites/${NOVO}`, { corpo: cadastro() })).status, 403, 'token de um site só');
+  const r = await reqJ('PUT', `/v1/sites/${NOVO}?esperar=20`, { corpo: cadastro(), token: tokTodos });
+  assert.equal(r.status, 200, JSON.stringify(r.j));
+  assert.ok(A.existe(NOVO, 'index.html') && A.existe(NOVO, '404.html'));
+  // já dá para mandar estoque para ele
+  const e = await reqJ('PUT', `/v1/sites/${NOVO}/estoque?esperar=20`, { corpo: { carros: [A.carro({ loja: 'matriz' })] }, token: tokTodos });
+  assert.equal(e.status, 200, JSON.stringify(e.j));
+  assert.equal(A.lerJSON(NOVO, 'carros.json').length, 1);
+  // sem esperar, criar responde 201
+  const r2 = await req('PUT', '/v1/sites/outra-nova.com.br', { corpo: cadastro({ url: 'https://outra-nova.com.br' }), token: tokTodos });
+  assert.equal(r2.status, 201);
+});
+
+test('PUT /v1/sites/<d>: atualiza o cadastro e refaz; cadastro inválido é 422 e nada muda', async () => {
+  const NOVO = 'loja-nova.com.br';
+  const r = await reqJ('PUT', `/v1/sites/${NOVO}?esperar=20`, { corpo: cadastro({ nome: 'Loja Renomeada' }), token: tokTodos });
+  assert.equal(r.status, 200);
+  assert.match(A.ler(NOVO, 'index.html'), /Loja Renomeada/);
+  const ruim = await reqJ('PUT', `/v1/sites/${NOVO}`, { corpo: cadastro({ template: 'nao-existe', lojas: {}, id: 'x' }), token: tokTodos });
+  assert.equal(ruim.status, 422);
+  assert.ok(ruim.j.erros.some((e) => /template/.test(e)) && ruim.j.erros.some((e) => /lojas/.test(e)) && ruim.j.erros.some((e) => /"id"/.test(e)), JSON.stringify(ruim.j));
+  // tirar a loja que o estoque usa: recusado (o site quebraria)
+  const semLoja = await reqJ('PUT', `/v1/sites/${NOVO}`, { corpo: cadastro({ lojas: { outra: { nome: 'Outra', cidade: 'X', uf: 'SP' }, mais: { nome: 'Mais', cidade: 'Y', uf: 'SP' } } }), token: tokTodos });
+  assert.equal(semLoja.status, 422);
+  assert.match(semLoja.j.erros.join(' '), /ficariam sem loja/);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites', NOVO, 'site.json'), 'utf8')).nome, 'Loja Renomeada');
+  assert.equal((await req('PUT', '/v1/sites/Dominio_Ruim', { corpo: cadastro(), token: tokTodos })).status, 422);
+});
+
+test('POST /v1/estoques: 1 ou N sites numa chamada; cada site é independente', async () => {
+  const carrosA = estoque(); carrosA[0].preco = 31313;
+  const r = await reqJ('POST', '/v1/estoques?esperar=20', { token: tokTodos, corpo: { sites: {
+    [ID]: { carros: carrosA },
+    [OUTRO]: [A.carro({ preco: 41414 })], // lista pura também vale
+    'nao-existe.com.br': { carros: [] },
+    'loja-nova.com.br': { carros: [A.carro({ loja: 'loja-que-nao-existe' })] },
+  } } });
+  assert.equal(r.status, 207, JSON.stringify(r.j)); // parte entrou, parte não
+  assert.deepEqual(r.j.pedidos.map((p) => [p.site, p.status]).sort(), [[ID, 'concluido'], [OUTRO, 'concluido']]);
+  assert.deepEqual(Object.keys(r.j.recusados).sort(), ['loja-nova.com.br', 'nao-existe.com.br']);
+  assert.equal(r.j.recusados['loja-nova.com.br'].codigo, 422);
+  assert.ok(carrosJson(ID).some((c) => c.p === 31313) && carrosJson(OUTRO).some((c) => c.p === 41414));
+  // só um site: 200
+  assert.equal((await req('POST', '/v1/estoques?esperar=20', { token: tokTodos, corpo: { sites: { [ID]: { carros: carrosA } } } })).status, 200);
+  // token de um site só não manda para outro (recusado, os demais seguem)
+  const s = await reqJ('POST', '/v1/estoques', { corpo: { sites: { [OUTRO]: { carros: [A.carro()] } } } });
+  assert.equal(s.status, 422);
+  assert.equal(s.j.recusados[OUTRO].codigo, 403);
+  assert.equal((await req('POST', '/v1/estoques', { corpo: { nada: 1 } })).status, 400);
+});
+
+test('POST /v1/build: lista de sites, ou todos (só com token "*")', async () => {
+  assert.equal((await req('POST', '/v1/build', { corpo: {} })).status, 403, 'token de um site só não refaz todos');
+  const um = await reqJ('POST', '/v1/build?esperar=20', { corpo: { sites: [ID] } });
+  assert.equal(um.status, 200, JSON.stringify(um.j));
+  for (const s of idsDist()) fs.rmSync(A.saida(s, '404.html'), { force: true });
+  const todos = await reqJ('POST', '/v1/build?esperar=30', { corpo: {}, token: tokTodos });
+  assert.equal(todos.status, 200, JSON.stringify(todos.j));
+  assert.equal(todos.j.resultado.sites, idsDist().length);
+  assert.ok(idsDist().every((s) => A.existe(s, '404.html')), 'todos refeitos');
+});
+const idsDist = () => fs.readdirSync(path.join(A.raiz(), 'sites'));
+
+test('arquitetura: o core nunca depende da API (api/ → core/, nunca o contrário)', () => {
+  const core = A.listar(path.join(A.PROJETO, 'core')).filter((f) => f.endsWith('.js'));
+  const ruins = core.filter((f) => /require\(['"][./]*\/?api\//.test(fs.readFileSync(f, 'utf8')));
+  assert.deepEqual(ruins.map((f) => path.relative(A.PROJETO, f)), []);
 });

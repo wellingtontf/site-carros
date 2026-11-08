@@ -9,8 +9,6 @@
 //   node core/cli.js historico
 //   node core/cli.js atualizar [a.com.br,b.com.br] [--publicar]   busca o estoque em config/fontes.json e refaz só o que mudou
 //   node core/cli.js publicar                           publica só o que mudou e ainda não foi publicado (config/publicacao.json)
-//   node core/cli.js cliente criar <nome> --sites a.com.br,b.com.br   (ou --sites "*")   token da API para um sistema externo
-//   node core/cli.js cliente listar | cliente remover <nome>
 //   node core/cli.js fotos [a.com.br,b.com.br]          baixa e converte as fotos por URL pendentes e refaz os sites (config/fotos.json)
 // Depois de aplicar, gere os sites: node core/build.js --sites a.com.br   e publique as pastas de dist/.
 const fs = require('fs');
@@ -269,30 +267,7 @@ function mostrarHistorico() {
       else console.log('nenhuma foto pendente');
       return;
     }
-    case 'cliente': {
-      const CL = require('./clientes.js');
-      const [acao, nome] = args._;
-      if (acao === 'criar') {
-        if (!nome) falha('informe o nome: cliente criar <nome> --sites a.com.br,b.com.br');
-        const sites = String(args.sites || '').split(',').map((x) => x.trim()).filter(Boolean);
-        const existentes = idsSites();
-        for (const x of sites) if (x !== '*' && !existentes.includes(x)) console.warn(`  aviso: site "${x}" ainda não existe em sites/ (o token vai valer quando existir)`);
-        let token;
-        try { token = CL.criarCliente(nome, sites); } catch (e) { falha(e.message); }
-        console.log(`Cliente "${nome}" criado (sites: ${sites.join(', ')}).\n\nToken (aparece SÓ agora; guarde no cofre de senhas do sistema que vai chamar a API):\n\n  ${token}\n\nUso: Authorization: Bearer <token>   (docs/api.md)`);
-        return;
-      }
-      if (acao === 'remover') { try { CL.removerCliente(nome); } catch (e) { falha(e.message); } console.log(`Cliente "${nome}" removido: o token dele deixa de valer na hora.`); return; }
-      if (acao === 'listar' || !acao) {
-        const l = CL.listarClientes();
-        if (!l.length) return console.log('Nenhum cliente. Crie com: node core/cli.js cliente criar <nome> --sites "*"');
-        l.forEach((c) => console.log(`${c.nome.padEnd(20)} ${c.ativo ? 'ativo  ' : 'INATIVO'} ${c.criado.padEnd(10)} ${c.sites.join(', ')}`));
-        return;
-      }
-      falha('uso: cliente criar <nome> --sites a,b | cliente listar | cliente remover <nome>');
-      break;
-    }
     default:
-      console.log('Comandos: cliente criar|listar|remover | status | congelar vN [--nota ""] | testar [--motor v|rascunho] [--sites a,b] | aplicar vN (--sites a,b | --todos) [--dry] [--sem-teste] | reverter (--sites a,b | --todos) | historico | atualizar [dominio1,dominio2] [--publicar] [--forcar] [--completo] | publicar');
+      console.log('Comandos: fotos [a,b] | status | congelar vN [--nota ""] | testar [--motor v|rascunho] [--sites a,b] | aplicar vN (--sites a,b | --todos) [--dry] [--sem-teste] | reverter (--sites a,b | --todos) | historico | atualizar [dominio1,dominio2] [--publicar] [--forcar] [--completo] | publicar');
   }
 })().catch((e) => falha(e.stack || e.message));

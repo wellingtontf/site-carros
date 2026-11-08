@@ -1,15 +1,15 @@
 // Clientes da API: cada sistema que manda estoque (Revenda Mais, outro CRM, uma planilha...) tem o SEU token e só mexe
-// nos sites que lhe pertencem. A plataforma não conhece nenhum desses sistemas: todos falam o mesmo contrato (docs/api.md).
+// nos sites que lhe pertencem. A plataforma não conhece nenhum desses sistemas: todos falam o mesmo contrato (api/README.md).
 //
 // config/clientes.json (fora do git):
 //   { "revenda-mais": { "token_sha256": "<sha256 do token>", "sites": ["*"], "criado": "2026-11-07" },
 //     "crm-x":        { "token_sha256": "...", "sites": ["trokey.com.br"], "ativo": false } }
-// Só o hash do token fica gravado: o token aparece uma vez, quando é criado (node core/cli.js cliente criar <nome>).
+// Só o hash do token fica gravado: o token aparece uma vez, quando é criado (node api/cli.js cliente criar <nome>).
 // TOKEN_ATUALIZAR (variável de ambiente) continua valendo como cliente "admin", com acesso a todos os sites.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const C = require('./caminhos');
+const C = require('../core/caminhos');
 
 const NOME_OK = /^[a-z0-9][a-z0-9-]{1,40}$/;
 const sha256 = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');

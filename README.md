@@ -6,7 +6,9 @@ core/                      O CORE (só código, isolado do resto)
   motor/<v1, v2...>/         versões congeladas do motor (imutáveis)
   ui/                        liga o motor à página (listagem, página do carro, utilidades)
   caminhos.js                todos os caminhos do projeto num lugar só
-  build.js  cli.js  atualizar.js  servidor.js
+  build.js  cli.js  atualizar.js  sites.js  fotos.js
+api/                       API de integração (porta de entrada HTTP; depende do core, nunca o contrário):
+            servidor.js  rotas.js  fila.js  clientes.js  trabalhador-fotos.js  cli.js  README.md (contrato)
 sites/<dominio>/           UM SITE POR DOMÍNIO (o nome da pasta é o domínio e o id do site)
   site.json                  configuração: template, tema, textos, filtros, lojas, motor...
   estoque.json               o ÚNICO JSON de carros do site (vem do Revenda Mais)
@@ -254,17 +256,21 @@ node core/cli.js atualizar                          # todos os sites de fontes.j
 node core/cli.js atualizar trokey.com.br            # só esse
 node core/cli.js atualizar trokey.com.br --publicar # e já publica o que mudou
 ```
-**2) Qualquer sistema manda** (API de integração, contrato completo em [docs/api.md](docs/api.md)):
+**2) Qualquer sistema manda** (API de integração em `api/`, contrato completo em [api/README.md](api/README.md)):
 ```
-node core/cli.js cliente criar revenda-mais --sites "*"    # token do sistema (aparece uma vez; só o hash fica salvo)
-PUBLICAR=1 node core/servidor.js                           # API em :8787
-PUT    /v1/sites/<dominio>/estoque        estoque inteiro            → 202 + número do pedido (422 se inválido)
+node api/cli.js cliente criar revenda-mais --sites "*"    # token do sistema (aparece uma vez; só o hash fica salvo)
+PUBLICAR=1 node api/servidor.js                           # API em :8787
+PUT    /v1/sites/<dominio>                cria o site (se não existir) ou atualiza o cadastro, e gera
+POST   /v1/estoques                       estoque de 1 ou N sites numa chamada: {"sites": {"a.com.br": {...}, ...}}
+PUT    /v1/sites/<dominio>/estoque        estoque inteiro de um site    (422 se inválido, nada gravado)
 PUT    /v1/sites/<dominio>/carros/<id>    inclui/altera um carro
 DELETE /v1/sites/<dominio>/carros/<id>    carro vendido
-POST   /v1/sites/<dominio>/build          refaz o site sem mudar o estoque
+POST   /v1/build                          refaz os sites da lista, ou TODOS (vazio)
 GET    /v1/pedidos/<id>                   andamento    (?esperar=30 nas rotas acima responde já com o resultado)
 ```
-A plataforma é agnóstica: não conhece o sistema de origem, cada um converte para o mesmo formato. Cada token só mexe nos sites dele. Chamadas em sequência viram um build só (`ATRASO_MS`, padrão 3 s), na ordem em que chegaram; a fila fica em disco (`.estado/api/`) e sobrevive a reinício. `TOKEN_ATUALIZAR` (16+ letras) segue valendo como admin, e as rotas antigas (`/atualizar`, `/status`, `PUT /sites/<d>/estoque`) continuam.
+A plataforma é agnóstica: não conhece o sistema de origem, cada um converte para o mesmo formato. Cada token só mexe nos sites dele (criar site novo e refazer todos exigem `*`). Chamadas em sequência viram um build só (`ATRASO_MS`, padrão 3 s), na ordem em que chegaram; a fila fica em disco (`.estado/api/`) e sobrevive a reinício. Fotos por URL são baixadas, convertidas e enviadas para a S3 em segundo plano (`config/fotos.json`; em produção nada fica no servidor).
+
+**Arquitetura:** `core/` é o domínio (build, estoque, cadastro de site, fotos) e não sabe que a API existe; `api/` só traduz HTTP ↔ core (portas e adaptadores). Um teste garante que nada em `core/` importa de `api/`.
 
 O que acontece:
 - Valida tudo (ids únicos, loja existente no site, preço, ano, km, fotos, campos de texto). **Qualquer erro → nada é gravado**, o estoque antigo segue valendo.
