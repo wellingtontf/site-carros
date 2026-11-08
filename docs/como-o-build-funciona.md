@@ -1,5 +1,7 @@
 # Como o build gera os sites
 
+> Parte da [documentação](README.md). Veja também: [visão geral](visao-geral.md), [páginas](paginas.md), [componentes](componentes.md), [listagem e rotas](listagem-e-busca.md).
+
 Este documento explica, passo a passo e na ordem em que o código executa, como `core/build.js` (função `construir`)
 transforma a **fonte** de um site (`sites-config/<dominio>/`) no **site pronto** (`sites-public/<dominio>/`), e o que
 acontece depois até o site estar no ar.

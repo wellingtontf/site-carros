@@ -37,7 +37,7 @@ if (grupo === 'inquilino') {
     for (const x of sites) if (x !== '*' && !Sites.existe(x)) console.warn(`  aviso: site "${x}" ainda não existe (o token vai valer quando existir)`);
     let token;
     try { token = CL.criarCliente(nome, sites, inq); } catch (e) { falha(e.message); }
-    console.log(`Cliente "${nome}" criado (inquilino: ${inq}; sites: ${sites.join(', ')}).\n\nToken (aparece SÓ agora; guarde no cofre de senhas do sistema que vai chamar a API):\n\n  ${token}\n\nUso: Authorization: Bearer <token>   (api/README.md)`);
+    console.log(`Cliente "${nome}" criado (inquilino: ${inq}; sites: ${sites.join(', ')}).\n\nToken (aparece SÓ agora; guarde no cofre de senhas do sistema que vai chamar a API):\n\n  ${token}\n\nUso: Authorization: Bearer <token>   (docs/api.md)`);
   } else if (acao === 'remover') {
     try { CL.removerCliente(nome); } catch (e) { falha(e.message); }
     console.log(`Cliente "${nome}" removido: o token dele deixa de valer na hora.`);

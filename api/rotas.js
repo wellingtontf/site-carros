@@ -203,7 +203,7 @@ function criarRotas({ fila }) {
       return responderPedido(res, url, fila.adicionar({ tipo: 'criar', site: d, corpo: { cadastro: parcial, inquilino: inq }, cliente: cliente.nome }), 202, 201, comAvisos(parcial));
     }
     r = /^\/v1\/sites\/([^/]+)(\/.*)?$/.exec(p);
-    if (!r) throw new Erro(404, 'rota inexistente (veja api/README.md)');
+    if (!r) throw new Erro(404, 'rota inexistente (veja docs/api.md)');
     const dominio = decodeURIComponent(r[1]);
     const resto = r[2] || '';
 
@@ -430,7 +430,7 @@ function criarRotas({ fila }) {
         return responderPedido(res, url, fila.adicionar({ tipo: 'remover', site: d, carro: id, cliente: cliente.nome, forcar }));
       }
     }
-    throw new Erro(404, 'rota inexistente (veja api/README.md)');
+    throw new Erro(404, 'rota inexistente (veja docs/api.md)');
   };
 }
 
