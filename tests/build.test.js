@@ -366,58 +366,48 @@ test('sitemap: <lastmod> é o dia em que a página mudou de verdade (não o dia 
   assert.equal(lm['multipla/'], '2026-03-09', 'listagem mostra o preço: mudou');
 });
 
-test('páginas de filtro: /multipla/marca/<x>/ com título, canonical, filtro e só os carros dela no HTML', () => {
-  const cs = [A.carro({ marca: 'Honda', modelo: 'Civic' }), A.carro({ marca: 'Honda', modelo: 'City' }), A.carro({ marca: 'Volkswagen', modelo: 'Gol', loja: 'sul' }), A.carro({ carroceria: 'SUV' })];
-  A.criarSite(ID, { carros: cs });
-  build();
-  const honda = A.ler(ID, 'multipla/marca/honda/index.html');
-  assert.match(honda, /<title>Honda seminovos \| /);
-  assert.match(honda, /<link rel="canonical" href="https:\/\/loja-teste\.com\.br\/multipla\/marca\/honda\/">/);
-  assert.match(honda, /data-filtro="marca=Honda"/);
-  assert.equal((honda.match(/class="card"/g) || []).length - 1, 2, 'só os 2 Honda no HTML (fora o modelo do card)');
-  assert.ok(A.existe(ID, 'multipla/marca/volkswagen/index.html'));
-  assert.ok(A.existe(ID, 'multipla/cidade/curitiba/index.html'));
-  assert.ok(A.existe(ID, 'multipla/cidade/porto-alegre/index.html'));
-  assert.ok(!A.existe(ID, 'multipla/carroceria'), 'carroceria com 1 valor só: sem página (seria duplicada)');
-  assert.ok(A.ler(ID, 'sitemap.xml').includes('/multipla/marca/honda/<'));
-  assert.deepEqual(A.verificarSiteGerado(ID), []);
-});
-
-test('páginas de filtro: marca que some do estoque tem a página apagada', () => {
-  const cs = [A.carro({ marca: 'Honda' }), A.carro({ marca: 'Fiat' }), A.carro({ marca: 'Kia' })];
-  A.criarSite(ID, { carros: cs });
-  build();
-  assert.ok(A.existe(ID, 'multipla/marca/kia/index.html'));
-  A.gravarEstoque(ID, cs.slice(0, 2));
-  build();
-  assert.ok(!A.existe(ID, 'multipla/marca/kia/index.html'));
-  assert.ok(!A.existe(ID, 'multipla/marca/kia'));
-});
-
-test('páginas de filtro: só para filtros que o motor do site tem; paginasFiltro configura', () => {
-  const cs = [A.carro({ marca: 'Honda', carroceria: 'SUV' }), A.carro({ marca: 'Fiat', carroceria: 'Hatch' })];
-  A.criarSite(ID, { carros: cs, site: { filtros: ['cidade'] } });
-  build();
-  assert.ok(!A.existe(ID, 'multipla/marca'), 'site sem filtro de marca: a página não saberia filtrar');
-  A.limpar();
-  A.criarSite(ID, { carros: cs, site: { motor: 'v1' } });
-  build();
-  assert.ok(A.existe(ID, 'multipla/marca/honda/index.html'));
-  assert.ok(!A.existe(ID, 'multipla/carroceria'), 'motor v1 não tem filtro de carroceria');
-  A.limpar();
-  A.criarSite(ID, { carros: cs, site: { paginasFiltro: ['carroceria'] } });
-  build();
-  assert.ok(A.existe(ID, 'multipla/carroceria/suv/index.html'));
-  assert.ok(!A.existe(ID, 'multipla/marca'));
-});
-
-test('links do estoque (rodapé, menus) apontam para a página de filtro quando ela existe', () => {
-  const cs = [A.carro({ marca: 'Honda' }), A.carro({ marca: 'Fiat' })];
+test('nada depois de /multipla/: filtros só por parâmetro (/multipla/?marca=Honda), links do estoque também', () => {
+  const cs = [A.carro({ marca: 'Honda', modelo: 'Civic' }), A.carro({ marca: 'Volkswagen', modelo: 'Gol', loja: 'sul' }), A.carro({ carroceria: 'Moto' }), A.carro({ carroceria: 'SUV' })];
   A.criarSite(ID, { carros: cs, site: { paginas: [{ caminho: '', blocos: [{ tipo: 'lojas' }] }, { caminho: 'a/b', blocos: [{ tipo: 'lojas' }] }] } });
   build();
-  // lojas: só "centro" tem carros, mas o filtro de loja não tem página → continua ?loja=
+  assert.deepEqual(fs.readdirSync(A.saida(ID, 'multipla')), ['index.html'], 'só a listagem em /multipla/');
+  assert.ok(!/\/multipla\/(marca|cidade|carroceria|revenda_cidade_nome)\//.test(A.ler(ID, 'sitemap.xml')), 'sitemap sem páginas de filtro');
   assert.match(A.ler(ID, 'paginas/a/b/index.html'), /href="\.\.\/\.\.\/\.\.\/multipla\/\?loja=/);
   assert.deepEqual(A.verificarSiteGerado(ID), []);
+});
+
+test('link escrito à mão depois de /multipla/ vira parâmetro (bloco, página livre, endereço do Revenda Mais)', () => {
+  const { paraFiltro } = require('../core/build.js');
+  assert.equal(paraFiltro('multipla/carroceria/moto/'), 'multipla/?carroceria=moto');
+  assert.equal(paraFiltro('multipla/marca/caoa%20chery/?ord=menor'), 'multipla/?marca=caoa%20chery&ord=menor');
+  assert.equal(paraFiltro('multipla/revenda_cidade_nome/S%C3%A3o%20Paulo'), 'multipla/?cidade=S%C3%A3o%20Paulo');
+  assert.equal(paraFiltro('multipla/?marca=Fiat'), 'multipla/?marca=Fiat');
+  assert.equal(paraFiltro('multipla/index.html'), 'multipla/index.html');
+  A.criarSite(ID, { carros: [A.carro({ marca: 'Honda' }), A.carro({ marca: 'Fiat' })] });
+  const dir = path.join(A.raiz(), 'sites-config', ID, 'paginas');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'ofertas.html'), '<h1>Ofertas</h1><a href="/multipla/marca/honda/">Honda</a>');
+  build();
+  const html = A.ler(ID, 'paginas/ofertas/index.html');
+  assert.match(html, /href="\.\.\/\.\.\/multipla\/\?marca=honda"/);
+  assert.deepEqual(A.verificarSiteGerado(ID), []);
+});
+
+test('site de antes (com páginas de filtro e formatoUrls revendamais): as pastas depois de /multipla/ somem e são despublicadas', () => {
+  A.criarSite(ID, { carros: [A.carro({ marca: 'Honda' }), A.carro({ marca: 'Fiat', loja: 'sul' })] });
+  build();
+  // saída e estado de uma versão anterior do build (páginas de filtro registradas como geradas)
+  const est = path.join(A.raiz(), '.estado', 'sites-public', `${ID}.json`);
+  const e = JSON.parse(fs.readFileSync(est, 'utf8'));
+  for (const p of ['multipla/marca/honda/index.html', 'multipla/revenda_cidade_nome/Curitiba/index.html']) {
+    fs.mkdirSync(path.dirname(A.saida(ID, p)), { recursive: true }); fs.writeFileSync(A.saida(ID, p), 'antigo'); e.paginas.push(p);
+  }
+  fs.writeFileSync(est, JSON.stringify(e));
+  A.limparPendentes();
+  const s = A.lerSite(ID); s.formatoUrls = 'revendamais'; s.paginasFiltro = ['marca']; A.gravarSite(ID, s); // campos antigos: só ignorados
+  build();
+  assert.deepEqual(fs.readdirSync(A.saida(ID, 'multipla')), ['index.html']);
+  assert.ok(A.pendente(ID).removidos.includes(`${ID}/multipla/marca/honda/index.html`), 'despublica');
 });
 
 test('/multipla já vem com os primeiros cards no HTML (o Google vê os carros sem rodar JS)', () => {
@@ -641,22 +631,6 @@ test('link do estoque mudou: o antigo redireciona para o novo', () => {
   assert.match(A.ler(ID, 'carros/A/B/C/velho-1.html'), /novo-1\.html/);
 });
 
-test('formatoUrls "revendamais": páginas de filtro nos endereços do Revenda Mais, com espaço/acento codificados', () => {
-  const cs = [A.carro({ marca: 'Caoa Chery', modelo: 'Tiggo' }), A.carro({ marca: 'Land Rover', modelo: 'Evoque', loja: 'sul' }), A.carro({ carroceria: 'SUV' }), A.carro({ carroceria: 'Hatch' })];
-  A.criarSite(ID, { carros: cs, site: { formatoUrls: 'revendamais', lojas: { ...A.LOJAS, sul: { ...A.LOJAS.sul, cidade: 'São José dos Pinhais' } } } });
-  build();
-  assert.ok(A.existe(ID, 'multipla/marca/caoa chery/index.html'));
-  assert.ok(A.existe(ID, 'multipla/marca/land rover/index.html'));
-  assert.ok(A.existe(ID, 'multipla/revenda_cidade_nome/São José dos Pinhais/index.html'));
-  assert.ok(A.existe(ID, 'multipla/carroceria/suv/index.html'));
-  const sm = A.ler(ID, 'sitemap.xml');
-  assert.ok(sm.includes('/multipla/marca/caoa%20chery/<'), 'sitemap com espaço codificado');
-  assert.ok(sm.includes('/multipla/revenda_cidade_nome/S%C3%A3o%20Jos%C3%A9%20dos%20Pinhais/<'));
-  assert.match(A.ler(ID, 'multipla/marca/caoa chery/index.html'), /canonical" href="https:\/\/loja-teste\.com\.br\/multipla\/marca\/caoa%20chery\/"/);
-  assert.match(A.ler(ID, 'multipla/marca/caoa chery/index.html'), /data-filtro="marca=Caoa%20Chery"/);
-  assert.deepEqual(A.verificarSiteGerado(ID), []);
-});
-
 test('páginas padrão novas: financiamento e avaliação (com as lojas do site no formulário)', () => {
   A.criarSite(ID, { carros: [A.carro()] });
   build();
@@ -664,16 +638,6 @@ test('páginas padrão novas: financiamento e avaliação (com as lojas do site 
   const av = A.ler(ID, 'paginas/avaliacao/index.html');
   assert.match(av, /<option>Loja Centro<\/option>/);
   assert.match(A.ler(ID, 'index.html'), /href="paginas\/avaliacao\/">Avalie seu carro</);
-});
-
-test('troca de formato: as páginas no endereço antigo somem, com as pastas vazias', () => {
-  A.criarSite(ID, { carros: [A.carro(), A.carro({ loja: 'sul' })] });
-  build();
-  assert.ok(A.existe(ID, 'multipla/cidade/curitiba/index.html'));
-  const s = A.lerSite(ID); s.formatoUrls = 'revendamais'; A.gravarSite(ID, s);
-  build();
-  assert.ok(!A.existe(ID, 'multipla/cidade'), 'multipla/cidade/ inteira removida');
-  assert.ok(A.existe(ID, 'multipla/revenda_cidade_nome/Curitiba/index.html'));
 });
 
 test('páginas padrão vêm do TEMPLATE: editar o texto atualiza a página sem refazer as páginas de carro', () => {
@@ -715,8 +679,8 @@ test('páginas ficam em /paginas/<nome>/; links simples ("contato/", "/lojas/") 
   assert.deepEqual(A.verificarSiteGerado(ID), []);
 });
 
-test('páginas só em /paginas/: nada na raiz (nem no formato Revenda Mais); redirecionamento antigo na raiz é apagado', () => {
-  A.criarSite(ID, { carros: [A.carro()], site: { formatoUrls: 'revendamais', paginas: [{ caminho: 'lojas', blocos: [{ tipo: 'lojas' }] }] } });
+test('páginas só em /paginas/: nada na raiz; redirecionamento antigo na raiz é apagado', () => {
+  A.criarSite(ID, { carros: [A.carro()], site: { paginas: [{ caminho: 'lojas', blocos: [{ tipo: 'lojas' }] }] } });
   build({ hoje: '2026-01-01' });
   for (const p of ['lojas', 'contato', 'lgpd', 'financiamento']) {
     assert.ok(A.existe(ID, `paginas/${p}/index.html`), `/paginas/${p}/`);

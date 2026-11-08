@@ -1,6 +1,6 @@
 {
-  "versaoHtml": 9,
-  "hash": "cc5bf13c1e6bb094d278a45235788e7b2d52fdf4413e687bfe9f3fb737eaa0a7",
+  "versaoHtml": 10,
+  "hash": "5b5549861bed410be5fea99555626ee9f7d6a559f28c0654e96d8502b83d5b04",
   "arquivos": [
     "404.html",
     "carros/Honda/City/Exl-20/Honda-City-Exl-20-2021-Porto-Alegre-Rio-Grande-Do-Sul-S2.html",
@@ -12,8 +12,6 @@
     "config.json",
     "estoque.json",
     "index.html",
-    "multipla/cidade/curitiba/index.html",
-    "multipla/cidade/porto-alegre/index.html",
     "multipla/index.html",
     "paginas/avaliacao/index.html",
     "paginas/contato/index.html",

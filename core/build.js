@@ -17,8 +17,8 @@
 //   multipla/index.html                  ← templates/<nome>/paginas/multipla.html (a listagem do estoque; sempre em /multipla)
 //   carros/<Marca>/<Modelo>/<Versao>/<...>-<id>.html ← templates/<nome>/paginas/carro.html (e vendido.html); regra em core/ui/link-carro.js
 //   <caminho>/index.html                 ← templates/<nome>/paginas/pagina.html + blocos/<tipo>.html (sites-config/<dominio>/paginas/<caminho>.json)
-//   multipla/<campo>/<valor>/index.html  ← páginas fixas de filtro (marca, cidade, carroceria): a listagem já filtrada,
-//                                          com título próprio e os carros no HTML (SEO). "paginasFiltro" no site.json
+//   NADA depois de /multipla/: filtro é sempre parâmetro (/multipla/?marca=Toyota, ?carroceria=Moto). Endereço antigo
+//   (/multipla/marca/toyota/, /multipla/revenda_cidade_nome/Curitiba/) é 301 da hospedagem (infra/cloudfront/roteador.js)
 //   estoque.json (os carros que o motor lê; era carros.json), config.json, sitemap.xml (com <lastmod> = quando cada página
 //   mudou de verdade), robots.txt (core/robots.js)
 //
@@ -70,20 +70,23 @@ const htmlRedirecionamento = (para, abs, texto) =>
   `<meta http-equiv="refresh" content="0; url=${esc(para)}"><title>Redirecionando...</title>` +
   `<script>location.replace(${JSON.stringify(para)} + location.search + location.hash)</script>` +
   `<p>${esc(texto)}: <a href="${esc(para)}">clique aqui</a>.</p>`;
-// páginas fixas de filtro: campo do carro → pasta em /multipla/ (padrão quando o site não define "paginasFiltro")
-const FILTROS_PAGINA = { marca: 'marca', cidade: 'cidade', carroceria: 'carroceria', combustivel: 'combustivel', modelo: 'modelo' };
-const PAGINAS_FILTRO_PADRAO = ['marca', 'cidade', 'carroceria'];
-// filtros que o motor de cada versão conhece sem configuração (a página de filtro só existe se o filtro existir no motor)
-const FILTROS_MOTOR_V1 = ['estado', 'cidade', 'loja', 'marca', 'modelo', 'ano', 'preco', 'km', 'cambio', 'combustivel', 'cor'];
+// nada depois de /multipla/: link escrito à mão como "multipla/carroceria/moto/" (ou endereço do Revenda Mais,
+// "multipla/revenda_cidade_nome/Curitiba") vira "multipla/?carroceria=moto"; a ui-lista acerta maiúscula/acento.
+// MESMA tabela de infra/cloudfront/roteador.js (FILTRO_DA_PASTA), que faz o 301 dos endereços antigos.
+const FILTRO_DA_PASTA = { marca: 'marca', modelo: 'modelo', 'modelo-marca': 'modelo', cidade: 'cidade', revenda_cidade_nome: 'cidade',
+  estado: 'estado', carroceria: 'carroceria', combustivel: 'combustivel', cambio: 'cambio', cor: 'cor', loja: 'loja' };
+function paraFiltro(v) {
+  const m = /^multipla\/([^?#]+?)\/?(?:\?([^#]*))?(#.*)?$/.exec(String(v));
+  if (!m) return v;
+  const [pasta, ...resto] = m[1].split('/').filter(Boolean);
+  if (pasta && pasta.includes('.')) return v; // arquivo (multipla/index.html)
+  let valor = resto.join(' ');
+  try { valor = decodeURIComponent(valor); } catch (e) { /* fica como veio */ }
+  const campo = FILTRO_DA_PASTA[pasta];
+  const q = [campo && valor ? `${campo}=${encodeURIComponent(valor)}` : '', m[2] || ''].filter(Boolean).join('&');
+  return `${CAMINHO_ESTOQUE}/${q ? `?${q}` : ''}${m[3] || ''}`;
+}
 const CARDS_POR_PAGINA = 24; // padrão da ui-lista (data-pagina no #grade muda)
-// "formatoUrls": "revendamais" no site.json: páginas de filtro nos MESMOS endereços do Revenda Mais (migração sem 301)
-const FILTROS_REVENDAMAIS = {
-  marca: (v) => `marca/${String(v).toLowerCase()}`, // /multipla/marca/caoa chery
-  cidade: (v) => `revenda_cidade_nome/${v}`, // /multipla/revenda_cidade_nome/Curitiba
-  carroceria: (v) => `carroceria/${String(v).toLowerCase()}`,
-  combustivel: (v) => `combustivel/${v}`,
-  modelo: (v) => `modelo-marca/${String(v).toUpperCase()}`,
-};
 // link do carro: o "link" que vem no estoque (o do Revenda Mais, idêntico ao já indexado) ou a regra de core/ui/link-carro.js
 const normalizarLink = (l) => String(l).replace(/^\/+/, '').replace(/\/{2,}/g, '/');
 const caminhoCarro = (c) => c.link || LinkCarro.caminho(c);
@@ -128,7 +131,7 @@ const OBSOLETOS = ['carros.json', 'estoque.xml'];
 // TODOS os sites (com 2500 sites, ~1 milhão de arquivos para publicar), então não amarramos isso ao arquivo inteiro:
 // um comentário ou refatoração não deve refazer nada. O teste tests/snapshot-html.test.js avisa se a saída mudou e a
 // versão não (e vice-versa). Templates, tema, textos e dados do site já entram no hash de cada site por conta própria.
-const VERSAO_HTML = 9; // 9: estoque.json (era carros.json), sem estoque.xml; 8: componentes (filtro, estoque) nos templates; 7: páginas de conteúdo em /paginas/<nome>/ (endereço antigo redireciona); 6: estoque.xml; 2: cards no HTML, filtros, <lastmod>; 3: páginas padrão; 4: link do estoque, URLs codificadas, formato revendamais; 5: 404.html, ?v= nos css/js, canonical nas páginas livres
+const VERSAO_HTML = 10; // 10: sem páginas de filtro (/multipla/marca/x/...): filtro só por parâmetro; 9: estoque.json (era carros.json), sem estoque.xml; 8: componentes (filtro, estoque) nos templates; 7: páginas de conteúdo em /paginas/<nome>/ (endereço antigo redireciona); 6: estoque.xml; 2: cards no HTML, filtros, <lastmod>; 3: páginas padrão; 4: link do estoque, URLs codificadas, formato revendamais; 5: 404.html, ?v= nos css/js, canonical nas páginas livres
 const RENDER_VERSION = `html-${VERSAO_HTML}`;
 
 const lerJSON = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -399,6 +402,8 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     // para /paginas/<nome>/. Assim cadastro, blocos e HTML livre não precisam saber que as páginas moram em /paginas/.
     const caminhosPag = new Set(paginasSite.map((p) => p.caminho).filter(Boolean));
     const paraPagina = (v) => {
+      const f = paraFiltro(v);
+      if (f !== v) return f;
       const m = /^([^?#]*?)(\/?)([?#].*)?$/.exec(v);
       return m && caminhosPag.has(m[1]) ? `${PASTA_PAGINAS}/${m[1]}/${m[3] || ''}` : v;
     };
@@ -499,36 +504,12 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       rel('config.json'), mud
     );
 
-    // ---- páginas fixas de filtro (/multipla/marca/toyota/...) ----
-    // só para filtros que o motor do site tem (senão o JS da página não saberia filtrar) e com 2+ valores
-    const filtrosMotor = (site.filtros && site.filtros.length ? site.filtros.map((x) => (typeof x === 'string' ? x : x.campo))
-      : [...FILTROS_MOTOR_V1, ...(/^v\d+$/.test(versao) && Number(versao.slice(1)) < 2 ? [] : ['carroceria'])]);
-    const camposPagina = (site.paginasFiltro || PAGINAS_FILTRO_PADRAO).filter((k) => {
-      if (!FILTROS_PAGINA[k]) { console.warn(`  aviso: site "${site.id}": paginasFiltro "${k}" desconhecido (use: ${Object.keys(FILTROS_PAGINA).join(', ')})`); return false; }
-      return filtrosMotor.includes(k);
-    });
-    const paginasFiltro = new Map(); // "campo|valor" → { campo, valor, caminho, total }
-    for (const k of camposPagina) {
-      const valores = [...new Set(carros.map((c) => c[k]).filter(Boolean))];
-      if (valores.length < 2) continue; // 1 valor só: a página seria igual à /multipla (conteúdo duplicado)
-      const usados = new Set();
-      for (const v of valores.sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'))) {
-        const slug = LinkCarro.parte(v).toLowerCase();
-        const chave = site.formatoUrls === 'revendamais' && FILTROS_REVENDAMAIS[k] ? FILTROS_REVENDAMAIS[k](v).toLowerCase() : slug;
-        if (usados.has(chave)) { console.warn(`  aviso: site "${site.id}": "${v}" tem o mesmo endereço de outro valor de ${k}; sem página própria`); continue; }
-        usados.add(chave);
-        const sub = site.formatoUrls === 'revendamais' && FILTROS_REVENDAMAIS[k] ? FILTROS_REVENDAMAIS[k](v) : `${FILTROS_PAGINA[k]}/${slug}`;
-        if (/(^|\/)\.\.?(\/|$)|[?#\\]/.test(sub)) { console.warn(`  aviso: site "${site.id}": "${v}" não vira página de ${k} (caractere inválido em endereço)`); continue; }
-        paginasFiltro.set(`${k}|${v}`, { campo: k, valor: v, caminho: `${CAMINHO_ESTOQUE}/${sub}`, total: carros.filter((c) => c[k] === v).length });
-      }
-    }
-
     // números e listas do estoque que qualquer página/bloco pode usar (menu de cidades, marcas no rodapé, "1052 veículos"...)
     const contar = (k) => { const m = new Map(); for (const c of carros) if (c[k]) m.set(c[k], (m.get(c[k]) || 0) + 1); return [...m].sort((a, b) => String(a[0]).localeCompare(String(b[0]), 'pt-BR')); };
     const estoqueInfo = (r) => {
       const raizEstoque = r + `${CAMINHO_ESTOQUE}/`;
-      // link de um filtro: a página fixa, se existir; senão a /multipla com ?campo=valor
-      const q = (k, v) => (paginasFiltro.has(`${k}|${v}`) ? `${r}${url(paginasFiltro.get(`${k}|${v}`).caminho)}/` : `${raizEstoque}?${k}=${encodeURIComponent(v)}`);
+      // link de um filtro: sempre a /multipla com ?campo=valor (o build não gera nada depois de /multipla/)
+      const q = (k, v) => `${raizEstoque}?${k}=${encodeURIComponent(v)}`;
       return {
         total: carros.length, destaques: carros.filter((c) => c.destaque).length,
         // chave = valor sem acento/espaço, em minúsculas (para classes CSS: ic-utilitario, ic-suv...)
@@ -672,8 +653,8 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     const geradas = []; // páginas de listagem e de conteúdo (para apagar as que deixarem de existir)
     const tplLista = pagina('multipla.html');
     const raizUrlSite = site.url ? site.url.replace(/\/$/, '') : '';
-    // listagem: /multipla e cada página de filtro (mesmo template, com o filtro já aplicado e os carros dele no HTML)
-    const listagens = [{ caminho: caminhoEstoque, filtro: null }, ...[...paginasFiltro.values()].map((p) => ({ caminho: p.caminho, filtro: p }))];
+    // listagem: só /multipla/ (os filtros são parâmetros: ?marca=Toyota)
+    const listagens = [{ caminho: caminhoEstoque, filtro: null }];
     for (const l of listagens) {
       const r = prefixo(l.caminho);
       const arqRel = `${l.caminho}/index.html`;
@@ -921,7 +902,7 @@ function sobrasNaSaida(pasta = C.PUBLICO) {
   return fs.readdirSync(DIST, { withFileTypes: true }).filter((e) => e.isDirectory() && !sitesFonte.has(e.name)).map((e) => e.name).sort();
 }
 
-module.exports = { ARQ_ESTOQUE, sobrasNaSaida, atualizarIndice, construir, render, resolverLinks, problemasProducao, registrarPendente, VERSAO_HTML };
+module.exports = { ARQ_ESTOQUE, paraFiltro, sobrasNaSaida, atualizarIndice, construir, render, resolverLinks, problemasProducao, registrarPendente, VERSAO_HTML };
 
 if (require.main === module) {
   const a = process.argv.slice(2);

@@ -79,23 +79,8 @@ for (const t of templates) {
     assert.equal(cards(dom), 10);
   });
 
-  test(`[${t}] página fixa de cidade: a URL não ganha ?cidade= repetido; filtro extra vai para a URL`, { skip: pular }, async () => {
-    // o Chrome headless não mostra a URL final no DOM: a página escreve location.href num atributo para o teste ler
-    const ler = async (u) => (await abrir(u)).dom;
-    const url = (dom) => (dom.match(/data-url-final="([^"]*)"/) || [])[1];
-    const pagina = path.join(raiz, 'sites-public', id, 'multipla', 'cidade', 'porto-alegre', 'index.html');
-    const html = fs.readFileSync(pagina, 'utf8');
-    fs.writeFileSync(pagina, html.replace('</body>', '<script>setTimeout(()=>document.body.setAttribute("data-url-final",location.href),1500)</script></body>'));
-    try {
-      const sem = url(await ler(`${base}/${id}/multipla/cidade/porto-alegre/`));
-      assert.ok(sem && !sem.includes('?'), `URL limpa, veio ${sem}`);
-      const com = url(await ler(`${base}/${id}/multipla/cidade/porto-alegre/?marca=Honda`));
-      assert.ok(com && com.endsWith('/porto-alegre/?marca=Honda'), `só o filtro extra, veio ${com}`);
-    } finally { fs.writeFileSync(pagina, html); }
-  });
-
-  test(`[${t}] página fixa /multipla/marca/honda/: depois do JS continua só com a marca dela`, { skip: pular }, async () => {
-    const { dom, erros } = await abrir(`${base}/${id}/multipla/marca/honda/`);
+  test(`[${t}] filtro por parâmetro sem diferença de maiúscula/acento (como chega pelo 301 de /multipla/marca/honda/)`, { skip: pular }, async () => {
+    const { dom, erros } = await abrir(`${base}/${id}/multipla/?marca=honda`);
     assert.deepEqual(erros, []);
     assert.match(dom, /10 carros/);
     assert.equal(cards(dom), 10);

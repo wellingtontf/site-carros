@@ -210,7 +210,7 @@ Cada template fica inteiro em `templates/<nome>/`, com **um arquivo por tipo de 
 | Arquivo | Página do site |
 |---|---|
 | `home.html` | a página principal (`/`), com os blocos de `sites-config/<dominio>/paginas/index.json` em `{{{conteudo}}}` |
-| `multipla.html` | a listagem do estoque (`/multipla/` e as páginas de filtro, como `/multipla/marca/toyota/`) |
+| `multipla.html` | a listagem do estoque (`/multipla/`; filtros sempre por parâmetro: `/multipla/?marca=Toyota`) |
 | `carro.html` | a página de cada carro |
 | `vendido.html` | o carro que saiu ("não está mais disponível") |
 | `pagina.html` | a moldura das páginas de conteúdo (`/paginas/...`) e da 404 |
@@ -256,10 +256,8 @@ Tolera erro de digitação: se nenhum carro tem a palavra exata, procura a parec
 
 ## SEO
 - **Cards no HTML:** a `/multipla` e as páginas de filtro já saem com os primeiros carros (24, ou o `data-pagina` do `#grade`) montados pelo build com o próprio `tpl-card` do template. O Google vê os carros sem rodar JS; no navegador, a `ui-lista` assume.
-- **Páginas fixas de filtro:** `/multipla/marca/toyota/`, `/multipla/cidade/curitiba/`, `/multipla/carroceria/suv/` (título, descrição e canonical próprios, carros no HTML, filtro já aplicado via `<body data-filtro>`). Padrão: marca, cidade e carroceria; `"paginasFiltro": ["marca", "cidade", "carroceria", "combustivel", "modelo"]` no `site.json` muda. Só são criadas para filtros que o motor do site tem e com 2+ valores (1 valor seria conteúdo duplicado). Marca que sai do estoque tem a página apagada. Links de `{{#estoque.marcas}}`, `cidades`, `carrocerias` apontam para elas.
-- **`"formatoUrls": "revendamais"`** (site.json): as páginas de filtro ficam nos endereços do Revenda Mais (`/multipla/marca/caoa chery/`, `/multipla/revenda_cidade_nome/Curitiba/`, `/multipla/carroceria/suv/`, `/multipla/combustivel/Elétrico/`, `/multipla/modelo-marca/COROLLA/`). Espaço e acento vão codificados nos links e no sitemap. Na hospedagem, servir também sem a barra final (`/multipla/marca/toyota` → `/multipla/marca/toyota/`).
 - **Sitemap com `<lastmod>`:** o dia em que cada página mudou de verdade (guardado no estado do build), não o dia do build.
-- Templates: a listagem usa `{{listagem.titulo}}`, `{{listagem.descricao}}`, `{{{listagem.canon}}}`, `{{listagem.h1}}` e `<body ... data-filtro="{{listagem.filtro}}">`.
+- Templates: a listagem usa `{{listagem.titulo}}`, `{{listagem.descricao}}`, `{{{listagem.canon}}}`, `{{listagem.h1}}` e `<body ...>` (`data-filtro` não é mais preciso: nada é gerado depois de `/multipla/`; filtro é sempre `?campo=valor` e endereço antigo como `/multipla/marca/toyota/` é 301 da hospedagem).
 
 ## Links personalizados
 - Busca: `?estado=SP&cidade=Campinas&marca=Honda&preco=100000&ord=menor` (o botão "Copiar link da busca" gera isso).

@@ -23,9 +23,28 @@
     Motor.criar({ dados: `${REL}estoque.json`, config: `${REL}config.json`, carregar }),
     Motor.carregarConfig(`${REL}config.json`), // para o WhatsApp de cada card ([[zap]])
   ]);
+  // valor do filtro sem diferença de maiúscula/acento/espaço/hífen (?marca=caoa-chery → "CAOA Chery"; ?cidade=Maring →
+  // "Maringá" quando só uma opção começa assim): é o que chega pelo 301 dos endereços antigos do Revenda Mais
+  const chave = (x) => String(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  function ajustarQuery(texto) {
+    const p = new URLSearchParams(texto);
+    for (let passo = 0; passo < 3; passo++) { // cascata (estado → cidade → loja; marca → modelo): cada passo libera o próximo nível
+      motor.aplicarQuery(p.toString());
+      let mudou = false;
+      for (const f of motor.filtros) {
+        const v = p.get(f.campo);
+        if (!v || f.valor() === v || !f.opcoes) continue;
+        const ops = f.opcoes().map((o) => String(o.valor)), k = chave(v);
+        const achou = ops.find((o) => chave(o) === k) || (k.length >= 4 && ops.filter((o) => chave(o).startsWith(k)).length === 1 ? ops.find((o) => chave(o).startsWith(k)) : null);
+        if (achou && achou !== v) { p.set(f.campo, achou); mudou = true; }
+      }
+      if (!mudou) break;
+    }
+    return p.toString();
+  }
   const idLoja = Object.fromEntries(Object.entries(cfg.lojas || {}).map(([id, l]) => [l.nome, id]));
-  // página fixa de filtro (/multipla/marca/toyota/): o <body data-filtro="marca=Toyota"> vale quando a URL não traz outro
-  motor.aplicarQuery(location.search || document.body.dataset.filtro || '');
+  // filtros vêm só da URL (/multipla/?marca=Toyota). data-filtro no <body>: HTML antigo das páginas fixas de filtro.
+  motor.aplicarQuery(ajustarQuery(location.search || document.body.dataset.filtro || ''));
   Motor.vendedor(); // guarda ?v= se existir
 
   // busca e ordenação
