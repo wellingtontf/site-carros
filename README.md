@@ -42,7 +42,8 @@ npm run test:rapido    # sem o navegador (Chrome)
 | `tests/unidade-*.test.js` | link do carro, mini-renderer (escape/XSS), validação do estoque |
 | `tests/build.test.js` | geração, incremental, vendidos e retenção, redirecionamentos, ordem, páginas, blocos, links relativos, segurança, erros de configuração |
 | `tests/atualizar.test.js` | fontes HTTP (`${VAR}`, erro 500, JSON quebrado), trava de queda, estoque vazio, trava de execução, publicação incremental, injeção no shell |
-| `tests/servidor.test.js` | receptor HTTP: token, rotas, corpo inválido, PUT → grava → refaz |
+| `tests/servidor.test.js` | API: token por cliente, 403 em site alheio, 422 com erros, estoque inteiro, carro avulso, rajada num build só, trava de queda (409), fila que sobrevive a reinício |
+| `tests/producao.test.js` | problemas de site estático no ar: 404, `?v=` nos css/js, canonical em página livre, publicação recusa fotos em localhost/http, auditoria |
 | `tests/motor.test.js` | busca, busca aproximada, filtros em cascata, link da busca, ordens, WhatsApp — em **todas** as versões; e que as congeladas não foram editadas (`sha256` em `versao.json`) |
 | `tests/sites-e-templates.test.js` | gera os sites reais e varre **todas** as páginas: link local quebrado, `{{marcador}}` sobrando, título/viewport, ids da listagem; todo template com o mínimo exigido |
 | `tests/navegador.test.js` | Chrome headless em cada template: cards montados pelo JS, filtro vindo da URL, WhatsApp da página do carro, nenhum erro de JS |
@@ -252,14 +253,17 @@ node core/cli.js atualizar                          # todos os sites de fontes.j
 node core/cli.js atualizar trokey.com.br            # só esse
 node core/cli.js atualizar trokey.com.br --publicar # e já publica o que mudou
 ```
-**2) O Revenda Mais avisa** (receptor HTTP):
+**2) Qualquer sistema manda** (API de integração, contrato completo em [docs/api.md](docs/api.md)):
 ```
-TOKEN_ATUALIZAR=<segredo de 16+ letras> PUBLICAR=1 node core/servidor.js
-POST /atualizar                {"sites":["trokey.com.br"]}  (vazio = todos)  → 202, entra na fila
-PUT  /sites/trokey.com.br/estoque   corpo = JSON de carros do site           → 202
-GET  /status                                                                  → última execução
+node core/cli.js cliente criar revenda-mais --sites "*"    # token do sistema (aparece uma vez; só o hash fica salvo)
+PUBLICAR=1 node core/servidor.js                           # API em :8787
+PUT    /v1/sites/<dominio>/estoque        estoque inteiro            → 202 + número do pedido (422 se inválido)
+PUT    /v1/sites/<dominio>/carros/<id>    inclui/altera um carro
+DELETE /v1/sites/<dominio>/carros/<id>    carro vendido
+POST   /v1/sites/<dominio>/build          refaz o site sem mudar o estoque
+GET    /v1/pedidos/<id>                   andamento    (?esperar=30 nas rotas acima responde já com o resultado)
 ```
-Header `Authorization: Bearer <token>`. Várias chamadas em sequência viram uma atualização só (`ATRASO_MS`, padrão 3 s) e roda uma por vez.
+A plataforma é agnóstica: não conhece o sistema de origem, cada um converte para o mesmo formato. Cada token só mexe nos sites dele. Chamadas em sequência viram um build só (`ATRASO_MS`, padrão 3 s), na ordem em que chegaram; a fila fica em disco (`.estado/api/`) e sobrevive a reinício. `TOKEN_ATUALIZAR` (16+ letras) segue valendo como admin, e as rotas antigas (`/atualizar`, `/status`, `PUT /sites/<d>/estoque`) continuam.
 
 O que acontece:
 - Valida tudo (ids únicos, loja existente no site, preço, ano, km, fotos, campos de texto). **Qualquer erro → nada é gravado**, o estoque antigo segue valendo.
@@ -272,4 +276,8 @@ O que acontece:
 - O que mudou e ainda não foi publicado fica em `.estado/dist/pendente.json`. `node core/cli.js publicar` (ou `--publicar`) roda, por site, o comando de `config/publicacao.json` (placeholders `{site} {pasta} {lista} {removidos} {completo}`) e só limpa a pendência dos sites que deram certo.
 
 ## Publicar
+Antes de publicar: `node ferramentas/auditar-dist.js` confere os problemas clássicos de site estático no ar (404, cache de css/js, localhost, conteúdo misto, charset, JSON-LD, sitemap...). A publicação **recusa** site com `url` sem https ou `fotosBase` em localhost/http.
+
+Na hospedagem: `404.html` na raiz de cada site é a página de erro (links a partir da raiz do domínio); css/js vão com `?v=<hash>` e podem ter cache de 1 ano (`Cache-Control: public, max-age=31536000, immutable`); HTML com cache curto; `/pasta/` precisa servir `/pasta/index.html`.
+
 Cada `dist/<dominio>/` vai para o seu domínio. `config/publicacao.json` define o comando que sobe um site (S3 sync, rclone, wrangler...). Com `{lista}` você pode enviar só os arquivos alterados em vez da pasta toda.

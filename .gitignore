@@ -9,6 +9,7 @@ node_modules/
 # configuração com segredos (copie de config/*.exemplo.json)
 config/fontes.json
 config/publicacao.json
+config/clientes.json
 
 # configuração pessoal do Claude Code
 .claude/settings.local.json

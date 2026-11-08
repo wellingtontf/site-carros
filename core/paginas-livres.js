@@ -82,7 +82,7 @@ function linksRelativos(html, rel) {
 
 // página livre: só acrescenta o que falta e é essencial. Se o designer mandou só um pedaço de HTML com
 // "moldura: nenhuma", monta um documento mínimo em volta (sem isso a página sairia sem charset, título e aviso de cookies)
-function completarLivre(html, rel, { titulo = '', descricao = '' } = {}) {
+function completarLivre(html, rel, { titulo = '', descricao = '', canon = '' } = {}) {
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   let h = /<html[\s>]/i.test(html) ? html
     : `<!doctype html>\n<html lang="pt-BR">\n<head>\n<title>${esc(titulo)}</title>${descricao ? `\n<meta name="description" content="${esc(descricao)}">` : ''}\n</head>\n<body>\n${html}\n</body>\n</html>\n`;
@@ -90,6 +90,7 @@ function completarLivre(html, rel, { titulo = '', descricao = '' } = {}) {
   if (!/<body[\s>]/i.test(h)) h = h.replace(/<\/head>/i, '</head>\n<body>').replace(/<\/html>/i, '</body>\n</html>');
   if (!/<meta[^>]+charset/i.test(h)) h = h.replace(/<head[^>]*>/i, (m) => `${m}\n<meta charset="utf-8">`);
   if (!/<meta[^>]+name="viewport"/i.test(h)) h = h.replace(/<head[^>]*>/i, (m) => `${m}\n<meta name="viewport" content="width=device-width,initial-scale=1">`);
+  if (canon && !/rel=["']canonical["']/i.test(h)) h = h.replace(/<\/head>/i, `${canon}\n</head>`); // o build sabe o endereço; o designer não precisa
   if (!/<html[^>]*\blang=/i.test(h)) h = h.replace(/<html/i, '<html lang="pt-BR"');
   if (!/<body[^>]*data-rel=/i.test(h)) h = h.replace(/<body([^>]*)>/i, `<body$1 data-rel="${rel}">`);
   if (!/motor\/ui-site\.js/.test(h)) h = h.replace(/<\/body>/i, `<script src="${rel}motor/ui-site.js"></script>\n</body>`); // aviso de cookies (LGPD)

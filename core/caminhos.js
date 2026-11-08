@@ -12,8 +12,9 @@
 //     template.json, paginas/{index,carro,vendido,pagina}.html, blocos/, parciais/, css/, js/, img/
 //     paginas-extras/            páginas livres de TODOS os sites do template
 //   paginas-padrao/           páginas que TODO site ganha (contato, privacidade, cookies, LGPD), com {{site.nome}}...
-//   config/                   fontes.json, publicacao.json, historico.json
+//   config/                   fontes.json, publicacao.json, historico.json, clientes.json (tokens da API)
 //   .estado/                  estado do build incremental, travas, cópias de segurança
+//     api/pedidos/, api/entrada/  pedidos recebidos pela API e o corpo deles enquanto estão na fila
 //   dist/                     saída (uma pasta por domínio)
 const path = require('path');
 
@@ -41,5 +42,8 @@ module.exports = {
   template: (nome) => path.join(TEMPLATES, nome),
   pagina: (nome, arquivo) => path.join(TEMPLATES, nome, 'paginas', arquivo),
   config: (arquivo) => path.join(CONFIG, arquivo),
+  clientes: () => path.join(CONFIG, 'clientes.json'),
+  pedidos: () => path.join(ESTADO, 'api', 'pedidos'),
+  entrada: () => path.join(ESTADO, 'api', 'entrada'),
   saida: (pasta) => path.join(ROOT, pasta),
 };

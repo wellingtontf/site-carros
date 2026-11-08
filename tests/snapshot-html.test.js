@@ -38,7 +38,8 @@ function gerar() {
   const arquivos = A.listar(dir).map((f) => path.relative(dir, f).split(path.sep).join('/'))
     .filter((f) => !f.startsWith('motor/') && !f.startsWith('css/')).sort(); // motor e css vêm prontos (não são gerados)
   const h = crypto.createHash('sha256');
-  for (const f of arquivos) { h.update(f); h.update('\0'); h.update(fs.readFileSync(path.join(dir, f))); }
+  // ?v=<hash> dos css/js depende do conteúdo deles (não do build): fica de fora da comparação
+  for (const f of arquivos) { h.update(f); h.update('\0'); h.update(fs.readFileSync(path.join(dir, f), 'utf8').replace(/\?v=[0-9a-f]{8}/g, '?v=')); }
   return { versaoHtml: VERSAO_HTML, hash: h.digest('hex'), arquivos };
 }
 

@@ -65,6 +65,23 @@ const normalizarLink = (l) => String(l).replace(/^\/+/, '').replace(/\/{2,}/g, '
 const caminhoCarro = (c) => c.link || LinkCarro.caminho(c);
 // caminho com espaço/acento (páginas no formato revendamais) precisa ir codificado no href e no sitemap
 const url = (caminho) => caminho.split('/').map(encodeURIComponent).join('/');
+// 404.html de quem não configurou uma ("pagina404" no site.json, mesmo formato de uma página de "paginas")
+const PAGINA_404_PADRAO = {
+  titulo: 'Página não encontrada',
+  blocos: [
+    { tipo: 'titulo', titulo: 'Página não encontrada', subtitulo: 'O endereço pode ter mudado ou o veículo já foi vendido.' },
+    { tipo: 'vitrine', titulo: 'Veja alguns carros do nosso estoque', quantidade: 4, botao: 'Ver estoque completo' },
+  ],
+};
+// O que quebra o site quando publicado (a publicação recusa o site; o build só avisa, para o teste local continuar funcionando)
+function problemasProducao(site) {
+  const p = [];
+  const local = /^https?:\/\/(localhost|127\.|0\.0\.0\.0|\[::1\])/i;
+  if (site.url && (!/^https:\/\//i.test(site.url) || local.test(site.url))) p.push(`"url" precisa ser https e público (está "${site.url}")`);
+  if (site.fotosBase && local.test(site.fotosBase)) p.push(`"fotosBase" aponta para a máquina local ("${site.fotosBase}"): no ar, o site fica sem fotos`);
+  else if (site.fotosBase && /^http:\/\//i.test(site.fotosBase)) p.push(`"fotosBase" sem https ("${site.fotosBase}"): o navegador bloqueia as fotos num site https`);
+  return p;
+}
 // home de quem não configurou uma (o template precisa ter os blocos "banner" e "vitrine")
 const HOME_PADRAO = (site) => [
   { tipo: 'banner', titulo: site.nome, subtitulo: site.slogan || '' },
@@ -81,7 +98,7 @@ const sha = (s) => crypto.createHash('sha1').update(s).digest('hex');
 // TODOS os sites (com 2500 sites, ~1 milhão de arquivos para publicar), então não amarramos isso ao arquivo inteiro:
 // um comentário ou refatoração não deve refazer nada. O teste tests/snapshot-html.test.js avisa se a saída mudou e a
 // versão não (e vice-versa). Templates, tema, textos e dados do site já entram no hash de cada site por conta própria.
-const VERSAO_HTML = 4; // 2: cards no HTML, filtros, <lastmod>; 3: páginas padrão; 4: link do estoque, URLs codificadas, formato revendamais
+const VERSAO_HTML = 5; // 2: cards no HTML, filtros, <lastmod>; 3: páginas padrão; 4: link do estoque, URLs codificadas, formato revendamais; 5: 404.html, ?v= nos css/js, canonical nas páginas livres
 const RENDER_VERSION = `html-${VERSAO_HTML}`;
 
 const lerJSON = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -330,6 +347,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       if (!CAMPOS_FILTRO.includes(campo)) console.warn(`  aviso: site "${site.id}" tem filtro desconhecido "${campo}" (use: ${CAMPOS_FILTRO.join(', ')})`);
     }
 
+    for (const x of problemasProducao(site)) console.warn(`  aviso: site "${site.id}": ${x} (a publicação vai recusar este site)`);
     const carros = juntar(site);
     const lojas = site.lojas;
     const out = path.join(DIST, site.id);
@@ -353,13 +371,26 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     const rel = (p) => `${site.id}/${p}`;
 
     // core → motor/ (engine da versão do site + ui); template → css/ js/ img/...; site → assets/
-    escreverSe(path.join(out, 'motor', 'engine.js'), fs.readFileSync(arqMotor, 'utf8').replace(/__VERSAO__/g, versao), rel('motor/engine.js'), mud);
+    const engine = fs.readFileSync(arqMotor, 'utf8').replace(/__VERSAO__/g, versao);
+    escreverSe(path.join(out, 'motor', 'engine.js'), engine, rel('motor/engine.js'), mud);
     const arquivos = new Map();
     for (const [k, v] of listarArvore(C.UI)) arquivos.set(`motor/${k}`, v);
     for (const [k, v] of listarArvore(C.template(nomeTpl), (r) => ['paginas', 'paginas-extras', 'blocos', 'parciais', 'template.json', 'motor', 'assets'].includes(r))) arquivos.set(k, v);
     for (const [k, v] of listarArvore(C.assets(site.id))) arquivos.set(`assets/${k}`, v);
     for (const [k, v] of arquivos) copiarSe(v, path.join(out, k), rel(k), mud);
     const estaticos = new Set(arquivos.keys()); // arquivos copiados (template, assets, páginas livres): o que sumir da origem é apagado
+    // cache busting: todo .css/.js do site vai no HTML com ?v=<hash do conteúdo>. A hospedagem pode guardar css/js por
+    // 1 ano (Cache-Control immutable) e HTML novo sempre pede o arquivo novo. Arquivos do template entram no hash das
+    // páginas (mudou o css → as páginas são refeitas com o ?v novo). Os do core (motor/) não: página de carro antiga
+    // continua com o ?v antigo, então o core/ui precisa continuar funcionando com HTML antigo (os ids não mudam).
+    const versoes = new Map([['motor/engine.js', sha(engine).slice(0, 8)]]);
+    for (const [k, v] of arquivos) if (/\.(css|js)$/.test(k)) versoes.set(k, sha(fs.readFileSync(v)).slice(0, 8));
+    // o endereço é resolvido a partir da página (arqRel): "../css/x.css", "/css/x.css" e "feirao.css" (arquivo de página livre)
+    const versionar = (html, arqRel) => html.replace(/\b(href|src)="([^"?#:]+\.(?:css|js))"/g, (m, a, u) => {
+      const k = u.startsWith('/') ? u.slice(1) : path.posix.normalize(path.posix.join(path.posix.dirname(arqRel), u));
+      return versoes.has(k) ? `${a}="${u}?v=${versoes.get(k)}"` : m;
+    });
+    const escreverHtml = (arqRel, html) => escreverSe(path.join(out, arqRel), versionar(html, arqRel), rel(arqRel), mud);
     // {{> nome}} inclui templates/<nome>/parciais/<nome>.html (cabeçalho, rodapé... escritos uma vez só)
     const parciais = (txt, nivel = 0) => txt.replace(/\{\{>\s*([a-z0-9-]+)\s*\}\}/g, (_, n) => {
       const arq = path.join(C.template(nomeTpl), 'parciais', `${n}.html`);
@@ -560,7 +591,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       const html = render(tplLista, {
         ...ctx(r), listagem, blocosAntes: renderBlocos(cfgEstoque.blocosAntes, r), blocosDepois: renderBlocos(cfgEstoque.blocosDepois, r),
       });
-      datar(arqRel, escreverSe(path.join(out, arqRel), comCards(html, lista, r), rel(arqRel), mud));
+      datar(arqRel, escreverHtml(arqRel, comCards(html, lista, r)));
     }
     // páginas de conteúdo
     const tplPagina = pagina('pagina.html');
@@ -574,18 +605,29 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
         let html;
         try { html = PL.linksRelativos(render(fs.readFileSync(p.livre.arquivo, 'utf8'), ctx(r)), r); }
         catch (e) { throw new Error(`Página livre ${p.livre.onde}: ${e.message}`); }
-        const final = p.livre.semMoldura ? PL.completarLivre(html, r, { titulo: p.titulo, descricao: p.descricao })
+        const final = p.livre.semMoldura ? PL.completarLivre(html, r, { titulo: p.titulo, descricao: p.descricao, canon })
           : render(tplPagina, { ...ctx(r), pagina: { titulo: p.titulo, descricao: p.descricao || site.slogan || '' }, canon, conteudo: html, temListagem: false });
-        datar(arqRel, escreverSe(path.join(out, arqRel), final, rel(arqRel), mud));
+        for (const [k, v] of p.livre.assets) if (/\.(css|js)$/.test(k)) versoes.set(`${p.caminho}/${k}`, sha(fs.readFileSync(v)).slice(0, 8));
+        datar(arqRel, escreverHtml(arqRel, final));
         for (const [k, v] of p.livre.assets) { const destino = `${p.caminho}/${k}`; copiarSe(v, path.join(out, destino), rel(destino), mud); estaticos.add(destino); }
         continue;
       }
       const nListagem = p.blocos.filter((b) => b.tipo === 'listagem').length;
       if (nListagem > 1) throw new Error(`Site "${site.id}", página "${p.caminho || '(raiz)'}": só pode ter um bloco "listagem"`);
-      datar(arqRel, escreverSe(path.join(out, arqRel), render(tplPagina, {
+      datar(arqRel, escreverHtml(arqRel, render(tplPagina, {
         ...ctx(r), pagina: { titulo: p.titulo || site.nome, descricao: p.descricao || site.slogan || '' }, canon, conteudo: renderBlocos(p.blocos, r),
         temListagem: nListagem > 0, // a página carrega o motor + ui-lista (ids da listagem: ver README)
-      }), rel(arqRel), mud));
+      })));
+    }
+    // 404.html: a hospedagem devolve esta página em QUALQUER endereço que não existe (/carros/a/b/c.html, /x/y/), então
+    // os links dela partem da raiz do domínio ("/css/...", "/multipla/"), não da pasta. Fica fora do sitemap (noindex).
+    {
+      const p = site.pagina404 || PAGINA_404_PADRAO;
+      if (!Array.isArray(p.blocos)) throw new Error(`Site "${site.id}": "pagina404" precisa de "blocos" (lista)`);
+      escreverHtml('404.html', render(tplPagina, {
+        ...ctx('/'), pagina: { titulo: `${p.titulo || PAGINA_404_PADRAO.titulo} | ${site.nome}`, descricao: '' },
+        canon: '<meta name="robots" content="noindex">', conteudo: renderBlocos(p.blocos, '/'), temListagem: false,
+      }));
     }
     // arquivo copiado que não existe mais na origem (imagem tirada da página do designer, css removido do template...)
     for (const arq of (incremental && estadoAnt.estaticos) || []) {
@@ -661,7 +703,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
         ],
         opcionais: c.opcionais, endereco: lojas[c.lojaId].endereco || '', principalAttrs, fotos,
       };
-      datar(link, escreverSe(arq, render(tplCarro, { ...ctx(relDe(link)), carro, og }), rel(link), mud));
+      datar(link, escreverHtml(link, render(tplCarro, { ...ctx(relDe(link)), carro, og })));
     }
 
     // sitemap e robots: é por aqui que o Google descobre as páginas dos carros (a listagem é montada por JS)
@@ -691,7 +733,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     for (const [id, v] of Object.entries(vendidos)) {
       if ((Date.parse(hoje) - Date.parse(v.data)) / 86400000 > retencao) { remover(v.link); delete vendidos[id]; continue; }
       titulos[id] = titulosAnt[id] || id;
-      escreverSe(path.join(out, v.link), render(tplVendido, { ...ctx(relDe(v.link)), carro: { id, titulo: titulos[id] } }), rel(v.link), mud);
+      escreverHtml(v.link, render(tplVendido, { ...ctx(relDe(v.link)), carro: { id, titulo: titulos[id] } }));
     }
 
     // carro que MUDOU de link (mudou marca/modelo/versão/cidade, ou o formato do link): o endereço antigo redireciona
@@ -745,7 +787,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
   return { pasta, feitos };
 }
 
-module.exports = { construir, listarSites, carregarSite, idsSites, ID_SITE, render, resolverLinks, VERSAO_HTML };
+module.exports = { construir, listarSites, carregarSite, idsSites, ID_SITE, render, resolverLinks, problemasProducao, VERSAO_HTML };
 
 if (require.main === module) {
   const a = process.argv.slice(2);

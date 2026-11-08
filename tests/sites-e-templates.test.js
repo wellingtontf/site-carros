@@ -62,6 +62,14 @@ for (const id of reais) {
   });
 }
 
+// problemas clássicos de site estático no ar (404, cache, charset, JSON-LD...). "localhost" fica de fora: a Trokey usa
+// o s3-local no teste local de propósito, e quem barra isso é a publicação (tests/producao.test.js)
+test('auditoria dos sites reais: nenhum PROBLEMA de produção', () => {
+  const { auditar } = require('../ferramentas/auditar-dist.js');
+  const { resultados } = auditar(path.join(raiz, 'dist-teste'));
+  assert.deepEqual(resultados.filter((r) => r.nivel === 'PROBLEMA' && r.chave !== 'localhost').map((r) => `${r.item}: ${r.detalhe}`), []);
+});
+
 test('todo template tem o mínimo exigido pelo core (páginas e blocos da home padrão)', () => {
   for (const t of fs.readdirSync(path.join(A.PROJETO, 'templates'))) {
     const dir = path.join(A.PROJETO, 'templates', t);

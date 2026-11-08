@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
-const { construir, carregarSite, idsSites } = require('./build');
+const { construir, carregarSite, idsSites, problemasProducao } = require('./build');
 const C = require('./caminhos');
 
 const ROOT = C.ROOT;
@@ -128,6 +128,10 @@ async function publicarPendentes({ pasta = 'dist', log = console.log } = {}) {
     while (fila.length) {
       const site = fila.shift();
       const p = pend[site];
+      // nunca publica site que quebraria no ar (fotos em localhost, http...): fica pendente até corrigir o site.json
+      let prob;
+      try { prob = idsSites().includes(site) ? problemasProducao(carregarSite(site)) : []; } catch (e) { prob = [`site.json ilegível: ${e.message}`]; }
+      if (prob.length) { falhas.push(site); log(`RECUSADO ${site}: ${prob.join('; ')}`); continue; }
       const lista = p.completo ? '' : p.escritos.join('\n');
       const cmd = cfg.comandoSite
         .replace(/\{site\}/g, aspas(site)).replace(/\{pasta\}/g, aspas(path.join(pasta, site)))
@@ -147,7 +151,8 @@ async function publicarPendentes({ pasta = 'dist', log = console.log } = {}) {
 }
 
 // Núcleo: recebe estoques (já em mãos, {dominio: json}) ou busca nas fontes; valida, grava e reconstrói só os sites que mudaram.
-async function atualizar({ sites: ids = null, recebidos = null, forcar = false, completo = false, publicar = false, log = console.log } = {}) {
+// refazer = sites para reconstruir mesmo sem mudança de estoque (ex.: o site.json mudou; pedido "build" da API)
+async function atualizar({ sites: ids = null, recebidos = null, refazer = [], forcar = false, completo = false, publicar = false, log = console.log } = {}) {
   if (!travar()) return { status: 'ocupado' };
   try {
     const res = [];
@@ -168,8 +173,8 @@ async function atualizar({ sites: ids = null, recebidos = null, forcar = false, 
     }
     const mudou = res.filter((r) => r.status === 'atualizado').map((r) => r.id);
     // cada estoque pertence a um site só: refaz exatamente os sites cujo estoque mudou
-    const sites = completo ? null : mudou;
-    if (completo || mudou.length) construir({ sites, completo });
+    const sites = completo ? null : [...new Set([...mudou, ...refazer])];
+    if (completo || sites.length) construir({ sites, completo });
     else log('nada mudou, nenhum site refeito');
     let pub = null;
     if (publicar) pub = await publicarPendentes({ log });

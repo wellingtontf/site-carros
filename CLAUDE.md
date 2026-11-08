@@ -8,7 +8,7 @@ Plataforma com ~2500 sites estáticos de revendas de carros, cada um em um domí
 ## Decisões de arquitetura (já tomadas)
 1. **Um site por domínio, um estoque por site:** `sites/<dominio>/` tem `site.json` (template, tema, textos, filtros, restrições, motor, vendedores, fotosBase, url e as `lojas` do site), `estoque.json` (o ÚNICO JSON de carros do site; cada carro diz sua `loja`, opcional se o site tem uma loja só) e `assets/` (logo, banner...). O nome da pasta é o domínio e o id do site (não há campo `id`). Não existe mais estoque nem loja compartilhados entre sites (decisão do Wellington: "sempre será passado só um json de estoque de carros").
 2. **Core isolado, visual separado:**
-   - `core/` é só código: `motor/<versao>/engine.js` (busca, filtros em cascata, estado na URL e WhatsApp; não mexe em DOM, roda no navegador e no Node), `ui/` (liga o motor à página), `caminhos.js` (todos os caminhos), `build.js`, `cli.js`, `atualizar.js`, `servidor.js`.
+   - `core/` é só código: `motor/<versao>/engine.js` (busca, filtros em cascata, estado na URL e WhatsApp; não mexe em DOM, roda no navegador e no Node), `ui/` (liga o motor à página), `caminhos.js` (todos os caminhos), `build.js`, `cli.js`, `atualizar.js`, `servidor.js` + `fila.js` + `clientes.js` (API de integração).
    - `templates/<nome>/` é autocontido: `template.json`, `paginas/{index,carro,vendido}.html`, `css/`, `js/`, `img/`. Hoje há `barra-topo`, `lateral`, `trokey` e `servopa`. Não existe base compartilhada entre templates.
    - Páginas de conteúdo (home institucional, vender, lojas, política) são listas de **blocos** em `site.json` → `paginas`; cada tipo de bloco é `templates/<nome>/blocos/<tipo>.html`, a moldura é `paginas/pagina.html`, e pedaços comuns ficam em `parciais/` (`{{> nome}}`). `estoque.caminho` põe a listagem numa subpasta (Trokey: `/estoque/`). `cabecalho` e `rodape` também vêm do `site.json`. Hoje só o template `trokey` tem blocos.
    - **A listagem do estoque fica SEMPRE em `/multipla/`** (constante `CAMINHO_ESTOQUE` no build); a raiz é a home institucional (página `""` de `paginas`, ou a `HOME_PADRAO` do core: banner + vitrine). Todo template precisa de `paginas/pagina.html` e dos blocos `banner` e `vitrine`. O bloco `listagem` põe o estoque interativo dentro de uma página (ex.: home da Servopa).
@@ -31,15 +31,18 @@ core/                         SÓ CÓDIGO (isolado)
   build.js                    build incremental (estado em .estado/<pasta>/<dominio>.json, pendências em pendente.json)
   cli.js                      status | congelar | testar | aplicar | reverter | historico | atualizar | publicar
   atualizar.js                valida, grava sites/<dominio>/estoque.json e reconstrói só aquele site; publicarPendentes()
-  servidor.js                 receptor HTTP: POST /atualizar {"sites":[...]}, PUT /sites/<dominio>/estoque, GET /status
+  servidor.js                 API de integração /v1 (contrato em docs/api.md): PUT estoque, PUT/DELETE carro, POST build, GET pedidos
+  fila.js                     pedidos da API (em disco, .estado/api/): aplica na ordem, valida um a um, 1 build por site por lote
+  clientes.js                 tokens por sistema externo (config/clientes.json, só sha256), cada um limitado aos seus sites
   motor/rascunho, motor/vN    engine.js (vN imutável)
   ui/                         ui-util.js, ui-lista.js, ui-carro.js → vão para <site>/motor/ no build
 sites/<dominio>/              site.json, estoque.json, assets/
 templates/<nome>/             template.json, paginas/, css/, js/, img/
 config/                       fontes.exemplo.json, publicacao.exemplo.json (copiar sem .exemplo; ignorados no git), historico.json
-ferramentas/                  gerar-exemplo.js (estoques dos 3 sites de exemplo), importar-trokey.py (teste de migração)
+ferramentas/                  gerar-exemplo.js, importar-trokey.py (teste de migração), auditar-dist.js (problemas de site estático no ar)
+docs/api.md                   contrato da API para quem integra (agnóstico: nenhum sistema de origem é especial)
 ```
-Saída: `dist/<dominio>/` com `motor/` (core), `css/ js/ img/` (template), `assets/` (site), `index.html`, `carro/<id>/`, `carros.json`, `config.json`, `sitemap.xml`, `robots.txt`.
+Saída: `dist/<dominio>/` com `motor/` (core), `css/ js/ img/` (template), `assets/` (site), `index.html`, `404.html` (links a partir da raiz; `pagina404` no site.json), `carro/<id>/`, `carros.json`, `config.json`, `sitemap.xml`, `robots.txt`.
 Gerados e fora do git: `dist*/`, `.estado/`, `s3-local/` (simula o bucket de fotos; servido em :8081 nos testes locais).
 
 ## Como a atualização funciona (já implementado e testado)
@@ -52,7 +55,9 @@ Gerados e fora do git: `dist*/`, `.estado/`, `s3-local/` (simula o bucket de fot
 - Trocar motor ou filtros não refaz páginas. Trocar template, tema ou textos refaz as páginas do site.
 - **Publicação:** `config/publicacao.json` = `{paralelo, comandoSite}`, com os placeholders `{site} {pasta} {lista} {removidos} {completo}`. Só limpa a pendência dos sites publicados com sucesso.
 - Há trava de execução simultânea (`.estado/atualizar.lock`, expira em 30 min).
-- O servidor junta chamadas seguidas numa só (`ATRASO_MS`, padrão 3000 ms) e roda uma por vez. Aceita até 100 MB no PUT.
+- **API agnóstica** (`core/servidor.js`, docs/api.md): qualquer sistema manda estoque inteiro ou carro avulso com o token dele (`node core/cli.js cliente criar <nome> --sites a,b|*`). Valida na hora (422), devolve número de pedido (`?esperar=N` responde com o resultado), junta rajadas (`ATRASO_MS`, 3000 ms) num build por site, e a fila fica em disco. Aceita até 100 MB no PUT do estoque.
+- css/js saem com `?v=<hash do conteúdo>` (cache longo na CDN). Os do template entram no hash das páginas; os do core (`motor/`) não, então `core/ui` precisa continuar funcionando com HTML antigo.
+- `problemasProducao(site)` no build: `url` sem https ou `fotosBase` em localhost/http → o build avisa e a publicação recusa o site (a Trokey usa localhost:8081 de propósito, para o teste local).
 
 ## Medições (site de 1000 carros)
 - `carros.json`: 186 KB (15 KB com gzip). Motor + CSS + JS: ~25 KB (~10 KB com gzip). Página de carro: 4 KB. Pasta do site: 12 MB (1000 páginas).
