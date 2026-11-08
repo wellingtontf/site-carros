@@ -10,7 +10,7 @@ tema). Cada componente é configurável por opções: cores, layout, textos e o 
 | `filtros-ativos` | as etiquetas ("chips") dos filtros aplicados, com ✕ para tirar cada um e "Limpar busca" |
 | `barra-busca` | barra de busca rápida: marca e modelo em cascata, botão Pesquisar e, à direita, o combo de ordenação |
 
-Os 3 temas usam `filtro`, `estoque` e `filtros-ativos` na `/multipla/`; o template-basico também a `barra-busca`. Para ver as opções no terminal: `node core/cli.js componentes`.
+O template-basico (o único tema hoje) usa os quatro na `/multipla/`. Para ver as opções no terminal: `node core/cli.js componentes`.
 
 ## Como usar
 
@@ -72,7 +72,7 @@ O `filtros-ativos` mostra uma etiqueta para cada filtro aplicado (cada valor: Cu
 buscado. O ✕ tira só aquele valor; "Limpar busca" tira todos. Fica **sincronizado** com o `filtro`: tirar a etiqueta
 desmarca a caixa/zera o combo, e mexer no filtro atualiza as etiquetas e o endereço. Some quando não há filtro.
 
-- Os 3 temas o põem logo acima do estoque: `<section>{{componente filtros-ativos}}{{componente estoque ...}}</section>`.
+- O template-basico o põe logo acima do estoque: `<section>{{componente barra-busca}}{{componente filtros-ativos}}{{componente estoque ...}}</section>`.
 - Para tirar de um site: `{ "mostrar": false }` em `componentes/filtros-ativos.json` (site inteiro) ou
   `{ "componentes": { "filtros-ativos": { "mostrar": false } } }` no `web/multipla.json`. Para todos os sites de um tema:
   apagar a chamada do `multipla.html`, ou `{{componente filtros-ativos mostrar=false}}`.
@@ -86,8 +86,9 @@ A `barra-busca` fica acima dos filtros ativos e do estoque (no template-basico:
 [ Selecione a Marca ▾ ] [ Selecione o Modelo ▾ ] [Pesquisar]                    [ Ordenar por... ▾ ]
 ```
 
-- **Marca e modelo em cascata:** escolher a marca aplica na hora e o modelo passa a mostrar só os daquela marca (outros
-  campos: opção `campos`, ex.: `campos="marca,modelo,ano"`). "Pesquisar" leva até a lista (no celular, a lista fica
+- **Marca e modelo em cascata:** o combo de modelo fica **fechado** (só "Selecione o Modelo") até escolher a marca;
+  escolhida, ela aplica na hora e o modelo abre só com os modelos dela. O mesmo vale para cidade (espera o estado) e loja
+  (espera a cidade), se estiverem na barra. Outros campos: opção `campos`, ex.: `campos="marca,modelo,ano"`. "Pesquisar" leva até a lista (no celular, a lista fica
   embaixo).
 - **Ordenação à direita:** Menor preço, Maior preço, Menor ano, Maior ano, A-Z, Z-A e Data de publicação (opção `ordens`).
   "Ordenar por..." volta à ordem padrão do site. As 5 últimas precisam do **motor v4** e de estarem na `"ordenacao"` do

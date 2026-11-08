@@ -1,6 +1,6 @@
 {
   "nome": "barra-busca",
-  "descricao": "Barra de busca rápida (fica acima dos filtros ativos e do estoque): selects de marca e modelo em cascata (o modelo mostra só os da marca escolhida), botão Pesquisar e, à direita, o combo de ordenação. Tudo sincronizado com o componente filtro, os filtros ativos e o endereço da página.",
+  "descricao": "Barra de busca rápida (fica acima dos filtros ativos e do estoque): selects de marca e modelo em cascata (o modelo fica fechado até escolher a marca e depois mostra só os modelos dela), botão Pesquisar e, à direita, o combo de ordenação. Tudo sincronizado com o componente filtro, os filtros ativos e o endereço da página.",
   "scripts": [
     "motor/engine.js",
     "motor/ui-util.js",

@@ -201,7 +201,7 @@ test('LGPD: scripts de terceiros só rodam depois do "Aceitar"; "Recusar" nunca 
 // barra de busca (componente barra-busca; no template-basico fica acima dos filtros ativos)
 for (const t of templates.filter((x) => fs.readFileSync(path.join(A.PROJETO, 'temas', x, 'v1', 'templates', 'multipla.html'), 'utf8').includes('{{componente barra-busca'))) {
   const id = `${t}.teste.com.br`;
-  test(`[${t}] barra de busca: marca e modelo em cascata, ordenação à direita, tudo no endereço e nos filtros ativos`, { skip: pular }, async () => {
+  test(`[${t}] barra de busca: modelo fechado até escolher a marca e depois só os dela, ordenação à direita, tudo no endereço e nos filtros ativos`, { skip: pular }, async () => {
     const arq = path.join(raiz, 'sites-public', id, 'teste-barra.html');
     fs.writeFileSync(arq, `<!doctype html><body><pre id="r"></pre><iframe id="f" src="multipla/"></iframe><script>
       const f = document.getElementById('f'), log = (x) => (document.getElementById('r').textContent += x + ';');
@@ -211,13 +211,13 @@ for (const t of templates.filter((x) => fs.readFileSync(path.join(A.PROJETO, 'te
         const ops = (s) => [...s.options].map((o) => o.textContent).join('/');
         const muda = (s, v) => { s.value = v; s.dispatchEvent(new Event('change', { bubbles: true })); };
         try {
-          log(n() + '|' + ops(sel('marca')) + '|' + ops(sel('modelo')) + '|' + ops(ord));
-          muda(sel('marca'), 'Honda'); log(n() + '|' + ops(sel('modelo')) + '|' + w.location.pathname.split('/multipla/')[1]);
+          log(n() + '|' + ops(sel('marca')) + '|' + ops(sel('modelo')) + '|' + sel('modelo').disabled + '|' + ops(ord));
+          muda(sel('marca'), 'Honda'); log(n() + '|' + ops(sel('modelo')) + '|' + sel('modelo').disabled + '|' + w.location.pathname.split('/multipla/')[1]);
           muda(sel('modelo'), 'Civic'); log(n() + '|' + [...d.querySelectorAll('.c-ativos__chip')].map((b) => b.dataset.valor).join(','));
           muda(ord, 'menor'); log(w.location.search + '|' + ord.value);
           muda(ord, ''); log(w.location.search + '|' + ord.value);
           d.querySelector('.c-busca__botao').click(); log('pesquisar');
-          d.querySelector('.c-ativos__limpar').click(); log(n() + '|' + sel('marca').value + '|' + sel('modelo').value);
+          d.querySelector('.c-ativos__limpar').click(); log(n() + '|' + sel('marca').value + '|' + sel('modelo').value + '|' + sel('modelo').disabled);
         } catch (e) { log('ERRO ' + e.message); } }, 2000);
     </script>`);
     try {
@@ -225,10 +225,11 @@ for (const t of templates.filter((x) => fs.readFileSync(path.join(A.PROJETO, 'te
       assert.deepEqual(erros, []);
       const r = (dom.match(/<pre id="r">([^<]*)/) || [])[1] || '';
       assert.equal(r, [
-        '30 carros|Selecione a Marca/Honda/Toyota|Selecione o Modelo/Civic/Corolla|Ordenar por.../Menor preço/Maior preço/Menor ano/Maior ano/A-Z/Z-A/Data de publicação',
-        '10 carros|Selecione o Modelo/Civic|marca/honda',
+        // o modelo fica fechado até escolher a marca; depois mostra só os modelos dela
+        '30 carros|Selecione a Marca/Honda/Toyota|Selecione o Modelo|true|Ordenar por.../Menor preço/Maior preço/Menor ano/Maior ano/A-Z/Z-A/Data de publicação',
+        '10 carros|Selecione o Modelo/Civic|false|marca/honda',
         '10 carros|Honda,Civic',
-        '?ord=menor|menor', '|', 'pesquisar', '30 carros||', ''].join(';'), r);
+        '?ord=menor|menor', '|', 'pesquisar', '30 carros|||true', ''].join(';'), r);
     } finally { fs.rmSync(arq); }
   });
 }

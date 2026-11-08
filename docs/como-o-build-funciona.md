@@ -234,7 +234,7 @@ Tudo o que é apagado entra na lista **"removidos"**, para sair também da hospe
 3. **Índice local:** `sites-public/index.html` (lista de sites do servidor local).
 4. **Log:**
    ```
-   lojateste.com.br: 1500 carros · +0 novos ~2 alterados -1 saíram · 7 arquivo(s) escrito(s) · tema template-basico · motor v4 · estoque.json 80 KB
+   lojateste.com.br: 100 carros · +0 novos ~2 alterados -1 saíram · 7 arquivo(s) escrito(s) · tema template-basico · motor v4 · estoque.json 80 KB
    ```
    Rodar de novo sem mudar nada diz **"sem mudanças"**.
 

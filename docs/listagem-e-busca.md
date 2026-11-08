@@ -99,8 +99,8 @@ e fica lembrado enquanto a pessoa navega.
 
 - Chaves curtas (`i` id, `m` marca, `o` modelo, `v` versão, `a` ano, `p` preço, `k` km, `c` cor, `b` câmbio, `f`
   combustível, `n` fotos, `u` loja, `cd` cidade, `uf`, `r` ordem, `cr` carroceria, `l` link, `dp` data de publicação), já na ordem do site.
-- `"formatoEstoque": "compacto"` no `site.json`: dicionário + colunas (`core/ui/formato-estoque.js`). Lojateste com 1500
-  carros: 326 KB → 80 KB (gzip 33 → 24 KB). O navegador desempacota para a mesma lista antes de entregar ao motor: busca
+- `"formatoEstoque": "compacto"` no `site.json`: dicionário + colunas (`core/ui/formato-estoque.js`). Medido com a lojateste
+  quando ela tinha 1500 carros: 326 KB → 80 KB (gzip 33 → 24 KB). O navegador desempacota para a mesma lista antes de entregar ao motor: busca
   e filtros iguais, com qualquer versão do motor.
 - A compressão gzip/brotli precisa estar ligada na CDN.
 

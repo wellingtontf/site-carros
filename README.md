@@ -38,7 +38,7 @@ Também como `npm run build`, `npm run testar`, `npm run status`, `npm run api`,
 
 | Site | Tema | Estoque |
 |---|---|---|
-| `lojateste.com.br` | template-basico | 1500 carros de teste (URLs de foto longas, para teste de tamanho); filtro com caixas de marcar; `estoque.json` compacto |
+| `lojateste.com.br` | template-basico | 100 carros de teste (URLs de foto longas; já teve 1500 para os testes de tamanho); filtro com caixas de marcar; `estoque.json` compacto |
 | `primeseminovos.exemplo.com.br` | template-basico | 400 carros (`node ferramentas/gerar-exemplo.js`), 297 no site por `precoMin` |
 
 Exemplos de rota: `http://localhost:8080/lojateste.com.br/multipla/revenda-estado-cod/pr|rs/marca/audi|bmw`.

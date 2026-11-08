@@ -164,6 +164,8 @@
   // BARRA DE BUSCA (componente barra-busca): selects de filtro (marca, modelo...; aplicam na hora, em cascata) e o combo de
   // ordenação; "Pesquisar" aplica o que está escolhido e leva até a lista. Sem ids: pode haver mais de uma na página.
   const barras = [...document.querySelectorAll('[data-busca]')];
+  // filtro que depende de outro (como no motor): na barra, ele só abre depois que o pai tem valor (modelo espera a marca)
+  const PAI = { modelo: 'marca', cidade: 'estado', loja: 'cidade' };
   // opções de um select de filtro: a primeira (texto), o grupo de vários valores (vindo do link) e as do estoque
   const opcoesDoSelect = (f, primeira) => {
     const vs = f.valores ? f.valores() : [];
@@ -199,8 +201,13 @@
         const f = motor.filtros.find((x) => x.campo === s.dataset.buscaCampo);
         if (!f) return;
         const nomeCampo = f.campo.charAt(0).toUpperCase() + f.campo.slice(1);
-        const html = opcoesDoSelect(f, b.dataset[`texto${nomeCampo}`] || f.rotulo);
+        const primeira = b.dataset[`texto${nomeCampo}`] || f.rotulo;
+        // o pai também está na barra e ainda não foi escolhido: o select fica fechado, só com a primeira opção
+        const pai = PAI[f.campo] && motor.filtros.find((x) => x.campo === PAI[f.campo]);
+        const espera = !!pai && !!b.querySelector(`[data-busca-campo="${pai.campo}"]`) && !pai.valor() && !f.valor();
+        const html = espera ? `<option value="">${esc(primeira)}</option>` : opcoesDoSelect(f, primeira);
         if (s.dataset.sig !== html) { s.innerHTML = html; s.dataset.sig = html; }
+        s.disabled = espera;
         s.value = f.valor();
       });
       const o = b.querySelector('[data-busca-ordem]');

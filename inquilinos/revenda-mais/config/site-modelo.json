@@ -1,7 +1,7 @@
 {
   "_comentario": "Padrão de um site novo criado pela API (POST /v1/sites só com o domínio). O que vier no cadastro da chamada vale mais. nome = domínio, url = https://<domínio> e motor = a última versão congelada, se não vierem. rascunho: true = fora do Google até POST /v1/sites/<d>/promover.",
   "rascunho": true,
-  "tema": "barra-topo",
+  "tema": "template-basico",
   "configuracoes": {
     "cor": "#0b5fff"
   },

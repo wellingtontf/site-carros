@@ -52,7 +52,7 @@ sites-config/<dominio>/    A FONTE de cada site (o nome da pasta é o domínio e
   componentes/               opções dos componentes no site inteiro (<nome>.json)
   codigos/                   scripts do site (head.html, body.html): GTM, chat...; só depois do aceite de cookies
   assets/                    logo, banners, favicon, fontes
-temas/<nome>/              UM TEMA, autocontido, estrutura do Shopify (barra-topo, lateral, template-basico)
+temas/<nome>/              UM TEMA, autocontido, estrutura do Shopify (hoje: template-basico)
   rascunho/  v1/  v2/        o designer edita o rascunho; vN são congeladas; o site fixa "versaoTema"
 componentes/<nome>/        peças usadas por todos os temas e páginas (filtro, estoque, filtros-ativos)
 inquilinos/<id>/           configuração e temas próprios de cada inquilino

@@ -1,7 +1,7 @@
 # Testes
 
 ```
-npm test               # tudo (~1 min com o Chrome): 318 testes
+npm test               # tudo (~1 min com o Chrome): 300 testes
 npm run test:rapido    # sem o navegador (Chrome)
 npm run test:snapshot  # regrava o snapshot do HTML (depois de aumentar VERSAO_HTML)
 node core/cli.js testar  # testa os sites reais gerados (motor com os dados de verdade, páginas, links)
@@ -27,7 +27,7 @@ testar retenção de vendidos e redirecionamentos. O ajudante comum é `tests/aj
 | `temas-versoes.test.js` | versões dos temas pela linha de comando: congelar (rascunho igual recusado, sha256), prévia do rascunho em `dist-preview/`, aplicar (testa antes, grava só `versaoTema`, `--todos` = sites do tema), versão com defeito não é aplicada, reverter, `versaoTema` obrigatória |
 | `sitemap.test.js` | `gerarSitemap(dominio)` igual ao do build |
 | `xml-robots.test.js` | robots.txt por modelo e por site; `estoque.xml` e `carros.json` antigos são apagados e despublicados |
-| `snapshot-html.test.js` | o HTML gerado só muda junto com `VERSAO_HTML` (veja abaixo) |
+| `snapshot-html.test.js` | o HTML gerado só muda junto com `VERSAO_HTML` (veja abaixo); arquivos só copiados (`motor/`, `css/`, `componentes/`) ficam de fora |
 | `atualizar.test.js` | fontes HTTP (`${VAR}`, erro 500, JSON quebrado), trava de queda, estoque vazio, trava de execução, publicação incremental, injeção no shell |
 | `fotos.test.js` | fotos por URL: baixa, converte, renumera, não baixa de novo, SSRF (inclusive por redirecionamento), falha de envio fica pendente, caminho completo pela API |
 | `producao.test.js` | problemas de site estático no ar: 404, `?v=` nos css/js, canonical em página livre, publicação recusa fotos em localhost/http, auditoria |

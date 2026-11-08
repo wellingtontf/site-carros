@@ -22,7 +22,7 @@ const esperar = async (cond, ms = 10000) => { const fim = Date.now() + ms; while
 
 before(async () => {
   Inq.criar('revenda-mais', { nome: 'Revenda Mais', rascunhos: { padrao: 'site{n}.carro57.com.br' } });
-  Inq.criar('webmotors', { nome: 'Webmotors', temas: ['teste', 'barra-topo'], rascunhos: { padrao: 'loja{n}.wm-previa.com.br' } });
+  Inq.criar('webmotors', { nome: 'Webmotors', temas: ['teste'], rascunhos: { padrao: 'loja{n}.wm-previa.com.br' } });
   fs.writeFileSync(path.join(A.raiz(), 'inquilinos', 'webmotors', 'config', 'site-modelo.json'), JSON.stringify({ tema: 'teste', configuracoes: { cor: '#e30613' } }));
   fs.writeFileSync(path.join(A.raiz(), 'inquilinos', 'revenda-mais', 'config', 'site-modelo.json'), JSON.stringify({ tema: 'teste', configuracoes: { cor: '#0533ce' } }));
   A.criarSite('loja-rm.com.br', { carros: [A.carro()], site: { inquilino: 'revenda-mais' } });

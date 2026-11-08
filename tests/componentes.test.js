@@ -98,7 +98,7 @@ test('todos os templates do projeto usam os componentes na listagem', () => {
 
 test('filtro: opção "checkbox" (campos com várias escolhas) no template, no site ou na PÁGINA (web/multipla.json "componentes")', () => {
   const ID2 = 'checkbox.teste.com.br';
-  A.criarSite(ID2, { carros: [A.carro(), A.carro({ loja: 'sul' })], site: { motor: 'v3', tema: 'barra-topo' } });
+  A.criarSite(ID2, { carros: [A.carro(), A.carro({ loja: 'sul' })], site: { motor: 'v3', tema: 'template-basico' } });
   const { construir } = require('../core/build.js');
   const gerar = () => A.silencioso(() => construir({ sites: [ID2] }));
   gerar();

@@ -227,7 +227,7 @@ function validarSite(s, dominio) {
 
 // site novo nasce na última versão congelada do tema (como o motor), se o cadastro e o modelo não disserem outra
 function versaoTemaNova(parcial, modelo, inquilino) {
-  const tema = parcial.tema || modelo.tema || 'barra-topo';
+  const tema = parcial.tema || modelo.tema || 'template-basico';
   const v = parcial.versaoTema || (tema === modelo.tema && modelo.versaoTema) || V.ultimaVersaoTema(Inq.dirTema(inquilino, tema));
   return v ? { versaoTema: v } : {};
 }
@@ -237,7 +237,7 @@ function versaoTemaNova(parcial, modelo, inquilino) {
 function cadastroNovo(dominio, parcial = {}, inquilino = Inq.PADRAO) {
   const modelo = Inq.lerConfig(inquilino, 'site-modelo.json', {});
   const limpo = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith('_'))); // "_comentario" no modelo
-  return { ...limpo(modelo), ...parcial, ...(inquilino !== Inq.PADRAO ? { inquilino } : {}), ...(ehDominioRascunho(dominio) ? { rascunho: true } : {}), nome: parcial.nome || dominio, url: parcial.url || `https://${dominio}`, motor: parcial.motor || modelo.motor || ultimaVersao(), tema: parcial.tema || modelo.tema || 'barra-topo', ...versaoTemaNova(parcial, modelo, inquilino) };
+  return { ...limpo(modelo), ...parcial, ...(inquilino !== Inq.PADRAO ? { inquilino } : {}), ...(ehDominioRascunho(dominio) ? { rascunho: true } : {}), nome: parcial.nome || dominio, url: parcial.url || `https://${dominio}`, motor: parcial.motor || modelo.motor || ultimaVersao(), tema: parcial.tema || modelo.tema || 'template-basico', ...versaoTemaNova(parcial, modelo, inquilino) };
 }
 
 // JSON Merge Patch (RFC 7396): objeto mescla campo a campo, null apaga o campo, o resto (texto, número, lista) substitui

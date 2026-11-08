@@ -4,7 +4,8 @@ Um **tema** é o visual de vários sites: a estrutura das páginas, as seções,
 do Shopify (decisão do Wellington, 2026-11-08), o mais conhecido do mercado para "muitos sites, poucos visuais".
 
 Cada tema fica inteiro em `temas/<nome>/` (nada solto na raiz de `temas/`), sem base compartilhada com outros temas.
-Hoje há `barra-topo`, `lateral` e `template-basico`. Um inquilino pode ter temas próprios em
+Hoje há um tema, o `template-basico` (o `barra-topo` e o `lateral`, que nenhum site usava, foram apagados em 2026-11-08;
+estão no histórico do git). Um inquilino pode ter temas próprios em
 `inquilinos/<id>/temas/<nome>/`, que valem só para ele e substituem o de mesmo nome.
 
 ## Tema × configurações × template
@@ -160,7 +161,7 @@ família de `{{ }}` que o build já usa):
   Ex.: o `{{$atributos}}` acima já traz os atributos do `<body>` das páginas de conteúdo; o `carro.html` troca pelos dele.
 - No template, cada `{{$nome}}...{{/nome}}` preenche o espaço de mesmo nome. O conteúdo vale **exatamente** como foi
   escrito (quebras de linha inclusive).
-- Os nomes são livres: os temas de hoje usam `head`, `atributos`, `cabecalho` (barra-topo e lateral), `conteudo` e `scripts`.
+- Os nomes são livres: o template-basico usa `head`, `atributos`, `conteudo` e `scripts`.
 - Erros claros: texto fora dos blocos no template (ele sumiria), bloco que o layout não tem, bloco repetido, template com
   blocos num tema sem `layout/tema.html`.
 - Template **sem nenhum** `{{$...}}` é o documento inteiro e não usa o layout (como o `layout none` do Shopify): serve para
@@ -183,7 +184,7 @@ Faltou algum, o `config/settings_schema.json` ou uma das seções obrigatórias 
 
 ## A listagem (`multipla.html`)
 
-Os 3 temas montam a listagem com componentes:
+O template-basico monta a listagem com componentes (resumido):
 ```html
 <body data-page="lista" data-base="{{base}}" data-rel="{{rel}}">
 {{{secoesAntes}}}
@@ -245,7 +246,7 @@ cada item com `valor`, `total`, `link`, `chave`). Dentro de uma seção, os camp
 
 ## Criar um tema
 
-1. Copie o rascunho de um tema parecido: `mkdir temas/meu-tema && cp -r temas/barra-topo/rascunho temas/meu-tema/rascunho`.
+1. Copie o rascunho de um tema parecido: `mkdir temas/meu-tema && cp -r temas/template-basico/rascunho temas/meu-tema/rascunho`.
 2. No rascunho, ajuste `config/settings_schema.json` (o que o site pode configurar), `locales/pt-BR.json` (textos), o
    `layout/tema.html` (cabeçalho, rodapé), os 5 arquivos de `templates/`, `assets/css/` e as seções.
 3. Congele a primeira versão: `node core/cli.js tema congelar meu-tema v1`.

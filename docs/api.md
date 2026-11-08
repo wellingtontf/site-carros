@@ -162,7 +162,7 @@ Para um site que **já está no ar** e muda de domínio (caso raro; rascunho usa
 
 **O tema confere o cadastro:** `configuracoes`, `cabecalho`, `rodape` e `textos` seguem o que o tema do site declara
 (`GET /v1/temas/{tema}`). Valor de tipo errado → 422 (`"configuracoes.cor": cor inválida "azul"`). Chave que o tema não
-usa → grava, e a resposta traz `avisos` (`"cabecalho.menu" não é usado pelo tema "barra-topo"`).
+usa → grava, e a resposta traz `avisos` (`"cabecalho.banner" não é usado pelo tema "template-basico"`).
 
 ```
 PATCH /v1/sites/loja1.com.br

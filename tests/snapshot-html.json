@@ -1,16 +1,12 @@
 {
   "versaoHtml": 12,
-  "hash": "020e067d34d0c225dc81dd268bed273ce126425789c3dd408ae683234a48019b",
+  "hash": "c60879ebce1c726e2b2ca0e3c15c3752f323cd34250e5254560ec00e3eeb64a3",
   "arquivos": [
     "404.html",
     "carros/Honda/City/Exl-20/Honda-City-Exl-20-2021-Porto-Alegre-Rio-Grande-Do-Sul-S2.html",
     "carros/Honda/Civic/Exl-20/Honda-Civic-Exl-20-2021-Curitiba-Parana-S1.html",
     "carros/Honda/Civic/Exl-20/Honda-Civic-Exl-20-2021-Curitiba-Parana-S3.html",
     "carros/Honda/Civic/Touring-15/Honda-Civic-Touring-15-2021-Curitiba-Parana-S1.html",
-    "componentes/barra-busca.css",
-    "componentes/estoque.css",
-    "componentes/filtro.css",
-    "componentes/filtros-ativos.css",
     "config.json",
     "estoque.json",
     "index.html",

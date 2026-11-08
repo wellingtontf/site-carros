@@ -104,7 +104,6 @@ Você só cria **arquivos HTML** numa pasta. Sem JSON, sem configuração, sem p
   `<!-- rotulo: Feirão -->` (link no rodapé), `<!-- moldura: nenhuma -->` (página livre mesmo sem `<html>`).
 - **Opcional**, dados do site: `{{site.nome}}`, `{{estoque.total}}`,
   `{{#estoque.marcas}}<a href="{{link}}">{{valor}}</a>{{/estoque.marcas}}`.
-- Exemplo pronto: `temas/barra-topo/paginas-extras/financiamento.html`.
 - Ver o resultado: `node core/build.js --sites <dominio>` e `node ferramentas/servidor-local.js 8080`.
 
 **Prioridade quando há páginas com o mesmo nome:** `web/paginas/` do site > `paginas-extras/` do tema >

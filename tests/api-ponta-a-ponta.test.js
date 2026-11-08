@@ -39,7 +39,7 @@ const esperar = async (cond, ms = 20000) => { const fim = Date.now() + ms; while
 
 // o que o "sistema externo" manda
 const CADASTRO = {
-  nome: 'Auto Completo Seminovos', slogan: 'Tudo pela API', tema: 'barra-topo', motor: 'v2',
+  nome: 'Auto Completo Seminovos', slogan: 'Tudo pela API', tema: 'template-basico', motor: 'v2',
   url: `https://${D}`, whatsapp: '5541999990000', fotosBase: `https://fotos.${D}/`,
   empresa: { razaoSocial: 'Auto Completo Comércio de Veículos LTDA', cnpj: '12.345.678/0001-90', email: 'privacidade@api-completo.com.br', encarregado: 'Maria Souza' },
   lojas: {
@@ -193,7 +193,7 @@ test('6) recusas claras: arquivo que não é o que diz, SVG com script, página 
   for (const nome of ['../site.json', 'Logo Grande.png', 'x.exe']) assert.equal((await pedir('PUT', `/v1/sites/${D}/assets/${encodeURIComponent(nome)}`, png(), { tipo: 'image/png' })).status, 422, nome);
   const bloco = await pedir('PUT', `/v1/sites/${D}/paginas/x`, { titulo: 'x', secoes: [{ tipo: 'nao-existe' }] });
   assert.equal(bloco.status, 422);
-  assert.match(bloco.j.erros[0], /não existe no tema "barra-topo"/);
+  assert.match(bloco.j.erros[0], /não existe no tema "template-basico"/);
   assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/multipla`, { secoes: [] })).status, 422, 'nome reservado');
   assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/Maiuscula`, { secoes: [] })).status, 422);
   assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/index`, '<p>home</p>', { tipo: 'text/html' })).status, 422, 'home é página de secoes');
@@ -201,21 +201,21 @@ test('6) recusas claras: arquivo que não é o que diz, SVG com script, página 
   assert.equal(aviso.status, 202);
   assert.match(aviso.j.avisos[0], /campo "whatsap" não é usado/);
   // o tema declara o que aceita (config/settings_schema.json): chave que ele não usa = aviso; tipo errado = 422
-  const semMenu = await pedir('PATCH', `/v1/sites/${D}`, { whatsap: null, cabecalho: { menu: [{ rotulo: 'Lojas', link: 'lojas/' }] } });
+  const semMenu = await pedir('PATCH', `/v1/sites/${D}`, { whatsap: null, cabecalho: { banner: 'x' } });
   assert.equal(semMenu.status, 202);
-  assert.match(semMenu.j.avisos.join(' '), /"cabecalho\.menu" não é usado pelo tema "barra-topo"/);
+  assert.match(semMenu.j.avisos.join(' '), /"cabecalho\.banner" não é usado pelo tema "template-basico"/);
   const corRuim = await pedir('PATCH', `/v1/sites/${D}`, { cabecalho: null, configuracoes: { cor: 'azul' } });
   assert.equal(corRuim.status, 422);
   assert.match(corRuim.j.erros.join(' '), /"configuracoes\.cor": cor inválida "azul"/);
   assert.equal(A.lerSite(D).configuracoes.cor, '#c00000', '422: nada gravado');
   const temas = await pedir('GET', '/v1/temas');
-  assert.deepEqual(temas.j.temas.map((t) => t.tema), ['barra-topo', 'lateral', 'template-basico', 'teste']);
-  const bt = await pedir('GET', '/v1/temas/barra-topo');
+  assert.deepEqual(temas.j.temas.map((t) => t.tema), ['template-basico', 'teste']);
+  const bt = await pedir('GET', '/v1/temas/template-basico');
   assert.deepEqual([bt.j.configuracoes.cor.tipo, bt.j.configuracoes.cor.padrao, bt.j.textos.voltar], ['cor', '#0b5fff', 'Voltar ao estoque']);
   assert.equal((await pedir('GET', '/v1/temas/nao-existe')).status, 404);
   assert.deepEqual([bt.j.versao, bt.j.versoes], ['v1', ['v1']], 'sem ?versao=: a última congelada');
-  assert.equal((await pedir('GET', '/v1/temas/barra-topo?versao=v9')).status, 404);
-  assert.deepEqual(temas.j.temas.find((t) => t.tema === 'barra-topo').versoes, ['v1']);
+  assert.equal((await pedir('GET', '/v1/temas/template-basico?versao=v9')).status, 404);
+  assert.deepEqual(temas.j.temas.find((t) => t.tema === 'template-basico').versoes, ['v1']);
   // PUT do cadastro inteiro SEM "versaoTema" (o sistema da revenda não cuida disso): fica a versão atual do tema
   const cadSem = { ...A.lerSite(D) }; delete cadSem.versaoTema;
   assert.equal((await pedir('PUT', `/v1/sites/${D}?esperar=30`, cadSem)).status, 200);

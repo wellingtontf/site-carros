@@ -90,6 +90,9 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
 - Etapa 5: **versões do tema** como as do motor: `temas/<nome>/rascunho/` (edita) → `v1/`, `v2/` (congeladas, com sha256);
   o site fixa `"versaoTema"`; `node core/cli.js tema congelar|testar|aplicar|reverter|historico|status`; prévia do
   rascunho com `build.js --versao-tema rascunho`. Os 3 temas viraram `v1` + `rascunho`, saída idêntica.
+- Limpeza: lojateste reduzida a 100 carros (os testes de tamanho já tinham sido feitos); temas `barra-topo` e `lateral`
+  apagados (nenhum site usava; o padrão de site novo virou o template-basico); na barra de busca, o modelo fica fechado
+  até escolher a marca.
 
 ## Decisões do Wellington (consolidadas)
 
@@ -135,7 +138,7 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
 
 ## Anexo: todas as mensagens do Wellington, na íntegra
 
-122 mensagens, na ordem. Ficaram de fora só avisos automáticos do sistema. Respostas a perguntas de múltipla escolha
+123 mensagens, na ordem. Ficaram de fora só avisos automáticos do sistema. Respostas a perguntas de múltipla escolha
 (como "Espelho do site") não aparecem aqui, porque entraram como resposta de ferramenta e não como mensagem.
 
 **1.** _07/11 18:32_
@@ -770,3 +773,11 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
 **122.** _08/11 20:02_
 
 > vai para etapa 5
+
+**123.** _08/11 20:29_
+
+> na lojateste.com.br deixar só com 100 carros.. já consegui testar.
+>
+> o temas barra-top e lateral. senão tiver sendo usado podem ser apagados.
+>
+> no ultimo componente de pesquisa criado que fica acima filtro ativo.. quando selecionar Marca os modelos já devem vir filtrados de acordo.
