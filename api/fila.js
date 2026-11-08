@@ -34,10 +34,11 @@ const novoId = (pref = 'p') => `${pref}${Date.now().toString(36)}${crypto.random
 
 function criarFila() {
   // ---------- gravar / consultar (API e trabalhador) ----------
-  function adicionar({ tipo, site, carro = null, corpo, cliente, forcar = false, lote = null, canal = tipo === 'fotos' ? 'fotos' : 'principal' }) {
+  // completo (build): regerar todas as páginas do site, mantendo o histórico
+  function adicionar({ tipo, site, carro = null, corpo, cliente, forcar = false, completo = false, lote = null, canal = tipo === 'fotos' ? 'fotos' : 'principal' }) {
     if (!CHAVE_OK.test(String(site))) throw new Error(`pedido sem site válido (${site})`);
     const id = novoId();
-    const p = { id, tipo, site, carro, cliente, forcar: !!forcar, lote, canal, status: 'na_fila', criado: new Date().toISOString(), inicio: null, fim: null, erros: [], resultado: null };
+    const p = { id, tipo, site, carro, cliente, forcar: !!forcar, ...(completo ? { completo: true } : {}), lote, canal, status: 'na_fila', criado: new Date().toISOString(), inicio: null, fim: null, erros: [], resultado: null };
     if (corpo !== undefined) gravar(arqEntrada(id), corpo);
     gravar(arqPedido(id), p);
     indexar(p);

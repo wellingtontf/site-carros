@@ -43,13 +43,13 @@ O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da
 | POST | `/v1/sites/{dominio}/infra` | refaz o passo de hospedagem: `{"acao": "criar"}`, ou `{"acao": "promover" \| "renomear", "antigo": "..."}` |
 | GET | `/v1/sites/{dominio}` | resumo: cadastro, total de carros, fotos pendentes/com erro, últimos pedidos |
 | POST | `/v1/estoques` | **estoque de 1 ou N sites numa chamada** (ver "Vários sites numa chamada") |
-| POST | `/v1/build` | **reconstrói sites** sem mudar estoque: `{"sites":["a.com.br","b.com.br"]}`; vazio = **todos** (token com `*`) |
+| POST | `/v1/build` | **reconstrói sites** sem mudar estoque: `{"sites":["a.com.br","b.com.br"]}`; vazio = **todos** (token com `*`). `"completo": true` regera todas as páginas |
 | GET | `/v1/sites/{dominio}/estoque` | o estoque atual (para conferir ou reconciliar) |
 | PUT | `/v1/sites/{dominio}/estoque` | **troca o estoque inteiro**: `{"carros":[...]}` (a lista pura também vale) |
 | GET | `/v1/sites/{dominio}/carros/{id}` | um carro |
 | PUT | `/v1/sites/{dominio}/carros/{id}` | **inclui ou altera um carro** (corpo = o carro; o `id` vem do endereço) |
 | DELETE | `/v1/sites/{dominio}/carros/{id}` | **tira um carro** (vendido) |
-| POST | `/v1/sites/{dominio}/build` | reconstrói o site sem mudar o estoque |
+| POST | `/v1/sites/{dominio}/build` | reconstrói o site sem mudar o estoque (`{"completo": true}` regera todas as páginas) |
 | GET | `/v1/robots` | o modelo de robots.txt em uso |
 | PUT | `/v1/robots` | **troca o robots.txt de todos os sites** (ver "robots.txt"; token com `*`) |
 | DELETE | `/v1/robots` | volta todos os sites ao robots.txt padrão |
@@ -171,6 +171,16 @@ Sitemap: {{sitemap}}
 - Marcador desconhecido ou texto vazio: **422**.
 - O site que tem `"robots"` no próprio cadastro mantém o dele (aparece em `resultado.comRobotsProprio`).
 - `DELETE /v1/robots` volta ao padrão: `User-agent: *`, `Allow: /` e `Sitemap: {{sitemap}}`.
+
+## Reconstruir (build)
+
+| Chamada | Faz |
+|---|---|
+| `POST /v1/sites/{dominio}/build` | um site |
+| `POST /v1/build` `{"sites": ["a.com.br", "b.com.br"]}` | os sites da lista |
+| `POST /v1/build` `{}` | todos os sites do inquilino do token (lote; o admin alcança a plataforma toda ou um inquilino com `?inquilino=`) |
+
+Sem opção, o build é **incremental**: reescreve só o que mudou (cadastro, template, estoque). Com `"completo": true` (ou `?completo=1`), regera **todas** as páginas, mesmo sem mudança detectada. Use depois de uma correção que o build não enxerga, ou para garantir tudo fresco. Nos dois casos o **histórico é mantido**: páginas de vendido e redirecionamentos continuam, então link compartilhado e Google não quebram.
 
 ## Operações em todos os sites (lotes)
 

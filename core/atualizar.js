@@ -155,7 +155,8 @@ async function publicarPendentes({ pasta = 'dist', sites = null, log = console.l
 // refazer = sites para reconstruir mesmo sem mudança de estoque (ex.: o site.json mudou; pedido "build" da API)
 // Cada site é tratado com a trava DELE: outro trabalhador pode estar gerando outro site ao mesmo tempo. Site ocupado
 // fica em "ocupados" (quem chamou tenta de novo); se TODOS estiverem ocupados, status = 'ocupado'.
-async function atualizar({ sites: ids = null, recebidos = null, refazer = [], forcar = false, completo = false, publicar = false, log = console.log } = {}) {
+// todasPaginas = sites em que TODAS as páginas são regeradas (mantendo o histórico), mesmo sem mudança detectada
+async function atualizar({ sites: ids = null, recebidos = null, refazer = [], todasPaginas = [], forcar = false, completo = false, publicar = false, log = console.log } = {}) {
   let alvos;
   if (recebidos) alvos = Object.entries(recebidos).map(([id, obj]) => ({ id, obj }));
   else if (ids === null && !completo && refazer.length && !fs.existsSync(C.config('fontes.json'))) alvos = [];
@@ -178,7 +179,7 @@ async function atualizar({ sites: ids = null, recebidos = null, refazer = [], fo
         log(`${a.id}: estoque ${est.status}${d ? ' · ' + d : ''}`);
       }
       // cada estoque pertence a um site só: refaz exatamente os sites cujo estoque mudou (ou pedidos para refazer)
-      if (a.soRefazer || completo || refazer.includes(a.id) || (est && est.status === 'atualizado')) { construir({ sites: [a.id], completo }); feitos.push(a.id); }
+      if (a.soRefazer || completo || refazer.includes(a.id) || (est && est.status === 'atualizado')) { construir({ sites: [a.id], completo, todasPaginas: todasPaginas.includes(a.id) }); feitos.push(a.id); }
       return { status: 'ok' };
     });
     if (r.status === 'ocupado') ocupados.push(a.id);

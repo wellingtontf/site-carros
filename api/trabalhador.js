@@ -93,14 +93,14 @@ function criarTrabalhador({ fila, atraso = 3000, publicar = false, log = console
         aplicados.push(p);
       }
       if (aplicados.length || builds.length) {
-        const r = await AT.atualizar({ recebidos: aplicados.length ? { [site]: { carros } } : {}, refazer: builds.length ? [site] : [], forcar: resto.some((x) => x.forcar), log });
+        const r = await AT.atualizar({ recebidos: aplicados.length ? { [site]: { carros } } : {}, refazer: builds.length ? [site] : [], todasPaginas: builds.some((x) => x.completo) ? [site] : [], forcar: resto.some((x) => x.forcar), log });
         if (r.status === 'ocupado') { fila.voltar([...aplicados, ...builds, ...robots]); return fins; }
         const est = r.estoques[0];
         for (const p of aplicados) {
           if (['atualizado', 'igual'].includes(est.status)) { fila.terminar(p, 'concluido', [], { estoque: est.status, carros: est.total, antes: est.antes ?? est.total }); fins.concluido.push(p); }
           else fila.terminar(p, est.status, est.erros || []);
         }
-        for (const p of builds) { fila.terminar(p, 'concluido', [], { build: true, carros: carros.length }); fins.concluido.push(p); }
+        for (const p of builds) { fila.terminar(p, 'concluido', [], { build: true, completo: !!p.completo, carros: carros.length }); fins.concluido.push(p); }
         if (aplicados.length) pedirFotos(site);
       }
       if (robots.length) {

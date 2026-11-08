@@ -280,7 +280,9 @@ function lerPaginasPadrao(dirTpl) {
 const preencherTextos = (o, ctx) => (typeof o === 'string' ? render(o, ctx) : Array.isArray(o) ? o.map((x) => preencherTextos(x, ctx))
   : o && typeof o === 'object' ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, preencherTextos(v, ctx)])) : o);
 
-function construir({ sites = null, motor = null, saida = null, completo = false, efemero = false, hoje: hojeParam = null } = {}) {
+// completo = do zero, DESCARTANDO o histórico (vendidos, redirecionamentos): só antes de publicar.
+// todasPaginas = regera todas as páginas do site MANTENDO o histórico (o "rebuild" seguro para site no ar).
+function construir({ sites = null, motor = null, saida = null, completo = false, todasPaginas = false, efemero = false, hoje: hojeParam = null } = {}) {
   const pasta = saida || (motor ? 'dist-preview' : 'dist');
   const DIST = C.saida(pasta);
   const todos = Sites.carregarTodos();
@@ -414,7 +416,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     const incremental = !!estadoAnt && fs.existsSync(path.join(out, 'index.html'));
     if (!incremental) fs.rmSync(out, { recursive: true, force: true });
     fs.mkdirSync(path.join(out, LinkCarro.PASTA), { recursive: true });
-    const baseMudou = !incremental || estadoAnt.base !== baseHash;
+    const baseMudou = !incremental || estadoAnt.base !== baseHash || todasPaginas;
     const mud = { escritos: [], removidos: [] };
     const rel = (p) => `${site.id}/${p}`;
 

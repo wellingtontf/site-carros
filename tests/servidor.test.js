@@ -471,3 +471,27 @@ test('PATCH /v1/sites/<d>: grava só os campos enviados (o resto do site.json fi
   assert.equal((await req('PATCH', '/v1/sites/nao-existe.com.br', { corpo: {}, token: tokTodos })).status, 404);
   assert.equal((await req('PATCH', `/v1/sites/${D}`, { corpo: { whatsapp: '5541977776666' } })).status, 403, 'token sem acesso ao site');
 });
+
+test('build: um site, uma lista ou todos; "completo" regera todas as páginas mantendo o histórico', async () => {
+  const D = 'rebuild.teste.com.br';
+  A.criarSite(D, { carros: [A.carro({ id: 'RB1' }), A.carro({ id: 'RB2' })] });
+  assert.equal((await req('POST', `/v1/sites/${D}/build?esperar=20`, { token: tokTodos })).status, 200);
+  assert.equal((await req('DELETE', `/v1/sites/${D}/carros/RB2?esperar=20`, { token: tokTodos })).status, 200); // vira "vendido"
+  const est = () => JSON.parse(fs.readFileSync(path.join(A.raiz(), '.estado', 'dist', `${D}.json`), 'utf8'));
+  assert.ok(est().vendidos.RB2);
+  // estraga a página de um carro "por fora": o build incremental não percebe; o completo regera
+  const pagina = A.saida(D, est().links.RB1);
+  fs.writeFileSync(pagina, 'estragada');
+  assert.equal((await req('POST', `/v1/sites/${D}/build?esperar=20`, { token: tokTodos })).status, 200);
+  assert.equal(fs.readFileSync(pagina, 'utf8'), 'estragada', 'incremental: só o que mudou');
+  const r = await reqJ('POST', `/v1/sites/${D}/build?esperar=20`, { corpo: { completo: true }, token: tokTodos });
+  assert.equal(r.status, 200, JSON.stringify(r.j));
+  assert.equal(r.j.resultado.completo, true);
+  assert.match(fs.readFileSync(pagina, 'utf8'), /<html/, 'completo: a página foi regerada');
+  assert.ok(est().vendidos.RB2, 'o histórico (vendido) continua');
+  // lista com completo
+  fs.writeFileSync(pagina, 'estragada');
+  const l = await reqJ('POST', '/v1/build?esperar=20&completo=1', { corpo: { sites: [D] }, token: tokTodos });
+  assert.equal(l.status, 200, JSON.stringify(l.j));
+  assert.match(fs.readFileSync(pagina, 'utf8'), /<html/);
+});

@@ -119,16 +119,18 @@ function criarRotas({ fila }) {
       return responderVarios(res, url, ps, Object.keys(recusados).length ? { recusados } : {});
     }
 
-    // refazer sites sem mudar estoque: {"sites": ["a.com.br", ...]} ou vazio / {"todos": true} = TODOS
+    // refazer sites sem mudar estoque: {"sites": ["a.com.br", ...]} ou vazio / {"todos": true} = TODOS.
+    // "completo": true (ou ?completo=1) regera TODAS as páginas, mantendo o histórico; sem ele, só o que mudou.
     if (m === 'POST' && p === '/v1/build') {
       const b = await corpoJSON(req, LIMITE.outro, {});
       if (b.sites != null && !(Array.isArray(b.sites) && b.sites.every((x) => typeof x === 'string'))) throw new Erro(400, '"sites" deve ser uma lista de domínios');
+      const completo = b.completo === true || url.searchParams.get('completo') === '1';
       if (b.sites && b.sites.length && !b.todos) {
         const lista = [...new Set(b.sites)].map(site);
-        return responderVarios(res, url, lista.map((d) => fila.adicionar({ tipo: 'build', site: d, cliente: cliente.nome })));
+        return responderVarios(res, url, lista.map((d) => fila.adicionar({ tipo: 'build', site: d, cliente: cliente.nome, completo })));
       }
       exigirTodos('refazer todos os sites');
-      return responderLote(res, url, sitesDoAlcance().map((d) => fila.adicionar({ tipo: 'build', site: d, cliente: cliente.nome })), 'refazer todos os sites');
+      return responderLote(res, url, sitesDoAlcance().map((d) => fila.adicionar({ tipo: 'build', site: d, cliente: cliente.nome, completo })), completo ? 'refazer todos os sites (todas as páginas)' : 'refazer todos os sites');
     }
 
     // robots.txt de TODOS os sites: um modelo com {{sitemap}} {{url}} {{dominio}}. Corpo em texto puro ou {"conteudo": "..."}.
@@ -295,8 +297,9 @@ function criarRotas({ fila }) {
       return responderPedido(res, url, fila.adicionar({ tipo: 'estoque', site: d, corpo: { carros: b.carros }, cliente: cliente.nome, forcar }));
     }
     if (m === 'POST' && resto === '/build') {
-      await corpo(req, LIMITE.outro);
-      return responderPedido(res, url, fila.adicionar({ tipo: 'build', site: d, cliente: cliente.nome }));
+      const b = await corpoJSON(req, LIMITE.outro, {});
+      const completo = (b && b.completo === true) || url.searchParams.get('completo') === '1';
+      return responderPedido(res, url, fila.adicionar({ tipo: 'build', site: d, cliente: cliente.nome, completo }));
     }
     r = /^\/carros\/([^/]+)$/.exec(resto);
     if (r) {
