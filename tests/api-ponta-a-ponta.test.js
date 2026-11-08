@@ -47,7 +47,6 @@ const CADASTRO = {
     sul: { nome: 'Loja Sul', cidade: 'Porto Alegre', uf: 'RS', endereco: 'Av. Ipiranga, 200 - Porto Alegre - RS', whatsapp: '5551999990002' },
   },
   configuracoes: { cor: '#c00000', logo: 'assets/logo.png', favicon: 'assets/favicon.ico' },
-  cabecalho: { menu: [{ rotulo: 'Estoque', link: 'multipla/' }, { rotulo: 'Lojas', link: 'lojas/' }] },
   filtros: ['estado', 'cidade', 'loja', 'marca', 'modelo', 'preco'],
 };
 const carro = (id, extra) => ({ id, marca: 'Toyota', modelo: 'Corolla', versao: 'XEi 2.0', ano: 2022, preco: 120000, km: 30000, cor: 'Prata', cambio: 'Automático', combustivel: 'Flex', loja: 'matriz', ...extra });
@@ -142,8 +141,8 @@ test('3) o site gerado tem tudo: home, estoque, carros (com o link do Revenda Ma
   const home = A.ler(D, 'index.html');
   assert.match(home, /assets\/logo\.png/, 'logo enviado pela API');
   assert.match(home, /assets\/banners\/home\.webp/, 'banner da home');
-  assert.match(home, /href="paginas\/lojas\/"/, 'menu "lojas/" do cadastro vai para /paginas/lojas/');
   assert.ok(A.existe(D, 'assets/favicon.ico'));
+  assert.match(home, /<link rel="icon" href="assets\/favicon\.ico">/, 'favicon das configurações no <head>');
   assert.match(A.ler(D, 'paginas/lojas/index.html'), /Rua XV, 100/);
   assert.match(A.ler(D, 'multipla/index.html'), /OFERTAS-DA-SEMANA/, 'web/multipla.json → /multipla/');
   assert.match(A.ler(D, 'paginas/feirao/index.html'), /href="\.\.\/\.\.\/paginas\/lojas\/"/);
@@ -201,6 +200,19 @@ test('6) recusas claras: arquivo que não é o que diz, SVG com script, página 
   const aviso = await pedir('PATCH', `/v1/sites/${D}`, { whatsap: '5541900000000' });
   assert.equal(aviso.status, 202);
   assert.match(aviso.j.avisos[0], /campo "whatsap" não é usado/);
+  // o tema declara o que aceita (config/settings_schema.json): chave que ele não usa = aviso; tipo errado = 422
+  const semMenu = await pedir('PATCH', `/v1/sites/${D}`, { whatsap: null, cabecalho: { menu: [{ rotulo: 'Lojas', link: 'lojas/' }] } });
+  assert.equal(semMenu.status, 202);
+  assert.match(semMenu.j.avisos.join(' '), /"cabecalho\.menu" não é usado pelo tema "barra-topo"/);
+  const corRuim = await pedir('PATCH', `/v1/sites/${D}`, { cabecalho: null, configuracoes: { cor: 'azul' } });
+  assert.equal(corRuim.status, 422);
+  assert.match(corRuim.j.erros.join(' '), /"configuracoes\.cor": cor inválida "azul"/);
+  assert.equal(A.lerSite(D).configuracoes.cor, '#c00000', '422: nada gravado');
+  const temas = await pedir('GET', '/v1/temas');
+  assert.deepEqual(temas.j.temas.map((t) => t.tema), ['barra-topo', 'lateral', 'template-basico', 'teste']);
+  const bt = await pedir('GET', '/v1/temas/barra-topo');
+  assert.deepEqual([bt.j.configuracoes.cor.tipo, bt.j.configuracoes.cor.padrao, bt.j.textos.voltar], ['cor', '#0b5fff', 'Voltar ao estoque']);
+  assert.equal((await pedir('GET', '/v1/temas/nao-existe')).status, 404);
   // página no outro formato substitui (não fica duplicada)
   assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/promo`, { titulo: 'Promo', secoes: [] })).status, 202);
   assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/promo?esperar=30`, '<h1>Promo HTML</h1>', { tipo: 'text/html' })).status, 200);

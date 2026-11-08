@@ -52,8 +52,11 @@ tempo; sites diferentes rodam em paralelo.
 3. **Tema completo?** Precisa do `config/settings_schema.json`, dos 5 arquivos de `templates/` (`home.html`,
    `multipla.html`, `carro.html`, `vendido.html`, `pagina.html`) e das seções obrigatórias. Faltou: o build para com
    "falta templates/x.html". Tema na estrutura antiga (`template.json`, `paginas/`, `blocos/`...) também para.
-4. **Motor:** confere que `core/motor/<versao>/engine.js` existe.
-5. **Recusas com explicação** (a mensagem manda rodar `node ferramentas/mover-paginas.js`):
+4. **Site contra o tema** (`core/temas.js`): `configuracoes`, `cabecalho`, `rodape` e `textos` do site conferidos com o
+   `config/settings_schema.json` e o `locales/pt-BR.json` do tema. Tipo errado: o build para. Chave que o tema não usa:
+   aviso. Os padrões do tema completam o que o site não mandou.
+5. **Motor:** confere que `core/motor/<versao>/engine.js` existe.
+6. **Recusas com explicação** (a mensagem manda rodar `node ferramentas/mover-paginas.js`):
    - `"paginas"` ou `"estoque"` dentro do `site.json`;
    - a pasta antiga `sites-config/<d>/paginas/`;
    - home em `web/paginas/index.json` (a home fica em `web/index.json`).

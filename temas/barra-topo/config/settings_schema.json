@@ -1,4 +1,58 @@
 {
   "nome": "Barra no topo",
-  "descricao": "Cabeçalho colorido e filtros em uma barra acima da lista de carros"
+  "descricao": "Cabeçalho colorido e filtros em uma barra acima da lista de carros",
+  "configuracoes": {
+    "cor": {
+      "tipo": "cor",
+      "padrao": "#0b5fff",
+      "rotulo": "Cor principal",
+      "descricao": "botões, links e destaques (variável CSS --cor)"
+    },
+    "fundo": {
+      "tipo": "cor",
+      "padrao": "#f5f6f8",
+      "rotulo": "Cor de fundo",
+      "descricao": "fundo das páginas (--fundo)"
+    },
+    "texto": {
+      "tipo": "cor",
+      "padrao": "#1b2430",
+      "rotulo": "Cor do texto",
+      "descricao": "--texto"
+    },
+    "raio": {
+      "tipo": "numero",
+      "padrao": 12,
+      "rotulo": "Arredondamento dos cantos (px)",
+      "descricao": "--raio"
+    },
+    "colunas": {
+      "tipo": "numero",
+      "padrao": 250,
+      "rotulo": "Largura mínima do card (px)",
+      "descricao": "--colunas"
+    },
+    "fonte": {
+      "tipo": "texto",
+      "padrao": "system-ui,-apple-system,\"Segoe UI\",Roboto,sans-serif",
+      "rotulo": "Fonte (CSS)",
+      "descricao": "--fonte; com fonteGoogle, a do Google vem antes"
+    },
+    "fonteGoogle": {
+      "tipo": "texto",
+      "rotulo": "Fonte do Google Fonts",
+      "descricao": "nome da família, ex.: \"Montserrat\""
+    },
+    "logo": {
+      "tipo": "imagem",
+      "rotulo": "Logo",
+      "descricao": "ex.: \"assets/logo.webp\" (arquivo do site) ou URL"
+    },
+    "favicon": {
+      "tipo": "imagem",
+      "rotulo": "Ícone da aba (favicon)"
+    }
+  },
+  "cabecalho": {},
+  "rodape": {}
 }

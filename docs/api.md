@@ -33,6 +33,8 @@ O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da
 |---|---|---|
 | GET | `/v1/saude` | sem token: diz se a API está de pé |
 | GET | `/v1/lotes/{lote}` | andamento de uma operação em vários sites (contagem por status e problemas) |
+| GET | `/v1/temas` | temas que o inquilino do token pode usar (`tema`, `nome`, `descricao`, `proprio`) |
+| GET | `/v1/temas/{tema}` | o que o tema aceita: `configuracoes`, `cabecalho`, `rodape` (tipo, padrão, rótulo de cada um) e os `textos` padrão. É o contrato para montar uma tela de configuração ([temas.md](temas.md)) |
 | GET | `/v1/sites` | sites que o token pode alterar, com o total de carros e a data da última atualização |
 | POST | `/v1/sites` | **cria um site novo com toda a estrutura**: sem domínio = próximo rascunho (`siteN.carro57.com.br`); ou `{"dominio": "novaloja.com.br"}` (ver "Site novo") |
 | PUT | `/v1/sites/{dominio}` | **grava o `site.json` inteiro**: cria o site, se não existir, ou substitui o cadastro (ver "Cadastro do site"), e gera o site |
@@ -156,6 +158,10 @@ Para um site que **já está no ar** e muda de domínio (caso raro; rascunho usa
 ## Cadastro do site
 
 **PUT ou PATCH?** O `PUT` substitui o `site.json` inteiro: use quando o seu sistema é o dono do cadastro todo. O `PATCH` muda só os campos enviados: use quando o seu sistema cuida de **parte** do cadastro (telefone, WhatsApp, lojas...) e outros mantêm o resto (cabeçalho, rodapé e configurações montados pelo designer). Um `PUT` parcial apagaria esses campos.
+
+**O tema confere o cadastro:** `configuracoes`, `cabecalho`, `rodape` e `textos` seguem o que o tema do site declara
+(`GET /v1/temas/{tema}`). Valor de tipo errado → 422 (`"configuracoes.cor": cor inválida "azul"`). Chave que o tema não
+usa → grava, e a resposta traz `avisos` (`"cabecalho.menu" não é usado pelo tema "barra-topo"`).
 
 ```
 PATCH /v1/sites/loja1.com.br

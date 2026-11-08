@@ -134,4 +134,4 @@ function arquivosDe(usados) {
   return { css, js: [...scripts, ...js] };
 }
 
-module.exports = { listar, existe, carregar, mesclar, validar, renderizar, expandir, arquivosDe, lerAtributos, limparCache, TAG };
+module.exports = { conferir,  listar, existe, carregar, mesclar, validar, renderizar, expandir, arquivosDe, lerAtributos, limparCache, TAG };

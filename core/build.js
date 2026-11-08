@@ -47,6 +47,7 @@ const Robots = require('./robots');
 const Sitemap = require('./sitemap');
 const Comp = require('./componentes'); // componentes (componentes/<nome>/): {{componente x}} nos templates, bloco "componente" nas páginas // sitemap.xml: páginas + carros no ar (core/sitemap.js; gerarSitemap(dominio) também roda sozinho)
 const Inq = require('./inquilinos'); // inquilino do site: tema próprio dele, se houver
+const Temas = require('./temas'); // o que o tema declara (config/settings_schema.json) e os textos padrão dele (locales/pt-BR.json)
 const Sites = require('./sites'); // repositório de sites: o único que lê a pasta sites-config/
 const Pendentes = require('./pendentes'); // o que falta publicar, um arquivo por site
 const { renovarMinhas } = require('./trava'); // build longo: mantém as travas do trabalhador vivas // modelo do robots.txt (um para todos os sites; o site pode ter o seu)
@@ -54,6 +55,7 @@ const { renovarMinhas } = require('./trava'); // build longo: mantém as travas 
 const ROOT = C.ROOT;
 const ESTADO = C.ESTADO;
 const CAMPOS_FILTRO = ['estado', 'cidade', 'loja', 'marca', 'modelo', 'carroceria', 'ano', 'preco', 'km', 'cambio', 'combustivel', 'cor'];
+// último recurso para tema que não declara (o padrão de verdade vem do tema: settings_schema.json e locales/pt-BR.json)
 const TEXTOS_PADRAO = { botaoWhatsapp: 'Tenho interesse (WhatsApp)', busca: 'Buscar: marca, modelo, cidade, cor...', voltar: 'Voltar ao estoque', rodape: '' };
 const CONFIGURACOES_PADRAO = { cor: '#0b5fff', fundo: '#f5f6f8', texto: '#1b2430', raio: 12, colunas: 250, fonte: 'system-ui,-apple-system,"Segoe UI",Roboto,sans-serif' };
 // templates que todo tema tem (temas/<nome>/templates/, padrão Shopify), um por tipo de página do site:
@@ -219,9 +221,11 @@ function gravarEstado(pasta, id, obj) {
 const registrarPendente = (pasta, id, mud, completo) => Pendentes.registrar(pasta, id, mud, completo); // core/pendentes.js
 
 const limpaCss = (v) => String(v).replace(/[<>{};]/g, '');
-// "configuracoes" do site.json (cores, fonte, logo...; no Shopify, o settings_data.json)
-function configuracoesDoSite(site) {
-  const t = { ...CONFIGURACOES_PADRAO, ...(site.cor ? { cor: site.cor } : {}), ...(site.configuracoes || {}) };
+// "configuracoes" do site.json (cores, fonte, logo...; no Shopify, o settings_data.json) sobre o padrão do TEMA
+// (settings_schema.json); CONFIGURACOES_PADRAO só cobre o que o tema não declara (as variáveis CSS sempre existem)
+const semVazios = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, v]) => v !== null && v !== ''));
+function configuracoesDoSite(site, tema) {
+  const t = { ...CONFIGURACOES_PADRAO, ...Temas.padroes(tema, 'configuracoes'), ...(site.cor ? { cor: site.cor } : {}), ...semVazios(site.configuracoes) };
   if (t.fonteGoogle) t.fonte = `"${t.fonteGoogle}",${CONFIGURACOES_PADRAO.fonte}`;
   return t;
 }
@@ -331,6 +335,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
   // paginas-extras e paginas-padrao ficam de fora: editar o texto de uma página (LGPD, feirão...) não deve refazer as
   // páginas de carro de todos os sites (as páginas de conteúdo são refeitas sempre; os rótulos entram no hash do site)
   Comp.limparCache();
+  Temas.limparCache();
   // mudou um componente: refaz as páginas. Só as pastas dos componentes contam (o README.md da raiz de componentes/ não)
   const hashComponentes = fs.existsSync(C.COMPONENTES) ? sha(hashDir(C.COMPONENTES, (r) => !r.includes(path.sep))) : '';
   const tplHash = (dir) => { if (!hashTpl.has(dir)) hashTpl.set(dir, sha(hashDir(dir, (r) => r === C.TEMA.paginasExtras || r === C.TEMA.paginasPadrao))); return hashTpl.get(dir); };
@@ -365,6 +370,11 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     const faltam = [[path.join(dirTpl, C.TEMA.schema), C.TEMA.schema.split(path.sep).join('/')], ...PAGINAS.map((p) => [path.join(dirTpl, C.TEMA.templates, p), `templates/${p}`]), ...SECOES_OBRIGATORIAS.map((b) => [path.join(dirTpl, C.TEMA.secoes, `${b}.html`), `secoes/${b}.html`])]
       .filter(([arq]) => !fs.existsSync(arq)).map(([, nome]) => nome);
     if (faltam.length) throw new Error(`Tema "${nomeTpl}" incompleto: falta ${faltam.join(', ')}`);
+    // o site contra o que o tema declara: tipo errado para o build; chave que o tema não usa só avisa
+    const tema = Temas.carregar(dirTpl);
+    const conf = Temas.validarSite(site, tema);
+    if (conf.erros.length) throw new Error(`Site "${site.id}" (tema "${nomeTpl}"): ${conf.erros.join('; ')}`);
+    for (const a of conf.avisos) console.warn(`  aviso: site "${site.id}": ${a}`);
 
     // páginas de conteúdo; a home ("") é obrigatória: sem ela no site.json, o core usa HOME_PADRAO
     // a listagem (/multipla/) é configurada em sites-config/<dominio>/web/multipla.json: { "secoesAntes": [...], "secoesDepois": [...] }
@@ -454,8 +464,10 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     const lojas = site.lojas || {};
     const out = path.join(DIST, site.id);
     const base = site.fotosBase || '';
-    const configuracoes = configuracoesDoSite(site);
-    const textos = { ...TEXTOS_PADRAO, ...(site.textos || {}) };
+    const configuracoes = configuracoesDoSite(site, tema);
+    const textos = { ...TEXTOS_PADRAO, ...tema.textos, ...(site.textos || {}) };
+    const cabecalho = { ...Temas.padroes(tema, 'cabecalho'), ...semVazios(site.cabecalho) };
+    const rodape = { ...Temas.padroes(tema, 'rodape'), ...semVazios(site.rodape) };
 
     // Só as páginas dependem disto (a versão do motor e os filtros ficam de fora de propósito:
     // trocar o motor ou os filtros não refaz nenhuma página).
@@ -564,7 +576,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     const ctx = (r) => ({
       ...ctxSite, rel: r, configuracoes: configuracoesDaPagina(configuracoes, r),
       site: { nome: site.nome, slogan: site.slogan || '', url: site.url || '', textos,
-        cabecalho: resolverLinks(site.cabecalho || {}, r, paraPagina), rodape: resolverLinks(site.rodape || {}, r, paraPagina),
+        cabecalho: resolverLinks(cabecalho, r, paraPagina), rodape: resolverLinks(rodape, r, paraPagina),
         // páginas com "rotulo" (as padrão têm): para o rodapé de qualquer tema ({{#site.links}})
         links: paginasSite.filter((p) => p.rotulo && p.caminho).map((p) => ({ rotulo: p.rotulo, link: `${r}${endPagina(p.caminho)}/` })) },
       inicioUrl: r || './', estoqueUrl: r + `${CAMINHO_ESTOQUE}/`, estoque: estoqueInfo(r),

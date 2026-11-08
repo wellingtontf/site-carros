@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const { construir } = require('../core/build.js');
 const L = require('../core/ui/link-carro.js');
+const Sites = require('../core/sites');
 
 const ID = 'loja-teste.com.br';
 const build = (opts = {}) => A.silencioso(() => construir({ sites: [ID], ...opts })).r.feitos[0];
@@ -590,6 +591,55 @@ test('layout/tema.html: o template preenche os blocos {{$...}}, o resto vem do l
   erro('{{$conteudo}}a{{/conteudo}}{{$conteudo}}b{{/conteudo}}', /bloco \{\{\$conteudo\}\} aparece duas vezes/);
   fs.rmSync(path.join(dir, 'layout'), { recursive: true });
   erro('{{$conteudo}}x{{/conteudo}}', /templates\/[a-z]+\.html usa o layout.*não tem layout\/tema\.html/);
+  fs.rmSync(dir, { recursive: true });
+});
+
+test('settings_schema.json e locales/pt-BR.json: padrão vem do tema; site vale mais; chave que o tema não usa = aviso; tipo errado = erro', () => {
+  const dir = path.join(A.raiz(), 'temas', 'com-schema');
+  fs.cpSync(path.join(__dirname, 'fixtures', 'temas', 'teste'), dir, { recursive: true });
+  const schema = JSON.parse(fs.readFileSync(path.join(dir, 'config', 'settings_schema.json'), 'utf8'));
+  schema.configuracoes.cor.padrao = '#123abc';
+  schema.rodape = { links: { tipo: 'itens', campos: { rotulo: { tipo: 'texto' }, link: { tipo: 'texto' } } }, contato: { tipo: 'item', campos: { link: { tipo: 'texto' } } }, mostrar: { tipo: 'booleano', padrao: true } };
+  fs.writeFileSync(path.join(dir, 'config', 'settings_schema.json'), JSON.stringify(schema));
+  const loc = JSON.parse(fs.readFileSync(path.join(dir, 'locales', 'pt-BR.json'), 'utf8'));
+  fs.writeFileSync(path.join(dir, 'locales', 'pt-BR.json'), JSON.stringify({ ...loc, avisoCookies: 'COOKIES DO TEMA' }));
+  const site = (extra) => A.criarSite(ID, { carros: [A.carro()], site: { tema: 'com-schema', ...extra } });
+  site({});
+  build({ completo: true });
+  assert.match(A.ler(ID, 'multipla/index.html'), /--cor:#123abc/, 'padrão de cor do tema');
+  assert.equal(A.lerJSON(ID, 'config.json').avisoCookies.texto, 'COOKIES DO TEMA', 'texto padrão do locale do tema');
+  site({ configuracoes: { cor: '#00ff00' }, textos: { avisoCookies: 'DO SITE' } });
+  const { saidas } = A.silencioso(() => construir({ sites: [ID], completo: true }));
+  assert.match(A.ler(ID, 'multipla/index.html'), /--cor:#00ff00/, 'o site vale mais que o tema');
+  assert.equal(A.lerJSON(ID, 'config.json').avisoCookies.texto, 'DO SITE');
+  assert.ok(!saidas.some((x) => /não é usado pelo tema/.test(x)), 'chaves declaradas: sem aviso');
+  // chave que o tema não declara: só aviso (site antigo não para)
+  site({ configuracoes: { corr: '#000000' }, cabecalho: { telefone: '1' }, textos: { botaoZap: 'x' } });
+  const av = A.silencioso(() => construir({ sites: [ID], completo: true })).saidas.join('\n');
+  assert.match(av, /"configuracoes\.corr" não é usado pelo tema "com-schema" \(erro de digitação\? em "configuracoes" o tema aceita: cor, fundo/);
+  assert.match(av, /"cabecalho\.telefone" não é usado pelo tema "com-schema"/);
+  assert.match(av, /"textos\.botaoZap" não é usado pelo tema "com-schema"/);
+  // tipo errado: o build para com o lugar do erro (e a API responde 422, pela mesma regra)
+  for (const [extra, re] of [
+    [{ configuracoes: { cor: 'azul' } }, /"configuracoes\.cor": cor inválida "azul"/],
+    [{ configuracoes: { raio: 'grande' } }, /"configuracoes\.raio": precisa ser número/],
+    [{ configuracoes: { logo: 5 } }, /"configuracoes\.logo": precisa ser o caminho ou a URL/],
+    [{ rodape: { links: { rotulo: 'x' } } }, /"rodape\.links": precisa ser uma lista de itens/],
+    [{ rodape: { links: [{ rotulo: 'ok' }, 'texto'] } }, /"rodape\.links": item 2: precisa ser um objeto/],
+    [{ rodape: { links: [{ rotulo: ['a'] }] } }, /"rodape\.links": item 1: "rotulo": não pode ser objeto ou lista/],
+    [{ rodape: { contato: [{ link: 'x' }] } }, /"rodape\.contato": precisa ser um objeto/],
+    [{ rodape: { mostrar: 'sim' } }, /"rodape\.mostrar": use true ou false/],
+    [{ textos: { voltar: 3 } }, /"textos\.voltar": precisa ser texto/],
+  ]) {
+    site(extra);
+    assert.throws(() => build(), re, JSON.stringify(extra));
+    assert.match(Sites.validarSite(A.lerSite(ID), ID).join(' '), re, `API: ${JSON.stringify(extra)}`);
+  }
+  // o próprio tema com declaração errada também para, apontando o arquivo
+  schema.configuracoes.raio = { tipo: 'numero', padrao: 'doze' };
+  fs.writeFileSync(path.join(dir, 'config', 'settings_schema.json'), JSON.stringify(schema));
+  site({});
+  assert.throws(() => build(), /settings_schema\.json: configuracoes\.raio \(padrão\): precisa ser número/);
   fs.rmSync(dir, { recursive: true });
 });
 

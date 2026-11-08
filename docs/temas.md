@@ -23,7 +23,9 @@ Hoje há `barra-topo`, `lateral` e `template-basico`. Um inquilino pode ter tema
 ```
 temas/<nome>/
   config/
-    settings_schema.json   nome e descrição do tema (e, em breve, as opções que ele aceita)
+    settings_schema.json   nome, descrição e TUDO que o site pode configurar (configurações, cabeçalho, rodapé)
+  locales/
+    pt-BR.json             textos padrão do tema (botão de WhatsApp, "voltar", aviso de cookies...)
   layout/
     tema.html              a moldura de todas as páginas (no Shopify, layout/theme.liquid)
   templates/               UM ARQUIVO POR TIPO DE PÁGINA (os 5 são obrigatórios), só com os blocos dele
@@ -34,11 +36,55 @@ temas/<nome>/
   paginas-extras/          páginas HTML que todo site do tema ganha
 ```
 
-Comparando com o Shopify: `locales/` (textos padrão) ainda não existe aqui (próxima etapa); `paginas-padrao/` e `paginas-extras/` não têm equivalente lá e continuam com esses nomes.
+Comparando com o Shopify: `paginas-padrao/` e `paginas-extras/` não têm equivalente lá e continuam com esses nomes.
 
 Nome antigo (antes de 2026-11-08: `templates/<nome>/` com `template.json`, `paginas/`, `blocos/`, `parciais/`, `css/` na
 raiz) dá erro claro no build. `node ferramentas/migrar-temas.js` converte tudo (temas, sites e inquilinos;
 `--simular` só mostra).
+
+## O que o site pode configurar (`config/settings_schema.json` e `locales/pt-BR.json`)
+
+O tema **declara** o que aceita. Isso é o contrato entre o designer (que faz o tema) e quem configura cada site (pela API,
+por um painel no futuro, ou à mão no `site.json`):
+
+```json
+{
+  "nome": "Template básico",
+  "descricao": "...",
+  "configuracoes": {
+    "cor":   { "tipo": "cor", "padrao": "#0b5fff", "rotulo": "Cor principal", "descricao": "botões, links (--cor)" },
+    "raio":  { "tipo": "numero", "padrao": 12, "rotulo": "Arredondamento dos cantos (px)" },
+    "logo":  { "tipo": "imagem", "rotulo": "Logo" }
+  },
+  "cabecalho": {
+    "telefone": { "tipo": "texto", "rotulo": "Telefone/WhatsApp na faixa" },
+    "menu":     { "tipo": "itens", "campos": { "rotulo": { "tipo": "texto" }, "link": { "tipo": "texto" } } }
+  },
+  "rodape": {
+    "contato":  { "tipo": "item", "campos": { "rotulo": { "tipo": "texto" }, "link": { "tipo": "texto" } } }
+  }
+}
+```
+```json
+// locales/pt-BR.json
+{ "botaoWhatsapp": "Tenho interesse (WhatsApp)", "voltar": "Voltar ao estoque", "busca": "Buscar: ...", "rodape": "", "avisoCookies": "..." }
+```
+
+- **Grupos:** `configuracoes` (cores, fonte, logo, favicon...: vira `{{configuracoes.x}}` e as variáveis CSS), `cabecalho` e
+  `rodape` (`{{site.cabecalho.x}}`, `{{site.rodape.x}}`). Os **textos** ficam no `locales/pt-BR.json` (`{{site.textos.x}}`).
+- **Tipos:** `texto`, `numero`, `booleano`, `cor`, `lista` (texto separado por vírgula), `imagem` (caminho como
+  `assets/logo.png` ou URL), `item` (um objeto, ex.: `{ "rotulo", "link" }`) e `itens` (lista de objetos, ex.: o menu).
+  Em `item`/`itens`, `campos` diz o tipo de cada campo. `valores: [...]` restringe a uma lista.
+- **Padrão:** `padrao` é o valor quando o site não manda nada. O site vale mais: `"configuracoes": { "cor": "#c00000" }`.
+  O core só tem um último recurso para as 6 variáveis CSS (`--cor --fundo --texto --raio --fonte --colunas`), caso um
+  tema não declare; os temas do projeto declaram todas (um teste cobra).
+- **Regras** (decisão do Wellington): chave que o tema não declara = **aviso** (o site antigo não para; a API devolve em
+  `avisos`); valor de tipo errado = **erro** (o build para e a API responde 422, nada gravado). Declaração errada no
+  próprio schema (padrão com tipo errado, tipo que não existe) também para o build, apontando o arquivo.
+- **Tudo que o HTML usa precisa estar declarado:** um teste varre os HTML de cada tema e exige que todo
+  `{{configuracoes.x}}`, `{{site.cabecalho.x}}`, `{{site.rodape.x}}` e `{{site.textos.x}}` exista no schema/locale.
+- **API:** `GET /v1/temas` lista os temas que o inquilino pode usar; `GET /v1/temas/<nome>` devolve o schema e os textos
+  (é o que um painel precisa para montar a tela de configuração).
 
 ## O layout (`layout/tema.html`)
 
@@ -163,8 +209,8 @@ cada item com `valor`, `total`, `link`, `chave`). Dentro de uma seção, os camp
 ## Criar um tema
 
 1. Copie um tema parecido: `cp -r temas/barra-topo temas/meu-tema`.
-2. Ajuste `config/settings_schema.json`, o `layout/tema.html` (cabeçalho, rodapé), os 5 arquivos de `templates/`,
-   `assets/css/` e as seções.
+2. Ajuste `config/settings_schema.json` (o que o site pode configurar), `locales/pt-BR.json` (textos), o
+   `layout/tema.html` (cabeçalho, rodapé), os 5 arquivos de `templates/`, `assets/css/` e as seções.
 3. Use num site: `"tema": "meu-tema"` no `site.json` (ou libere para o inquilino em `"temas"` do `inquilino.json`).
 4. `npm test`: o teste de temas confere a estrutura, arquivos obrigatórios, seções, ids, links quebrados e marcadores
    sobrando em todos os temas.

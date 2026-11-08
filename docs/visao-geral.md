@@ -72,7 +72,7 @@ Gerados e fora do git: `sites-public/` (sites prontos), `.estado/` (estado do bu
 | **fonte / saída** | `sites-config/` (o que se edita) / `sites-public/` (o que o build gera e vai para o ar) |
 | **build** | `core/build.js`: transforma a fonte na saída ([passo a passo](como-o-build-funciona.md)) |
 | **tema** | o visual de um grupo de sites (`temas/<nome>/`, estrutura do Shopify; ver [temas.md](temas.md)) |
-| **configurações** | o que muda de uma revenda para outra dentro do tema: cor, fonte, logo (`"configuracoes"` no `site.json`) |
+| **configurações** | o que muda de uma revenda para outra dentro do tema: cor, fonte, logo (`"configuracoes"` no `site.json`); o tema declara o que aceita em `config/settings_schema.json` |
 | **layout** | a moldura comum de todas as páginas de um tema (`layout/tema.html`: head, cabeçalho, rodapé) |
 | **template** | o arquivo de um tipo de página dentro do tema (`templates/home.html`...), encaixado no layout |
 | **componente** | peça reutilizável com opções (`componentes/<nome>/`: filtro, estoque, filtros-ativos) |

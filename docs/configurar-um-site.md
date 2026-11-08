@@ -50,9 +50,9 @@ Exemplo:
 | `url` | para produção | endereço oficial **com https** (`https://loja.com.br` ou `https://www.loja.com.br`). Sem ele não há sitemap, canonical nem JSON-LD, e a publicação recusa |
 | `whatsapp` | não | número com DDI e DDD; vale para carros de loja sem WhatsApp próprio |
 | `fotosBase` | não | onde ficam as fotos (`<fotosBase>carros/<id>/<n>-<400\|800\|1600>.webp`). Precisa terminar em `/`; localhost ou http é recusado na publicação |
-| `configuracoes` | não | `cor`, `fundo`, `texto`, `raio` (px), `colunas` (px do card), `fonte`, `fonteGoogle`, `logo`, `banner`, `favicon`. Imagens com caminho relativo (`assets/logo.png`) apontam para `assets/` do site |
-| `textos` | não | textos do tema: `busca` (dica da caixa de busca), `rodape`, `avisoCookies`, `botaoWhatsapp`, `voltar` |
-| `cabecalho`, `rodape` | não | menu, botão, endereço, redes sociais... (links relativos à raiz; `"contato/"` vira `/paginas/contato/`) |
+| `configuracoes` | não | o que o **tema** aceita (`config/settings_schema.json` dele): em todos, `cor`, `fundo`, `texto`, `raio` (px), `colunas` (px do card), `fonte`, `fonteGoogle`, `logo`, `favicon`; no template-basico também `logoRodape`. Imagens com caminho relativo (`assets/logo.png`) apontam para `assets/` do site |
+| `textos` | não | troca os textos padrão do tema (`locales/pt-BR.json`): `busca` (dica da caixa de busca), `rodape`, `avisoCookies`, `botaoWhatsapp`, `voltar` |
+| `cabecalho`, `rodape` | não | o que o tema declara (no template-basico: faixa do topo, telefone, menus, redes sociais, links institucionais...). Links relativos à raiz; `"contato/"` vira `/paginas/contato/` |
 | `lojas` | para ter estoque | `{ "<id>": { nome, cidade, uf, endereco, whatsapp, telefone } }`. Cidade/UF da loja valem para os carros dela |
 | `filtros` | não | quais filtros aparecem e em que ordem (abaixo). Sem ele, todos |
 | `ordenacao` | não | ordens oferecidas; a primeira é a padrão (abaixo) |
@@ -68,6 +68,11 @@ Exemplo:
 | `robots` | não | robots.txt próprio (vale mais que o modelo do inquilino) |
 | `formatoEstoque` | não | `"compacto"`: o `estoque.json` gerado sai ~4x menor (dicionário + colunas), sem mudar a busca |
 | `rascunho` | não | `true`: nada entra no Google (`noindex` em tudo, robots fechado) |
+
+**O tema decide o que vale** em `configuracoes`, `cabecalho`, `rodape` e `textos` ([temas.md](temas.md#o-que-o-site-pode-configurar-configsettings_schemajson-e-localespt-brjson)):
+chave que o tema não usa volta como **aviso** (provável erro de digitação, ou o tema não tem aquilo); valor do tipo
+errado (cor inválida, texto onde vai número, objeto onde vai lista) é **recusado** com o lugar do erro.
+`GET /v1/temas/<nome>` mostra tudo o que um tema aceita.
 
 Não vão no `site.json` (o build e a API recusam com explicação): `paginas` (são arquivos em `web/`), `estoque` (a
 listagem é `web/multipla.json`) e `componentes` (são arquivos em `componentes/`). Campo desconhecido não impede a

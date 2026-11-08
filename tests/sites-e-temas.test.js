@@ -92,6 +92,23 @@ test('todo tema tem a estrutura do padrão Shopify e o mínimo exigido pelo core
   }
 });
 
+test('todo tema declara o que usa: cada {{configuracoes.x}}, {{site.cabecalho.x}}, {{site.rodape.x}} e {{site.textos.x}} está no settings_schema.json / locales/pt-BR.json', () => {
+  const Temas = require('../core/temas');
+  const listarArq = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? listarArq(path.join(d, e.name)) : [path.join(d, e.name)]));
+  for (const t of fs.readdirSync(path.join(A.PROJETO, 'temas'))) {
+    const dir = path.join(A.PROJETO, 'temas', t);
+    const tema = Temas.carregar(dir); // schema e locale válidos (tipos e padrões conferidos)
+    const html = listarArq(dir).filter((f) => f.endsWith('.html')).map((f) => fs.readFileSync(f, 'utf8')).join('\n');
+    const usados = (re) => [...new Set([...html.matchAll(re)].map((m) => m[1]))];
+    for (const k of usados(/\{\{[#^/]?configuracoes\.([a-zA-Z]+)/g)) assert.ok(tema.configuracoes[k], `${t}: {{configuracoes.${k}}} sem declaração em config/settings_schema.json`);
+    for (const g of ['cabecalho', 'rodape']) for (const k of usados(new RegExp(`\\{\\{[#^/]?site\\.${g}\\.([a-zA-Z]+)`, 'g'))) assert.ok(tema[g][k], `${t}: {{site.${g}.${k}}} sem declaração em "${g}" do settings_schema.json`);
+    for (const k of usados(/\{\{[#^/]?site\.textos\.([a-zA-Z]+)/g)) assert.ok(k in tema.textos, `${t}: {{site.textos.${k}}} sem texto padrão em locales/pt-BR.json`);
+    // as variáveis CSS que o core sempre gera (--cor, --fundo...) têm padrão no tema
+    for (const k of ['cor', 'fundo', 'texto', 'raio', 'colunas', 'fonte']) assert.notEqual(tema.configuracoes[k] && tema.configuracoes[k].padrao, undefined, `${t}: configuracoes.${k} sem padrão`);
+    for (const k of ['busca', 'avisoCookies']) assert.ok(k in tema.textos, `${t}: locales/pt-BR.json sem "${k}" (usado pelos componentes e pelo core)`);
+  }
+});
+
 test('todo tema funciona com a home padrão e com um site de 1 loja (gerado e varrido)', () => {
   const sitesTmp = path.join(raiz, 'sites-tmp');
   for (const t of fs.readdirSync(path.join(A.PROJETO, 'temas'))) {

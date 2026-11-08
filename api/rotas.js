@@ -82,6 +82,20 @@ function criarRotas({ fila }) {
     // sites que a operação "todos" alcança: os do inquilino do token (o admin escolhe com ?inquilino=, ou a plataforma toda)
     const sitesDoAlcance = () => (cliente.admin ? (url.searchParams.get('inquilino') ? Sites.listar({ inquilino: inquilinoAlvo(url.searchParams.get('inquilino')) }) : Sites.listar())
       : Sites.listar({ inquilino: cliente.inquilino }).filter((d) => CL.pode(cliente, d)));
+    // TEMAS que o inquilino do token pode usar e o que cada um aceita (config/settings_schema.json + locales/pt-BR.json):
+    // é o "contrato" para montar uma tela de configuração. O admin escolhe o inquilino com ?inquilino=
+    if (m === 'GET' && p === '/v1/temas') {
+      const inq = inquilinoAlvo(url.searchParams.get('inquilino'));
+      const Temas = require('../core/temas');
+      return enviar(res, 200, { inquilino: inq, temas: Temas.listar(inq).map((n) => { const t = Temas.descrever(inq, n); return { tema: n, nome: t.nome, descricao: t.descricao, proprio: t.proprio }; }) });
+    }
+    lr = /^\/v1\/temas\/([a-z0-9-]+)$/.exec(p);
+    if (m === 'GET' && lr) {
+      const inq = inquilinoAlvo(url.searchParams.get('inquilino'));
+      const t = require('../core/temas').descrever(inq, lr[1]);
+      if (!t) throw new Erro(404, `tema "${lr[1]}" não existe ou não está liberado para o inquilino "${inq}"`);
+      return enviar(res, 200, t);
+    }
     if (m === 'GET' && p === '/v1/sites') {
       return enviar(res, 200, { sites: Sites.resumos((d) => CL.pode(cliente, d)) });
     }
@@ -237,7 +251,8 @@ function criarRotas({ fila }) {
       const erros = Sites.validarSite(novo, d);
       if (erros.length) throw new Erro(422, 'cadastro inválido: nada foi gravado', { erros });
       Sites.gravarSite(d, novo);
-      return responderPedido(res, url, fila.adicionar({ tipo: 'build', site: d, cliente: cliente.nome }), 202, 200, comAvisos(patch));
+      // avisos sobre o cadastro já mesclado: é ele que diz o tema (chave que o tema não usa)
+      return responderPedido(res, url, fila.adicionar({ tipo: 'build', site: d, cliente: cliente.nome }), 202, 200, comAvisos(novo));
     }
 
     const d = site(dominio);

@@ -22,6 +22,7 @@ const path = require('path');
 const C = require('./caminhos');
 const { ultimaVersao } = require('./versoes');
 const Inq = require('./inquilinos');
+const Temas = require('./temas');
 
 const ID_SITE = /^(?=.{3,253}$)([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/; // o id do site é o domínio (nome da pasta)
 const ID_LOJA = /^[a-z0-9][a-z0-9-]{0,40}$/;
@@ -95,7 +96,20 @@ function registrarRascunho(d) {
 const CAMPOS_SITE = new Set(['inquilino', 'nome', 'slogan', 'tema', 'motor', 'url', 'whatsapp', 'fotosBase', 'cor', 'configuracoes', 'textos',
   'cabecalho', 'rodape', 'lojas', 'empresa', 'vendedores', 'busca', 'filtros', 'ordenacao', 'restricoes',
   'avisoCookies', 'paginasPadrao', 'pagina404', 'retencaoVendidosDias', 'retencaoRedirecionamentoDias', 'robots', 'formatoEstoque', 'rascunho']);
-const avisosSite = (s) => (s && typeof s === 'object' ? Object.keys(s).filter((k) => !CAMPOS_SITE.has(k)).map((k) => `campo "${k}" não é usado pela plataforma (erro de digitação?)`) : []);
+// tema do cadastro (null se o tema não existe ou o inquilino não pode usar: o validarSite já acusa)
+function temaDoCadastro(s) {
+  const inq = s && s.inquilino && Inq.existe(s.inquilino) ? s.inquilino : Inq.PADRAO;
+  if (!s || typeof s.tema !== 'string' || !/^[a-z0-9-]+$/.test(s.tema) || !Inq.temaPermitido(inq, s.tema)) return null;
+  const dir = Inq.dirTema(inq, s.tema);
+  return fs.existsSync(path.join(dir, C.TEMA.schema)) ? Temas.carregar(dir) : null;
+}
+// avisos (não impedem a gravação): campo que a plataforma não conhece e chave que o tema do site não usa
+const avisosSite = (s) => {
+  if (!s || typeof s !== 'object') return [];
+  const a = Object.keys(s).filter((k) => !CAMPOS_SITE.has(k)).map((k) => `campo "${k}" não é usado pela plataforma (erro de digitação?)`);
+  try { const t = temaDoCadastro(s); if (t) a.push(...Temas.validarSite(s, t).avisos); } catch { /* tema quebrado: o validarSite acusa */ }
+  return a;
+};
 
 // nomes antigos (antes do padrão Shopify, 2026-11-08): erro claro com o caminho da migração
 const MIGRAR = 'node ferramentas/migrar-temas.js';
@@ -112,7 +126,7 @@ function validarPagina(dominio, caminho, pagina) {
   if (s && Array.isArray(pagina.secoes)) {
     const dir = Inq.dirTema(Inq.doSite(s), s.tema);
     pagina.secoes.forEach((b, i) => {
-      if (b && b.tipo === 'componente') { require('./componentes').validar(b.nome, b.opcoes, `bloco ${i + 1}`).forEach((x) => erros.push(`bloco ${i + 1}: ${x}`)); return; }
+      if (b && b.tipo === 'componente') { require('./componentes').validar(b.nome, b.opcoes, `seção ${i + 1}`).forEach((x) => erros.push(`seção ${i + 1}: ${x}`)); return; }
       if (!b || !/^[a-z0-9-]+$/.test(String(b.tipo)) || !fs.existsSync(path.join(dir, C.TEMA.secoes, `${b.tipo}.html`))) erros.push(`seção ${i + 1}: tipo "${b && b.tipo}" não existe no tema "${s.tema}"`);
     });
     if (pagina.secoes.filter((b) => b && b.tipo === 'listagem').length > 1) erros.push('só pode ter uma seção "listagem" por página');
@@ -158,6 +172,9 @@ function validarSite(s, dominio) {
   else if (!Inq.temaPermitido(inq, s.tema)) e(`o tema "${s.tema}" não está liberado para o inquilino "${inq}"`);
   else if (!/^[a-z0-9-]+$/.test(s.tema) || !fs.existsSync(path.join(Inq.dirTema(inq, s.tema), C.TEMA.schema))) e(`tema "${s.tema}" não existe`);
   if (s.configuracoes != null && (typeof s.configuracoes !== 'object' || Array.isArray(s.configuracoes))) e('"configuracoes" deve ser um objeto (ex.: { "cor": "#0b5fff", "logo": "assets/logo.png" })');
+  for (const g of ['cabecalho', 'rodape', 'textos']) if (s[g] != null && (typeof s[g] !== 'object' || Array.isArray(s[g]))) e(`"${g}" deve ser um objeto`);
+  // o que o tema declara (temas/<nome>/config/settings_schema.json e locales/pt-BR.json): tipo errado é erro
+  try { const t = temaDoCadastro(s); if (t) Temas.validarSite(s, t).erros.forEach(e); } catch (x) { e(x.message); }
   if (!txt(s.motor)) e('"motor" vazio ou ausente (ex.: "v2")');
   else if (!/^[a-z0-9]+$/.test(s.motor) || !fs.existsSync(path.join(C.motor(s.motor), 'engine.js'))) e(`motor "${s.motor}" não existe`);
   if (s.url != null && !(typeof s.url === 'string' && /^https:\/\/[^\s/]+\/?$/i.test(s.url))) e('"url" precisa ser https://dominio (sem caminho)');
