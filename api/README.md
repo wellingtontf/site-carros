@@ -37,6 +37,8 @@ O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da
 | POST | `/v1/sites` | **cria um site novo com toda a estrutura**: sem domínio = próximo rascunho (`siteN.carro57.com.br`); ou `{"dominio": "novaloja.com.br"}` (ver "Site novo") |
 | PUT | `/v1/sites/{dominio}` | **grava o `site.json` inteiro**: cria o site, se não existir, ou substitui o cadastro (ver "Cadastro do site"), e gera o site |
 | PATCH | `/v1/sites/{dominio}` | **grava só os campos enviados** do `site.json`; o resto fica como está (ver "Cadastro do site") |
+| GET / PUT / DELETE | `/v1/sites/{dominio}/paginas/{nome}` | **páginas do site** (home, lojas, empresa, feirão...): blocos em JSON ou HTML (ver "Páginas e arquivos") |
+| GET / PUT / DELETE | `/v1/sites/{dominio}/assets/{arquivo}` | **arquivos do site** (logo, favicon, banners, fontes) (ver "Páginas e arquivos") |
 | POST | `/v1/sites/{dominio}/promover` | **rascunho → site definitivo**: `{"dominio": "lojafinal.com.br"}` (ver "Rascunho e promoção") |
 | POST | `/v1/sites/{dominio}/dominio` | site **já no ar** troca de domínio, levando tudo junto: `{"novo": "outro.com.br"}` (ver "Trocar o domínio") |
 | DELETE | `/v1/sites/{dominio}?confirmar={dominio}` | **remove o site** (recuperável: vai para `.estado/removidos/`); fotos saem do armazenamento; roda o `remover` da infra. Token `*`; 409 se houver pedidos na fila |
@@ -71,6 +73,40 @@ Parâmetros das rotas que alteram dados:
 - Nasce em **rascunho** (fora do Google) se o modelo disser `"rascunho": true` (o padrão). Para criar já definitivo, mande `"cadastro": {"rascunho": false}`.
 - Respostas: **202** aceito; com `?esperar`, **201** criado. **409** se o domínio já existe e **422** se o domínio ou o cadastro forem inválidos (nada é criado).
 - Se a infra falhar, o site fica pronto, mas o pedido termina como `erro` com o motivo. Corrija e chame `POST /v1/sites/{dominio}/infra`.
+
+## Páginas e arquivos
+
+Tudo o que forma um site entra pela API. São quatro partes: cadastro (`site.json`), estoque, **páginas** e **arquivos**.
+
+**Páginas:** `PUT /v1/sites/{dominio}/paginas/{nome}` grava a página `{nome}`, que fica no ar em `/paginas/{nome}/`. O nome `index` é a home (`/`). Dois formatos:
+
+```
+PUT /v1/sites/loja1.com.br/paginas/lojas            content-type: application/json
+{ "titulo": "Nossas lojas", "descricao": "...", "rotulo": "Lojas", "blocos": [ { "tipo": "titulo", "titulo": "Nossas lojas" }, { "tipo": "lojas" } ] }
+
+PUT /v1/sites/loja1.com.br/paginas/feirao           content-type: text/html
+<h1>Feirão</h1><p>Veja as <a href="/lojas/">lojas</a>.</p>
+```
+
+- **Blocos (JSON):** os tipos são os do template do site (`banner`, `vitrine`, `listagem`, `lojas`, `titulo`, `texto`, `formulario`...). Bloco que o template não tem volta 422. `rotulo` põe a página no rodapé.
+- **HTML:** conteúdo livre, que entra com o cabeçalho e o rodapé do site; um documento completo (`<html>`) vai sozinho. Links como `href="/lojas/"` são ajustados para a página certa.
+- Gravar no outro formato substitui a página (não fica duplicada). A home só aceita blocos.
+- Nome: minúsculas, números, hífen e `/` (`sobre/nos`). `multipla`, `carros`, `assets`, `paginas` e outros são reservados.
+- `GET /v1/sites/{dominio}/paginas` lista (nome, formato e endereço); `GET .../paginas/{nome}` devolve a página; `DELETE` tira.
+
+**Arquivos:** `PUT /v1/sites/{dominio}/assets/{arquivo}`, com o arquivo no corpo (até 10 MB). No cadastro e nos blocos, use `assets/{arquivo}`:
+
+```
+PUT /v1/sites/loja1.com.br/assets/logo.png          (corpo = o PNG)
+PATCH /v1/sites/loja1.com.br   { "tema": { "logo": "assets/logo.png", "favicon": "assets/favicon.ico" } }
+```
+
+- Tipos: png, jpg, webp, gif, avif, svg, ico, woff, woff2. O tipo é **conferido pelo conteúdo**: um `logo.png` que não é PNG volta 422.
+- SVG com código (script, eventos `on...`, `javascript:`, objetos externos) é recusado: ele seria servido no domínio da loja.
+- Nome: minúsculas, números, `.`, `-`, `_` e até 3 pastas (`banners/home.webp`).
+- `GET /v1/sites/{dominio}/assets` lista; `DELETE .../assets/{arquivo}` tira.
+
+Toda alteração de página ou arquivo refaz o site (pedido; `?esperar=N` espera). No cadastro, campo que a plataforma não usa (ex.: `"whatsap"`) não impede a gravação, mas volta em `"avisos"` na resposta: confira, provavelmente é erro de digitação.
 
 ## Rascunho e promoção
 

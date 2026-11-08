@@ -28,7 +28,7 @@ Plataforma com ~2500 sites estáticos de revendas de carros, cada um em um domí
 ## Multi-tenant e Kubernetes (decisão do Wellington: escalar para 2500+ sites, EKS na AWS, vários inquilinos)
 - **Inquilinos:** `inquilinos/<id>/inquilino.json` (nome, templates liberados, `rascunhos.padrao`) + `inquilinos/<id>/config/` (fotos, infra, publicacao, robots.txt, site-modelo). Site diz `"inquilino"` no site.json; sem ele = `padrao` (usa `config/` global). `core/inquilinos.js` resolve config do inquilino → global. Os 5 sites atuais são `revenda-mais` (rascunho `site{n}.carro57.com.br`).
 - **Tokens por inquilino** (`api/clientes.js`): `"*"` = todos os sites DO inquilino; só `TOKEN_ATUALIZAR` (admin) atravessa. Domínio único na plataforma.
-- **Escala:** `PAPEL=api|trabalhador|tudo` (api/servidor.js). Fila em arquivos no volume compartilhado (`api/fila.js`: pedidos, marcas por site, lotes); `api/trabalhador.js` reserva um site por vez (trava `fila-<canal>-<site>`), N pods em paralelo; canal `fotos` separado. Travas por site em `core/trava.js` (`.estado/travas/`, expiram em 30 min). Pendências de publicação por site (`core/pendentes.js`, reserva atômica). "Todos" = lote com um pedido por site.
+- **Escala:** `PAPEL=api|trabalhador|tudo` (api/servidor.js). Fila em arquivos no volume compartilhado (`api/fila.js`: pedidos, marcas por site, lotes); `api/trabalhador.js` reserva um site por vez (trava `fila-<canal>-<site>`), N pods em paralelo; canal `fotos` separado. Travas por site em `core/trava.js` (`.estado/travas/`, renovadas durante o trabalho, expiram em 5 min). Pendências de publicação por site (`core/pendentes.js`, reserva atômica). "Todos" = lote com um pedido por site.
 - **Remover site:** `DELETE /v1/sites/<d>?confirmar=<d>` (core: `Ops.removerSite` → `Sites.arquivarArquivos`): arquivos para `.estado/removidos/<d>-<data>/` (recuperável), saída apagada, fotos apagadas (`Fotos.apagarFotosDoSite`), tokens atualizados, infra `remover`. O `autocentral.exemplo.com.br` foi removido assim em 2026-11-08 (os exemplos de páginas livres dele ficaram no git).
 - **Templates do inquilino:** `inquilinos/<id>/templates/<nome>/` (no EFS, sem deploy) valem só para ele e substituem o da imagem de mesmo nome (`Inq.dirTemplate`). Travas renovadas durante o trabalho (`renovarMinhas` no laço do build), expiram em 5 min. Índice de pedidos por site/cliente.
 - **Scripts de infra:** `ferramentas/infra/{criar,promover,renomear,remover}.sh` (CloudFront SaaS Manager + S3; `SIMULAR=1`), chamados pelo `infra.json` do inquilino com os IDs dele.
@@ -38,7 +38,7 @@ Plataforma com ~2500 sites estáticos de revendas de carros, cada um em um domí
 ```
 core/                         SÓ CÓDIGO (isolado)
   caminhos.js                 todos os caminhos do projeto (nada monta caminho fora daqui)
-  build.js                    build incremental (estado em .estado/<pasta>/<dominio>.json, pendências em pendente.json)
+  build.js                    build incremental (estado em .estado/<pasta>/<dominio>.json, pendências em .estado/<pasta>/pendentes/<dominio>.json)
   cli.js                      status | congelar | testar | aplicar | reverter | historico | atualizar | publicar
   atualizar.js                valida, grava sites/<dominio>/estoque.json e reconstrói só aquele site; publicarPendentes()
   robots.js                   modelo do robots.txt (config/robots.txt; site.json "robots" vale mais), validação com trava
@@ -51,21 +51,24 @@ core/                         SÓ CÓDIGO (isolado)
                               de SEO, infra "renomear" com 301), com volta atrás. "rascunho": true = noindex em tudo + robots fechado.
                               Rascunhos em sequência site{n}.carro57.com.br (config/rascunhos.json; contador em .estado/rascunhos.json,
                               número nunca reutilizado; Sites.proximoRascunho/ehDominioRascunho); config/infra.json liga à hospedagem; config/site-modelo.json = padrão de site novo
-  trava.js, versoes.js        trava de execução (.estado/atualizar.lock) e versões congeladas do motor
+  trava.js, versoes.js        travas por site (.estado/travas/, renovadas durante o trabalho, expiram em 5 min) e versões congeladas do motor
+  arquivos-site.js            páginas e arquivos (assets) de um site gravados pela API: validação, gravar, listar, apagar
   fotos.js                    fotos por URL: baixa (anti-SSRF), converte (converter-foto.py/Pillow ou comando de config/fotos.json),
                               "enviar" sobe para a S3 a partir de pasta temporária (nada fica no servidor), "apagar" tira as de
                               carro que saiu; sem "enviar" grava em "pasta" (teste local). Estado em .estado/fotos/<dominio>.json
 api/                          API de integração (contrato: api/README.md). Depende do core; o core nunca depende dela
   servidor.js                 liga tudo: token, HTTP, fila, trabalhador de fotos
-  rotas.js                    /v1: PUT sites/<d> (site.json inteiro) e PATCH sites/<d> (só os campos enviados, JSON Merge Patch; Sites.mesclar), POST sites (site novo só com domínio), POST sites/<d>/dominio (troca domínio), PUT site (cria se não existe), POST estoques (1..N sites), PUT estoque, PUT/DELETE carro,
+  rotas.js                    /v1: GET/PUT/DELETE sites/<d>/paginas/<nome> e sites/<d>/assets/<arquivo> (core/arquivos-site.js: tipo
+                              conferido pelo conteúdo, SVG sem código), avisos de campo desconhecido no cadastro (Sites.avisosSite),
+                              PUT sites/<d> (site.json inteiro) e PATCH sites/<d> (só os campos enviados, JSON Merge Patch; Sites.mesclar), POST sites (site novo só com domínio), POST sites/<d>/dominio (troca domínio), PUT site (cria se não existe), POST estoques (1..N sites), PUT estoque, PUT/DELETE carro,
                               POST build (lista ou todos), PUT/DELETE robots (todos os sites), POST atualizar (fontes), GET pedidos
   fila.js                     pedidos em disco (.estado/api/): aplica na ordem, valida um a um, 1 build por site por lote
   clientes.js, cli.js         tokens por sistema externo (config/clientes.json, só sha256): node api/cli.js cliente criar <nome> --sites a,b|*
-  trabalhador-fotos.js        fotos em segundo plano; quando ficam prontas, pede o build do site
+  trabalhador.js              processa a fila (N pods): um site por vez por trava; canal "fotos" separado
   http.js                     utilidades HTTP
   motor/rascunho, motor/vN    engine.js (vN imutável)
   ui/                         ui-util.js, ui-lista.js, ui-carro.js → vão para <site>/motor/ no build
-sites/<dominio>/              site.json, estoque.json, assets/
+sites/<dominio>/              site.json, estoque.json, paginas/, assets/ (tudo gravável pela API; teste tests/api-ponta-a-ponta.test.js)
 templates/<nome>/             template.json, paginas/, css/, js/, img/
 config/                       fontes.exemplo.json, publicacao.exemplo.json (copiar sem .exemplo; ignorados no git), historico.json
 ferramentas/                  gerar-exemplo.js, importar-trokey.py (teste de migração), auditar-dist.js (problemas de site estático no ar)
@@ -83,7 +86,7 @@ Gerados e fora do git: `dist*/`, `.estado/`, `s3-local/` (simula o bucket de fot
 - **Carro que saiu:** a página vira "Este veículo não está mais disponível" (noindex) por `retencaoVendidosDias` (padrão 30, por site) e depois é apagada. Os links antigos dele apontam para essa página.
 - Trocar motor ou filtros não refaz páginas. Trocar template, tema ou textos refaz as páginas do site.
 - **Publicação:** `config/publicacao.json` = `{paralelo, comandoSite}`, com os placeholders `{site} {pasta} {lista} {removidos} {completo}`. Só limpa a pendência dos sites publicados com sucesso.
-- Há trava de execução simultânea (`.estado/atualizar.lock`, expira em 30 min).
+- Há trava de execução por site (`.estado/travas/`): sites diferentes em paralelo, o mesmo site nunca em dois ao mesmo tempo.
 - **API agnóstica** (`api/`, contrato em api/README.md): qualquer sistema cria/atualiza sites e manda estoque (1 ou N sites por chamada, inteiro ou carro avulso) com o token dele (`node api/cli.js cliente criar <nome> --sites a,b|*`). Criar site e refazer todos exigem `*`. Valida na hora (422), devolve número de pedido (`?esperar=N` responde com o resultado), junta rajadas (`ATRASO_MS`, 3000 ms) num build por site, e a fila fica em disco. Aceita até 100 MB no PUT do estoque.
 - css/js saem com `?v=<hash do conteúdo>` (cache longo na CDN). Os do template entram no hash das páginas; os do core (`motor/`) não, então `core/ui` precisa continuar funcionando com HTML antigo.
 - `problemasProducao(site)` no build: `url` sem https ou `fotosBase` em localhost/http → o build avisa e a publicação recusa o site (a Trokey usa localhost:8081 de propósito, para o teste local).

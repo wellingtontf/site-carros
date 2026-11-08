@@ -9,7 +9,8 @@ const Robots = require('../core/robots');
 const Inq = require('../core/inquilinos');
 const C = require('../core/caminhos');
 const CL = require('./clientes');
-const { Erro, corpo, corpoJSON, enviar } = require('./http');
+const { Erro, corpo, corpoBinario, corpoJSON, enviar } = require('./http');
+const Arq = require('../core/arquivos-site');
 
 const ID_CARRO = /^[A-Za-z0-9._-]{1,80}$/;
 const LIMITE = { estoque: 100e6, lote: 200e6, carro: 1e6, site: 2e6, outro: 100e3 };
@@ -25,14 +26,18 @@ const visao = (p) => p && ({
 const CODIGO_FINAL = { concluido: 200, invalido: 422, recusado: 409, erro: 500 };
 const segundos = (url) => Math.min(120, Math.max(0, Number(url.searchParams.get('esperar')) || 0));
 
+// avisos do cadastro (campo que a plataforma não usa: provável erro de digitação). Vão junto na resposta, sem impedir.
+const comAvisos = (cad) => { const a = Sites.avisosSite(cad); return a.length ? { avisos: a } : {}; };
+
 function criarRotas({ fila }) {
   // um pedido: 202 (na fila) ou, com ?esperar=N, o resultado (200 concluído; 422 inválido; 409 recusado; 500 erro)
   // codigoAceito/codigoConcluido: 201 quando o pedido cria um site
-  async function responderPedido(res, url, p, codigoAceito = 202, codigoConcluido = 200) {
+  // extra: campos a mais na resposta (ex.: avisos de campo desconhecido no cadastro)
+  async function responderPedido(res, url, p, codigoAceito = 202, codigoConcluido = 200, extra = {}) {
     const seg = segundos(url);
-    if (!seg) return enviar(res, codigoAceito, visao(p));
+    if (!seg) return enviar(res, codigoAceito, { ...visao(p), ...extra });
     const fim = await fila.aguardar(p.id, seg * 1000);
-    enviar(res, fim.status === 'concluido' ? codigoConcluido : CODIGO_FINAL[fim.status] || 202, visao(fim));
+    enviar(res, fim.status === 'concluido' ? codigoConcluido : CODIGO_FINAL[fim.status] || 202, { ...visao(fim), ...extra });
   }
   // operação em muitos sites (todos do inquilino): um pedido por site, agrupados num LOTE (os trabalhadores dividem o
   // serviço). Resposta = resumo do lote; com ?esperar, 200 se todos concluíram, 207 se algum não, 202 se não deu tempo.
@@ -195,7 +200,7 @@ function criarRotas({ fila }) {
       const erros = Sites.validarSite(Sites.cadastroNovo(d, parcial, inq), d);
       if (erros.length) throw new Erro(422, 'cadastro inválido: nada foi criado', { erros });
       if (reservar && Sites.proximoRascunho({ inquilino: inq, reservar: true }) !== d) throw new Erro(409, 'outro rascunho foi criado ao mesmo tempo; tente de novo');
-      return responderPedido(res, url, fila.adicionar({ tipo: 'criar', site: d, corpo: { cadastro: parcial, inquilino: inq }, cliente: cliente.nome }), 202, 201);
+      return responderPedido(res, url, fila.adicionar({ tipo: 'criar', site: d, corpo: { cadastro: parcial, inquilino: inq }, cliente: cliente.nome }), 202, 201, comAvisos(parcial));
     }
     r = /^\/v1\/sites\/([^/]+)(\/.*)?$/.exec(p);
     if (!r) throw new Erro(404, 'rota inexistente (veja api/README.md)');
@@ -216,7 +221,7 @@ function criarRotas({ fila }) {
       const erros = Sites.validarSite(cad, dominio);
       if (erros.length) throw new Erro(422, 'cadastro inválido: nada foi gravado', { erros });
       const { criado } = Sites.gravarSite(dominio, cad);
-      return responderPedido(res, url, fila.adicionar({ tipo: 'build', site: dominio, cliente: cliente.nome }), criado ? 201 : 202);
+      return responderPedido(res, url, fila.adicionar({ tipo: 'build', site: dominio, cliente: cliente.nome }), criado ? 201 : 202, 200, comAvisos(cad));
     }
 
     // ATUALIZAR SÓ ALGUNS CAMPOS do site.json (outro sistema que cuida de parte do cadastro: telefone, lojas, WhatsApp...)
@@ -232,10 +237,69 @@ function criarRotas({ fila }) {
       const erros = Sites.validarSite(novo, d);
       if (erros.length) throw new Erro(422, 'cadastro inválido: nada foi gravado', { erros });
       Sites.gravarSite(d, novo);
-      return responderPedido(res, url, fila.adicionar({ tipo: 'build', site: d, cliente: cliente.nome }));
+      return responderPedido(res, url, fila.adicionar({ tipo: 'build', site: d, cliente: cliente.nome }), 202, 200, comAvisos(patch));
     }
 
     const d = site(dominio);
+    const refazer = () => fila.adicionar({ tipo: 'build', site: d, cliente: cliente.nome });
+
+    // PÁGINAS do site (sites/<dominio>/paginas/): o que o web designer faz na pasta, um sistema faz por aqui.
+    //   GET    /v1/sites/<d>/paginas              lista (nome, formato, endereço público)
+    //   GET    /v1/sites/<d>/paginas/<nome>       uma (JSON de blocos ou o HTML)
+    //   PUT    /v1/sites/<d>/paginas/<nome>       grava: JSON { titulo, blocos } ou HTML (content-type text/html). "index" = home
+    //   DELETE /v1/sites/<d>/paginas/<nome>       tira
+    if (resto === '/paginas' && m === 'GET') return enviar(res, 200, { paginas: Arq.listarPaginas(d) });
+    let rp = /^\/paginas\/(.+)$/.exec(resto);
+    if (rp) {
+      const nome = decodeURIComponent(rp[1]).replace(/\/+$/, '');
+      const errosNome = Arq.validarNomePagina(nome);
+      if (errosNome.length) throw new Erro(422, errosNome[0]);
+      if (m === 'GET') {
+        const pg = Arq.lerPagina(d, nome);
+        if (!pg) throw new Erro(404, `página "${nome}" não existe`);
+        if (pg.formato === 'html') { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); return res.end(pg.conteudo); }
+        return enviar(res, 200, pg.conteudo);
+      }
+      if (m === 'PUT') {
+        const html = /text\/html/i.test(req.headers['content-type'] || '');
+        if (html) {
+          if (nome === 'index') throw new Erro(422, 'a home ("index") é página de blocos (JSON), não HTML');
+          const t = await corpo(req, LIMITE.site);
+          if (!t.trim()) throw new Erro(400, 'HTML vazio');
+          try { Arq.gravarPagina(d, nome, 'html', t); } catch (e) { throw new Erro(e.conflito ? 409 : 500, e.message); }
+        } else {
+          const pg = await corpoJSON(req, LIMITE.site);
+          const erros = Arq.validarPagina(d, nome === 'index' ? '' : nome, pg);
+          if (erros.length) throw new Erro(422, 'página inválida: nada foi gravado', { erros });
+          try { Arq.gravarPagina(d, nome, 'blocos', pg); } catch (e) { throw new Erro(e.conflito ? 409 : 500, e.message); }
+        }
+        return responderPedido(res, url, refazer(), 202, 200, { endereco: nome === 'index' ? '/' : `/paginas/${nome}/` });
+      }
+      if (m === 'DELETE') {
+        if (!Arq.removerPagina(d, nome)) throw new Erro(404, `página "${nome}" não existe`);
+        return responderPedido(res, url, refazer());
+      }
+    }
+
+    // ARQUIVOS do site (sites/<dominio>/assets/: logo, favicon, banners, fontes). No site.json, use "assets/<nome>".
+    //   GET /v1/sites/<d>/assets   ·   PUT /v1/sites/<d>/assets/<nome> (corpo = o arquivo)   ·   DELETE /v1/sites/<d>/assets/<nome>
+    if (resto === '/assets' && m === 'GET') return enviar(res, 200, { arquivos: Arq.listarAssets(d) });
+    rp = /^\/assets\/(.+)$/.exec(resto);
+    if (rp) {
+      const nome = decodeURIComponent(rp[1]);
+      if (m === 'PUT') {
+        const buf = await corpoBinario(req, Arq.MAX_ARQUIVO + 1);
+        const erros = Arq.validarArquivo(nome, buf);
+        if (erros.length) throw new Erro(422, erros[0]);
+        Arq.gravarAsset(d, nome, buf);
+        return responderPedido(res, url, refazer(), 202, 200, { arquivo: `assets/${nome}`, bytes: buf.length });
+      }
+      if (m === 'DELETE') {
+        if (!Arq.removerAsset(d, nome)) throw new Erro(404, `arquivo "${nome}" não existe`);
+        return responderPedido(res, url, refazer());
+      }
+    }
+
     if (m === 'GET' && resto === '') {
       return enviar(res, 200, { ...Sites.resumo(d), cadastro: Sites.carregar(d), fotos: Fotos.resumo(d), pedidos: fila.listar({ site: d, limite: 5 }).map(visao) });
     }

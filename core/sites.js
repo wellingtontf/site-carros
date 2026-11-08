@@ -90,6 +90,29 @@ function registrarRascunho(d) {
 }
 
 // ---------- cadastro ----------
+// campos que a plataforma usa no site.json. Campo fora da lista não é erro (o site gera do mesmo jeito), mas volta como
+// AVISO: "whatsap" escrito errado gravaria sem efeito e o site ficaria sem WhatsApp sem ninguém perceber.
+const CAMPOS_SITE = new Set(['inquilino', 'nome', 'slogan', 'template', 'motor', 'url', 'whatsapp', 'fotosBase', 'cor', 'tema', 'textos',
+  'cabecalho', 'rodape', 'lojas', 'empresa', 'vendedores', 'busca', 'filtros', 'ordenacao', 'restricoes', 'estoque', 'paginasFiltro',
+  'formatoUrls', 'avisoCookies', 'paginasPadrao', 'pagina404', 'retencaoVendidosDias', 'retencaoRedirecionamentoDias', 'robots', 'feedXml', 'rascunho']);
+const avisosSite = (s) => (s && typeof s === 'object' ? Object.keys(s).filter((k) => !CAMPOS_SITE.has(k)).map((k) => `campo "${k}" não é usado pela plataforma (erro de digitação?)`) : []);
+
+// página de blocos de um site (sites/<dominio>/paginas/<caminho>.json): formato e blocos que o template do site tem
+function validarPagina(dominio, caminho, pagina) {
+  const erros = [];
+  if (caminho !== '' && !/^([a-z0-9][a-z0-9-]*)(\/[a-z0-9][a-z0-9-]*)*$/.test(String(caminho))) erros.push(`nome de página inválido "${caminho}" (minúsculas, números, hífen e /)`);
+  if (!pagina || typeof pagina !== 'object' || Array.isArray(pagina)) return [...erros, 'a página precisa ser um objeto { "titulo", "blocos": [...] }'];
+  if ('caminho' in pagina) erros.push('"caminho" não vai na página: ele é o endereço da chamada');
+  if (!Array.isArray(pagina.blocos)) erros.push('falta "blocos" (lista)');
+  const s = existe(dominio) ? carregar(dominio) : null;
+  if (s && Array.isArray(pagina.blocos)) {
+    const dir = Inq.dirTemplate(Inq.doSite(s), s.template);
+    pagina.blocos.forEach((b, i) => { if (!b || !/^[a-z0-9-]+$/.test(String(b.tipo)) || !fs.existsSync(path.join(dir, 'blocos', `${b.tipo}.html`))) erros.push(`bloco ${i + 1}: tipo "${b && b.tipo}" não existe no template "${s.template}"`); });
+    if (pagina.blocos.filter((b) => b && b.tipo === 'listagem').length > 1) erros.push('só pode ter um bloco "listagem" por página');
+  }
+  return erros;
+}
+
 function validarSite(s, dominio) {
   const erros = [];
   const e = (m) => { if (erros.length < 30) erros.push(m); };
@@ -225,4 +248,4 @@ function arquivarArquivos(dominio, { pasta = 'dist' } = {}) {
   return { arquivo: path.relative(C.ROOT, destino) };
 }
 
-module.exports = { mesclar, arquivarArquivos, proximoRascunho, ehDominioRascunho, inquilinoDoRascunho, padraoRascunho, ID_SITE, listar, existe, carregar, carregarTodos, lojas, estoque, resumo, resumos, validarSite, cadastroNovo, gravarSite, criarArquivos, renomearArquivos };
+module.exports = { avisosSite, validarPagina, CAMPOS_SITE, mesclar, arquivarArquivos, proximoRascunho, ehDominioRascunho, inquilinoDoRascunho, padraoRascunho, ID_SITE, listar, existe, carregar, carregarTodos, lojas, estoque, resumo, resumos, validarSite, cadastroNovo, gravarSite, criarArquivos, renomearArquivos };
