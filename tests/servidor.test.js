@@ -390,3 +390,19 @@ test('troca de domínio com pedidos na fila é recusada (409)', async () => {
     assert.equal(r.status, 409);
   } finally { lento.proc.kill('SIGKILL'); await new Promise((ok) => lento.proc.on('exit', ok)); }
 });
+
+test('POST /v1/sites/<d>/promover: rascunho vira o site definitivo; token acompanha; definitivo não promove de novo', async () => {
+  const R = 'teste.rascunho.plataforma.com.br', F = 'teste-final.com.br';
+  A.criarSite(R, { carros: [A.carro()], site: { rascunho: true, url: `https://${R}` } });
+  const tokR = CL.criarCliente('crm-rascunho', [R]);
+  assert.equal((await req('POST', `/v1/sites/${R}/build?esperar=20`, { token: tokTodos })).status, 200);
+  assert.match(A.ler(R, 'robots.txt'), /Disallow: \//);
+  assert.equal((await req('POST', `/v1/sites/${R}/promover`, { corpo: { dominio: F }, token: tokR })).status, 403, 'só token "*" promove');
+  assert.equal((await req('POST', `/v1/sites/${R}/promover`, { corpo: { dominio: 'Nao Vale' }, token: tokTodos })).status, 422);
+  const r = await reqJ('POST', `/v1/sites/${R}/promover?esperar=30`, { corpo: { dominio: F }, token: tokTodos });
+  assert.equal(r.status, 200, JSON.stringify(r.j));
+  assert.equal(r.j.resultado.site, F);
+  assert.match(A.ler(F, 'robots.txt'), new RegExp(`Sitemap: https://${F.replace(/\./g, '\\.')}/sitemap.xml`));
+  assert.equal((await req('GET', `/v1/sites/${F}`, { token: tokR })).status, 200, 'o token do rascunho passa a valer no definitivo');
+  assert.equal((await req('POST', `/v1/sites/${F}/promover`, { token: tokTodos })).status, 409, 'já é definitivo');
+});

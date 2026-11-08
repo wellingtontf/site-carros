@@ -34,8 +34,9 @@ O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da
 | GET | `/v1/sites` | sites que o token pode alterar, com o total de carros e a data da última atualização |
 | POST | `/v1/sites` | **cria um site novo com toda a estrutura**: `{"dominio": "novaloja.com.br"}` (ver "Site novo") |
 | PUT | `/v1/sites/{dominio}` | **cria o site, se não existir, ou atualiza o cadastro** (ver "Cadastro do site") e gera o site |
-| POST | `/v1/sites/{dominio}/dominio` | **troca o domínio do site** e leva tudo junto: `{"novo": "outro.com.br"}` (ver "Trocar o domínio") |
-| POST | `/v1/sites/{dominio}/infra` | refaz o passo de hospedagem: `{"acao": "criar"}` ou `{"acao": "renomear", "antigo": "..."}` |
+| POST | `/v1/sites/{dominio}/promover` | **rascunho → site definitivo**: `{"dominio": "lojafinal.com.br"}` (ver "Rascunho e promoção") |
+| POST | `/v1/sites/{dominio}/dominio` | site **já no ar** troca de domínio, levando tudo junto: `{"novo": "outro.com.br"}` (ver "Trocar o domínio") |
+| POST | `/v1/sites/{dominio}/infra` | refaz o passo de hospedagem: `{"acao": "criar"}`, ou `{"acao": "promover" \| "renomear", "antigo": "..."}` |
 | GET | `/v1/sites/{dominio}` | resumo: cadastro, total de carros, fotos pendentes/com erro, últimos pedidos |
 | POST | `/v1/estoques` | **estoque de 1 ou N sites numa chamada** (ver "Vários sites numa chamada") |
 | POST | `/v1/build` | **reconstrói sites** sem mudar estoque: `{"sites":["a.com.br","b.com.br"]}`; vazio = **todos** (token com `*`) |
@@ -63,12 +64,25 @@ Parâmetros das rotas que alteram dados:
 
 - **Só o domínio é obrigatório.** O resto vem do modelo da casa (`config/site-modelo.json`): nome = domínio, url = `https://<domínio>`, motor = a última versão. Para já mandar mais coisa, use `{"dominio": "...", "cadastro": {"nome": "...", "template": "servopa", "lojas": {...}}}` (o mesmo formato de "Cadastro do site"); isso vale mais que o modelo.
 - O site pode nascer **sem lojas**. Nesse caso, ele sobe sem estoque, e o estoque só é aceito depois que as lojas forem cadastradas (`PUT /v1/sites/{dominio}`).
+- Nasce em **rascunho** (fora do Google) se o modelo disser `"rascunho": true` (o padrão). Para criar já definitivo, mande `"cadastro": {"rascunho": false}`.
 - Respostas: **202** aceito; com `?esperar`, **201** criado. **409** se o domínio já existe e **422** se o domínio ou o cadastro forem inválidos (nada é criado).
 - Se a infra falhar, o site fica pronto, mas o pedido termina como `erro` com o motivo. Corrija e chame `POST /v1/sites/{dominio}/infra`.
 
+## Rascunho e promoção
+
+O fluxo normal de um site novo: ele nasce como **rascunho** num endereço provisório (ex.: `loja-x.rascunho.plataforma.com.br`). Lá o time monta e confere tudo. Quando estiver pronto, ele é **promovido** para o domínio definitivo.
+
+- **Rascunho (`"rascunho": true` no cadastro; é o padrão de `POST /v1/sites`)**: nenhuma página entra no Google. Todas saem com `noindex` e o `robots.txt` fecha o site inteiro (`Disallow: /`), mesmo que o modelo de robots de todos os sites diga outra coisa.
+- **Promover**: `POST /v1/sites/{rascunho}/promover` com `{"dominio": "lojafinal.com.br"}`. Opcionalmente, `"url": "https://www.lojafinal.com.br"` define o endereço público. Sem `dominio`, o site só deixa de ser rascunho no próprio endereço.
+  - O site vai para o domínio definitivo (cadastro, estoque, páginas, fotos, tokens e `fontes.json` vão junto) e deixa de ser rascunho: volta ao Google com robots e sitemap normais.
+  - É **gerado do zero**: o histórico do rascunho (páginas de vendido e redirecionamentos dos testes) não vai para o site definitivo. Ele é publicado inteiro.
+  - Depois roda o comando `promover` da infraestrutura: hospedagem do domínio definitivo e remoção do endereço de rascunho. **Não há 301**: o rascunho nunca esteve no Google.
+  - Recusa: **409** se o site já é definitivo, se o domínio já existe ou se há pedidos na fila; **422** se o domínio é inválido, se as fotos estão em localhost/http ou se a url não é https. Se algo falhar no meio, o rascunho volta como estava.
+  - Exige token `*`.
+
 ## Trocar o domínio
 
-`POST /v1/sites/{dominio}/dominio` com `{"novo": "novodominio.com.br"}` muda o domínio e leva tudo junto: cadastro, estoque, páginas geradas e o **histórico de SEO** (páginas de vendidos e redirecionamentos dos carros, com os prazos), fotos, pendências de publicação, `config/fontes.json` e os tokens que tinham o domínio antigo. As menções ao domínio no cadastro também são trocadas (`url`, e-mails, links). Um domínio parecido (`loja.com.br` quando o antigo é `loja.com`) não é tocado.
+Para um site que **já está no ar** e muda de domínio (caso raro; rascunho usa "Promover"). `POST /v1/sites/{dominio}/dominio` com `{"novo": "novodominio.com.br"}` muda o domínio e leva tudo junto: cadastro, estoque, páginas geradas e o **histórico de SEO** (páginas de vendidos e redirecionamentos dos carros, com os prazos), fotos, pendências de publicação, `config/fontes.json` e os tokens que tinham o domínio antigo. As menções ao domínio no cadastro também são trocadas (`url`, e-mails, links). Um domínio parecido (`loja.com.br` quando o antigo é `loja.com`) não é tocado.
 
 - O site é refeito com o domínio novo (canonical, sitemap, JSON-LD, links) e marcado para publicação completa.
 - Se algo falhar no meio, **tudo volta como estava**.

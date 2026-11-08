@@ -1,11 +1,14 @@
 // Operações de infraestrutura de um site, de ponta a ponta (usadas pela API e por quem mais precisar):
 //   criarSite(dominio, parcial)    estrutura nova (sites/<dominio>/...) → gera o site → comando "criar" da infra
-//   renomearSite(antigo, novo)     troca o domínio em tudo (core/sites.js) → refaz o site → comando "renomear" da infra
+//   promoverSite(rascunho, final)  RASCUNHO → DEFINITIVO: domínio final, tira o "rascunho" (volta ao Google), descarta o
+//                                  histórico do rascunho, gera do zero → comando "promover" da infra
+//   renomearSite(antigo, novo)     site JÁ NO AR muda de domínio: leva tudo, inclusive o histórico de SEO → "renomear" (301)
 //   rodarInfra(acao, valores)      roda um comando de config/infra.json
 // Tudo com a trava de execução (core/trava.js): não roda ao mesmo tempo que um build.
 //
 // config/infra.json (veja config/infra.exemplo.json) é o que liga a plataforma à hospedagem, sem amarrar a nenhuma:
 //   criar      {site} {pasta}            ex.: criar bucket/distribuição na CDN, certificado e DNS do domínio novo
+//   promover   {rascunho} {site} {pasta} ex.: hospedagem do domínio definitivo + derrubar a do endereço de rascunho
 //   renomear   {antigo} {novo} {pasta}   ex.: hospedagem do domínio novo + 301 de TODO o domínio antigo para o novo
 // Sem config/infra.json, os arquivos e o build são feitos e a resposta avisa que a infra ficou por fazer.
 const fs = require('fs');
@@ -13,7 +16,7 @@ const { execFile } = require('child_process');
 const path = require('path');
 const C = require('./caminhos');
 const Sites = require('./sites');
-const { construir } = require('./build');
+const { construir, problemasProducao } = require('./build');
 const { comTrava } = require('./trava');
 
 const aspas = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
@@ -59,4 +62,49 @@ async function renomearSite(antigo, novo, { pasta = 'dist', log = console.log } 
   return { status: 'ok', antigo, novo, trocasNoCadastro: r.trocas, infra: await rodarInfra('renomear', { antigo, novo, pasta: path.join(pasta, novo) }) };
 }
 
-module.exports = { criarSite, renomearSite, rodarInfra };
+// Rascunho → definitivo. "final" é opcional: sem ele (ou igual), o site só deixa de ser rascunho no próprio domínio.
+// "url" opcional troca o endereço público (ex.: https://www.<final>); sem ela, as menções ao domínio são trocadas.
+// O histórico do build do rascunho (páginas de vendido, redirecionamentos, datas) não vale para o site definitivo:
+// o site é gerado do zero e publicado inteiro.
+async function promoverSite(dominio, { final = null, url = null, pasta = 'dist', log = console.log } = {}) {
+  if (!Sites.existe(dominio)) return { status: 'invalido', erros: [`site "${dominio}" não existe`] };
+  const atual = Sites.carregar(dominio);
+  if (!atual.rascunho) return { status: 'recusado', erros: [`o site "${dominio}" já é definitivo (não está em rascunho)`] };
+  const destino = final || dominio;
+  if (destino !== dominio) {
+    if (!Sites.ID_SITE.test(String(destino))) return { status: 'invalido', erros: [`domínio definitivo inválido "${destino}" (ex.: novaloja.com.br, só minúsculas)`] };
+    if (fs.existsSync(C.site(destino))) return { status: 'existe', erros: [`já existe um site "${destino}"`] };
+  }
+  if (url != null && !/^https:\/\/[^\s/]+\/?$/i.test(String(url))) return { status: 'invalido', erros: ['"url" precisa ser https://dominio'] };
+  const r = await comTrava(() => {
+    const voltar = [];
+    try {
+      let trocas = 0;
+      if (destino !== dominio) { const ren = Sites.renomearArquivos(dominio, destino, { pasta }); trocas = ren.trocas; voltar.push(ren.desfazer); }
+      const antes = fs.readFileSync(C.siteJson(destino), 'utf8');
+      voltar.unshift(() => fs.writeFileSync(C.siteJson(destino), antes));
+      const { rascunho, ...cadastro } = Sites.carregar(destino);
+      delete cadastro.id;
+      if (url) cadastro.url = url.replace(/\/$/, '');
+      if (!url && destino !== dominio && !String(cadastro.url || '').includes(destino)) cadastro.url = `https://${destino}`;
+      // no ar não pode ter foto em localhost/http nem url sem https
+      const prob = problemasProducao({ ...cadastro, id: destino });
+      if (prob.length) { const e = new Error(prob.join('; ')); e.invalido = true; throw e; }
+      Sites.gravarSite(destino, cadastro);
+      // do zero: o que o rascunho gerou (vendidos, redirecionamentos de teste) não vai para o definitivo
+      fs.rmSync(path.join(C.ESTADO, pasta, `${destino}.json`), { force: true });
+      construir({ sites: [destino], saida: pasta, completo: true });
+      return { status: 'ok', trocas };
+    } catch (e) {
+      for (const f of voltar) { try { f(); } catch (x) { /* segue */ } }
+      if (e.invalido) return { status: 'invalido', erros: [e.message] };
+      throw e;
+    }
+  });
+  if (r.status !== 'ok') return r;
+  log(`${dominio}${destino !== dominio ? ` → ${destino}` : ''}: promovido a definitivo`);
+  return { status: 'ok', rascunho: dominio, site: destino, trocasNoCadastro: r.trocas, url: Sites.carregar(destino).url,
+    infra: await rodarInfra('promover', { rascunho: dominio, site: destino, pasta: path.join(pasta, destino) }) };
+}
+
+module.exports = { criarSite, promoverSite, renomearSite, rodarInfra };

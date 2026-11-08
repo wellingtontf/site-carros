@@ -369,7 +369,8 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     // Contagens ("1052 veículos") mudam a toda hora: use-as só na listagem e nas páginas de conteúdo (sempre refeitas).
     const nomesEstoque = ['cidade', 'marca', 'carroceria', 'combustivel'].map((k) => [...new Set(carros.map((c) => c[k]))].sort().join('|'));
     const baseHash = sha(JSON.stringify([RENDER_VERSION, tplHash(nomeTpl), site.nome, site.slogan, site.url, site.cor, site.tema, site.textos, site.fotosBase, site.cabecalho, site.rodape, site.lojas, nomesEstoque,
-      paginasSite.filter((p) => p.rotulo).map((p) => [p.rotulo, p.caminho])])); // links legais aparecem no rodapé das páginas de carro
+      paginasSite.filter((p) => p.rotulo).map((p) => [p.rotulo, p.caminho]), // links legais aparecem no rodapé das páginas de carro
+      ...(site.rascunho ? ['rascunho'] : [])])); // só entra quando é rascunho: os sites definitivos não refazem nada por causa disso
     const estadoAnt = completo || efemero ? null : lerEstado(pasta, site.id);
     const incremental = !!estadoAnt && fs.existsSync(path.join(out, 'index.html'));
     if (!incremental) fs.rmSync(out, { recursive: true, force: true });
@@ -398,7 +399,11 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       const k = u.startsWith('/') ? u.slice(1) : path.posix.normalize(path.posix.join(path.posix.dirname(arqRel), u));
       return versoes.has(k) ? `${a}="${u}?v=${versoes.get(k)}"` : m;
     });
-    const escreverHtml = (arqRel, html) => escreverSe(path.join(out, arqRel), versionar(html, arqRel), rel(arqRel), mud);
+    // site em RASCUNHO (endereço provisório, antes de ir para o domínio definitivo): nenhuma página pode entrar no Google.
+    // noindex em toda página + robots.txt "Disallow: /" (core/robots.js). Promover (core/operacoes.js) tira os dois.
+    const rascunho = (html) => (!site.rascunho || /<meta[^>]+name=["']robots["'][^>]+noindex/i.test(html) ? html
+      : html.replace(/<head([^>]*)>/i, '<head$1>\n<meta name="robots" content="noindex, nofollow">'));
+    const escreverHtml = (arqRel, html) => escreverSe(path.join(out, arqRel), rascunho(versionar(html, arqRel)), rel(arqRel), mud);
     // {{> nome}} inclui templates/<nome>/parciais/<nome>.html (cabeçalho, rodapé... escritos uma vez só)
     const parciais = (txt, nivel = 0) => txt.replace(/\{\{>\s*([a-z0-9-]+)\s*\}\}/g, (_, n) => {
       const arq = path.join(C.template(nomeTpl), 'parciais', `${n}.html`);

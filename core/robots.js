@@ -1,5 +1,6 @@
 // robots.txt dos sites. Um modelo para TODOS (config/robots.txt, trocado pela API: PUT /v1/robots); o site que precisa
 // de um diferente põe "robots" no site.json (vale mais que o modelo). Sem nenhum dos dois, o padrão abaixo.
+// Site em rascunho ("rascunho": true) ignora tudo isso: Disallow: / para todos (até ser promovido).
 // Marcadores: {{sitemap}} = https://<site>/sitemap.xml   {{url}} = https://<site>   {{dominio}} = <site>
 const fs = require('fs');
 const path = require('path');
@@ -23,6 +24,7 @@ const normalizar = (t) => String(t).replace(/\r\n?/g, '\n').replace(/\n*$/, '\n'
 
 // texto final do robots.txt de um site (o site precisa de "url")
 function textoRobots(site) {
+  if (site.rascunho) return 'User-agent: *\nDisallow: /\n'; // rascunho: fora de todos os buscadores, sem exceção
   const modelo = typeof site.robots === 'string' ? site.robots : lerModelo() ?? PADRAO;
   const raiz = String(site.url).replace(/\/$/, '');
   return normalizar(modelo.replace(/\{\{\s*sitemap\s*\}\}/g, `${raiz}/sitemap.xml`).replace(/\{\{\s*url\s*\}\}/g, raiz).replace(/\{\{\s*dominio\s*\}\}/g, site.id));

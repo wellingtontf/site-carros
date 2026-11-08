@@ -180,7 +180,21 @@ function criarRotas({ fila }) {
     }
     if (m === 'GET' && resto === '/estoque') return enviar(res, 200, Sites.estoque(d));
 
-    // TROCAR O DOMÍNIO: {"novo": "novaloja.com.br"}. Leva tudo junto (cadastro, estoque, páginas, histórico de links e
+    // PROMOVER RASCUNHO A DEFINITIVO: {"dominio": "lojafinal.com.br", "url": "https://www.lojafinal.com.br"} (os dois
+    // opcionais; sem domínio, só deixa de ser rascunho no próprio endereço). Volta ao Google, gerado do zero, infra "promover"
+    if (m === 'POST' && resto === '/promover') {
+      exigirTodos('promover um site');
+      const b = await corpoJSON(req, LIMITE.outro, {});
+      if (!Sites.carregar(d).rascunho) throw new Erro(409, `o site "${d}" já é definitivo (não está em rascunho)`);
+      if (b.dominio != null && (typeof b.dominio !== 'string' || !Sites.ID_SITE.test(b.dominio))) throw new Erro(422, '"dominio" inválido (ex.: lojafinal.com.br, só minúsculas, sem www nem https)');
+      if (b.url != null && !(typeof b.url === 'string' && /^https:\/\/[^\s/]+\/?$/i.test(b.url))) throw new Erro(422, '"url" precisa ser https://dominio');
+      if (b.dominio && b.dominio !== d && fs.existsSync(C.site(b.dominio))) throw new Erro(409, `já existe um site "${b.dominio}"`);
+      const pend = fila.pendentesDoSite(d);
+      if (pend.length) throw new Erro(409, `o site tem ${pend.length} pedido(s) na fila; espere terminarem para promover`, { pedidos: pend.map((x) => x.id) });
+      return responderPedido(res, url, fila.adicionar({ tipo: 'promover', site: d, corpo: { dominio: b.dominio || null, url: b.url || null }, cliente: cliente.nome }));
+    }
+
+    // TROCAR O DOMÍNIO de um site JÁ NO AR (raro; para rascunho use /promover): {"novo": "novaloja.com.br"}. Leva tudo junto (cadastro, estoque, páginas, histórico de links e
     // vendidos, fotos, tokens) e roda o "renomear" da infra (hospedagem nova + 301 do domínio antigo)
     if (m === 'POST' && resto === '/dominio') {
       exigirTodos('trocar o domínio de um site');
@@ -198,9 +212,10 @@ function criarRotas({ fila }) {
       exigirTodos('mexer na infra');
       const b = await corpoJSON(req, LIMITE.outro, {});
       const acao = b.acao || 'criar';
-      if (!['criar', 'renomear'].includes(acao)) throw new Erro(422, '"acao" deve ser "criar" ou "renomear"');
-      if (acao === 'renomear' && !Sites.ID_SITE.test(String(b.antigo))) throw new Erro(422, 'informe "antigo" (o domínio anterior)');
-      const r = await Ops.rodarInfra(acao, acao === 'criar' ? { site: d, pasta: `dist/${d}` } : { antigo: b.antigo, novo: d, pasta: `dist/${d}` });
+      if (!['criar', 'promover', 'renomear'].includes(acao)) throw new Erro(422, '"acao" deve ser "criar", "promover" ou "renomear"');
+      if (acao !== 'criar' && !Sites.ID_SITE.test(String(b.antigo))) throw new Erro(422, 'informe "antigo" (o domínio anterior / de rascunho)');
+      const r = await Ops.rodarInfra(acao, acao === 'criar' ? { site: d, pasta: `dist/${d}` }
+        : acao === 'promover' ? { rascunho: b.antigo, site: d, pasta: `dist/${d}` } : { antigo: b.antigo, novo: d, pasta: `dist/${d}` });
       return enviar(res, r.status === 'falhou' ? 502 : 200, r);
     }
     if (m === 'PUT' && resto === '/estoque') {

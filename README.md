@@ -264,7 +264,8 @@ node api/cli.js cliente criar revenda-mais --sites "*"    # token do sistema (ap
 PUBLICAR=1 node api/servidor.js                           # API em :8787
 POST   /v1/sites                          site novo com toda a estrutura: {"dominio": "..."} (resto do config/site-modelo.json) + infra
 PUT    /v1/sites/<dominio>                cria o site (se não existir) ou atualiza o cadastro, e gera
-POST   /v1/sites/<dominio>/dominio        troca o domínio e leva tudo junto (histórico de SEO, fotos, tokens) + infra (301)
+POST   /v1/sites/<dominio>/promover       RASCUNHO → DEFINITIVO: {"dominio": "final.com.br"}; volta ao Google, gerado do zero + infra
+POST   /v1/sites/<dominio>/dominio        site JÁ NO AR troca de domínio, leva o histórico de SEO + infra (301)
 POST   /v1/estoques                       estoque de 1 ou N sites numa chamada: {"sites": {"a.com.br": {...}, ...}}
 PUT    /v1/sites/<dominio>/estoque        estoque inteiro de um site    (422 se inválido, nada gravado)
 PUT    /v1/sites/<dominio>/carros/<id>    inclui/altera um carro
@@ -276,7 +277,9 @@ A plataforma é agnóstica: não conhece o sistema de origem, cada um converte p
 
 **Saídas de compatibilidade:** cada site publica `estoque.xml`, o estoque em XML (mesma ordem do site; link, fotos e loja com endereço completo) para portais, catálogos e integrações que só leem XML. `"feedXml": { "caminho": "xml/estoque.xml" }` muda o endereço e `"feedXml": false` desliga. O `robots.txt` vem de um modelo único (`config/robots.txt`, trocado por `PUT /v1/robots`), com `"robots"` no site.json para o site que precisar de um próprio.
 
-**Infraestrutura:** `config/infra.json` (veja `config/infra.exemplo.json`) tem os comandos `criar` ({site} {pasta}) e `renomear` ({antigo} {novo} {pasta}) que ligam a plataforma à hospedagem (CDN, certificado, DNS, 301 do domínio antigo), sem amarrar a nenhuma.
+**Rascunho:** site novo nasce com `"rascunho": true` (endereço provisório, `noindex` em tudo e robots.txt fechado) e vai para o domínio definitivo com `/promover`.
+
+**Infraestrutura:** `config/infra.json` (veja `config/infra.exemplo.json`) tem os comandos `criar` ({site} {pasta}), `promover` ({rascunho} {site} {pasta}) e `renomear` ({antigo} {novo} {pasta}) que ligam a plataforma à hospedagem (CDN, certificado, DNS, 301 do domínio antigo), sem amarrar a nenhuma.
 
 **Arquitetura:** `core/` é o domínio (build, estoque, cadastro de site, fotos) e não sabe que a API existe; `api/` só traduz HTTP ↔ core (portas e adaptadores). Um teste garante que nada em `core/` importa de `api/`.
 

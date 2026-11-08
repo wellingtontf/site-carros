@@ -1,5 +1,6 @@
 {
-  "_comentario": "Copie para config/infra.json. Comandos que ligam a plataforma à hospedagem (rodam na raiz do projeto, por /bin/sh). Placeholders: {site} {pasta} {antigo} {novo}. Devem poder rodar de novo sem estragar nada (POST /v1/sites/<d>/infra refaz).",
+  "_comentario": "Copie para config/infra.json. Comandos que ligam a plataforma à hospedagem (rodam na raiz do projeto, por /bin/sh). Placeholders: {site} {pasta} {antigo} {novo} {rascunho}. Devem poder rodar de novo sem estragar nada (POST /v1/sites/<d>/infra refaz).",
   "criar": "ferramentas/infra/criar.sh {site} {pasta}",
+  "promover": "ferramentas/infra/promover.sh {rascunho} {site} {pasta}",
   "renomear": "ferramentas/infra/renomear.sh {antigo} {novo} {pasta}"
 }

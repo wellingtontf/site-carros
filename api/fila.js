@@ -10,7 +10,8 @@
 //   buscar    puxa o estoque das URLs de config/fontes.json (POST /v1/atualizar)
 //   robots    reescreve o robots.txt de todos os sites com o modelo novo (PUT/DELETE /v1/robots)
 //   criar     site novo com toda a estrutura + infra   (POST /v1/sites, PUT /v1/sites/<d> de site que não existe)
-//   renomear  troca o domínio do site em tudo + infra   (POST /v1/sites/<d>/dominio)
+//   promover  rascunho → definitivo (domínio final, volta ao Google, gerado do zero) + infra (POST /v1/sites/<d>/promover)
+//   renomear  site já no ar troca de domínio + infra (301)   (POST /v1/sites/<d>/dominio)
 //
 // Processamento: espera "atraso" ms sem chamada nova (junta rajadas), aplica os pedidos de cada site NA ORDEM em que
 // chegaram, valida o estoque depois de cada um (um carro inválido é recusado sozinho, sem derrubar os outros), grava
@@ -99,16 +100,19 @@ function criarFila({ atraso = 3000, publicar = false, log = console.log, atualiz
       }
 
       // 1a) criar site / trocar domínio: antes de tudo (os pedidos seguintes do mesmo site já encontram a estrutura nova)
-      for (const p of lote.filter((x) => x.tipo === 'criar' || x.tipo === 'renomear')) {
+      for (const p of lote.filter((x) => ['criar', 'promover', 'renomear'].includes(x.tipo))) {
         try {
           const corpo = lerJSON(arqEntrada(p.id), {});
-          const r = p.tipo === 'criar' ? await Ops.criarSite(p.site, corpo.cadastro || {}, { log }) : await Ops.renomearSite(p.site, corpo.novo, { log });
+          const r = p.tipo === 'criar' ? await Ops.criarSite(p.site, corpo.cadastro || {}, { log })
+            : p.tipo === 'promover' ? await Ops.promoverSite(p.site, { final: corpo.dominio, url: corpo.url, log })
+            : await Ops.renomearSite(p.site, corpo.novo, { log });
           if (r.status === 'ocupado') { ocupado = true; voltar([p]); continue; }
-          if (r.status !== 'ok') { terminar(p, 'invalido', r.erros || [r.status]); continue; }
-          if (p.tipo === 'renomear') { aoRenomear(p.site, corpo.novo); aoProcessarSite(corpo.novo); }
+          if (r.status !== 'ok') { terminar(p, r.status === 'recusado' ? 'recusado' : 'invalido', r.erros || [r.status]); continue; }
+          const novo = p.tipo === 'renomear' ? corpo.novo : p.tipo === 'promover' ? r.site : null;
+          if (novo && novo !== p.site) { aoRenomear(p.site, novo); aoProcessarSite(novo); }
           // a estrutura e o site ficaram prontos; se a infra (hospedagem/DNS) falhou, o pedido avisa como erro
           const infraOk = r.infra.status !== 'falhou';
-          terminar(p, infraOk ? 'concluido' : 'erro', infraOk ? [] : [`site ${p.tipo === 'criar' ? 'criado' : 'renomeado'} e gerado, mas a infra falhou: ${r.infra.mensagem} (refaça com POST /v1/sites/<dominio>/infra)`], r);
+          terminar(p, infraOk ? 'concluido' : 'erro', infraOk ? [] : [`site ${{ criar: 'criado', promover: 'promovido', renomear: 'renomeado' }[p.tipo]} e gerado, mas a infra falhou: ${r.infra.mensagem} (refaça com POST /v1/sites/<dominio>/infra)`], r);
         } catch (e) { terminar(p, 'erro', [e.message]); }
       }
 
@@ -135,7 +139,7 @@ function criarFila({ atraso = 3000, publicar = false, log = console.log, atualiz
 
       // 3) por site, na ordem de chegada
       const porSite = new Map();
-      for (const p of lote.filter((x) => x.status === 'processando' && !['buscar', 'robots', 'criar', 'renomear'].includes(x.tipo) && !(x.tipo === 'build' && !x.site))) { if (!porSite.has(p.site)) porSite.set(p.site, []); porSite.get(p.site).push(p); }
+      for (const p of lote.filter((x) => x.status === 'processando' && !['buscar', 'robots', 'criar', 'promover', 'renomear'].includes(x.tipo) && !(x.tipo === 'build' && !x.site))) { if (!porSite.has(p.site)) porSite.set(p.site, []); porSite.get(p.site).push(p); }
       for (const [site, ps] of porSite) {
         try {
           if (!Sites.existe(site)) { ps.forEach((p) => terminar(p, 'erro', [`site "${site}" não existe (foi renomeado ou removido?)`])); continue; }

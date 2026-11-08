@@ -72,3 +72,65 @@ test('renomearSite: troca o domínio no fontes.json e não mexe em domínio pare
   assert.equal(cad.rodape.parecido, 'minhaloja.com');
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(A.raiz(), 'config', 'fontes.json'), 'utf8')), { 'loja2.com': 'https://api/x' });
 });
+
+// ---------- rascunho → definitivo ----------
+const todasPaginas = (d) => A.listar(A.saida(d)).filter((f) => f.endsWith('.html')).map((f) => [path.relative(A.saida(d), f), fs.readFileSync(f, 'utf8')]);
+
+test('rascunho: toda página com noindex e robots.txt fechado (inclusive ao reescrever o robots de todos)', () => {
+  A.criarSite('rascunho.teste.com.br', { carros: [A.carro(), A.carro()], site: { rascunho: true } });
+  A.criarSite('definitivo.teste.com.br', { carros: [A.carro()] });
+  A.silencioso(() => construir({}));
+  const semNoindex = todasPaginas('rascunho.teste.com.br').filter(([, h]) => !/<meta name="robots" content="noindex/.test(h)).map(([f]) => f);
+  assert.deepEqual(semNoindex, []);
+  assert.equal(A.ler('rascunho.teste.com.br', 'robots.txt'), 'User-agent: *\nDisallow: /\n');
+  assert.ok(todasPaginas('definitivo.teste.com.br').some(([, h]) => !/noindex/.test(h)), 'site definitivo continua indexável');
+  require('../core/robots.js').gravarModelo('User-agent: *\nAllow: /\nSitemap: {{sitemap}}\n# modelo');
+  require('../core/atualizar.js').reescreverRobots();
+  assert.equal(A.ler('rascunho.teste.com.br', 'robots.txt'), 'User-agent: *\nDisallow: /\n', 'o modelo não abre o rascunho');
+  assert.match(A.ler('definitivo.teste.com.br', 'robots.txt'), /# modelo/);
+  require('../core/robots.js').gravarModelo(null);
+});
+
+test('promover para o domínio definitivo: volta ao Google, gerado do zero, sem o histórico do rascunho', async () => {
+  const R = 'loja-x.rascunho.plataforma.com.br', F = 'lojax.com.br';
+  fs.writeFileSync(path.join(A.raiz(), 'config', 'infra.json'), JSON.stringify({ promover: 'echo {rascunho} {site} {pasta} >> infra.log' }));
+  A.criarSite(R, { carros: [A.carro({ id: 'P1' }), A.carro({ id: 'P2' })], site: { rascunho: true, url: `https://${R}` } });
+  A.silencioso(() => construir({ sites: [R] }));
+  A.gravarEstoque(R, [A.carro({ id: 'P1' })]); // P2 "vendido" durante os testes do rascunho
+  A.silencioso(() => construir({ sites: [R] }));
+  const est = () => JSON.parse(fs.readFileSync(path.join(A.raiz(), '.estado', 'dist', `${F}.json`), 'utf8'));
+
+  const r = await Ops.promoverSite(R, { final: F, url: `https://www.${F}`, log: () => {} });
+  assert.equal(r.status, 'ok', JSON.stringify(r));
+  assert.equal(r.infra.status, 'ok');
+  assert.ok(!Sites.existe(R) && !A.existe(R, ''), 'o rascunho sumiu');
+  const cad = A.lerSite(F);
+  assert.equal(cad.rascunho, undefined);
+  assert.equal(cad.url, `https://www.${F}`);
+  assert.deepEqual(todasPaginas(F).filter(([, h]) => /content="noindex, nofollow"/.test(h)).map(([f]) => f), [], 'nenhum noindex de rascunho');
+  assert.equal(A.ler(F, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: https://www.${F}/sitemap.xml\n`);
+  assert.ok(!A.ler(F, 'sitemap.xml').includes('rascunho'));
+  assert.deepEqual(est().vendidos, {}, 'vendido do rascunho não vai para o definitivo');
+  assert.equal(A.pendente(F).completo, true);
+  assert.equal(A.pendente(R), undefined);
+  assert.match(fs.readFileSync(path.join(A.raiz(), 'infra.log'), 'utf8'), new RegExp(`${R} ${F} dist/${F}`));
+});
+
+test('promover no próprio domínio; recusas: já definitivo, foto em localhost (nada muda)', async () => {
+  A.criarSite('aqui.com.br', { carros: [A.carro()], site: { rascunho: true } });
+  A.silencioso(() => construir({ sites: ['aqui.com.br'] }));
+  const r = await Ops.promoverSite('aqui.com.br', { log: () => {} });
+  assert.equal(r.status, 'ok');
+  assert.equal(A.lerSite('aqui.com.br').rascunho, undefined);
+  assert.ok(!/noindex, nofollow/.test(A.ler('aqui.com.br', 'index.html')));
+  assert.equal((await Ops.promoverSite('aqui.com.br', { log: () => {} })).status, 'recusado');
+
+  A.criarSite('local.rascunho.com.br', { carros: [A.carro()], site: { rascunho: true, fotosBase: 'http://localhost:8081/' } });
+  A.silencioso(() => construir({ sites: ['local.rascunho.com.br'] }));
+  const ruim = await Ops.promoverSite('local.rascunho.com.br', { final: 'local-final.com.br', log: () => {} });
+  assert.equal(ruim.status, 'invalido');
+  assert.match(ruim.erros[0], /localhost/);
+  assert.ok(Sites.existe('local.rascunho.com.br') && !Sites.existe('local-final.com.br'), 'voltou tudo');
+  assert.equal(A.lerSite('local.rascunho.com.br').rascunho, true);
+  assert.ok(A.existe('local.rascunho.com.br', 'index.html'));
+});
