@@ -1,5 +1,7 @@
-// Liga a página de listagem ao motor. O HTML (e o formato do card, em #tpl-card) vem do template.
-// Ids esperados na página: q, filtros-dinamicos, ord, contagem, grade, mais, limpar, copiar, tpl-card.
+// Liga a página de listagem ao motor. O HTML (e o formato do card, em #tpl-card) vem do template ou dos componentes
+// (componentes/filtro, componentes/estoque). Ids: q, filtros-dinamicos, ord, contagem, grade, mais, limpar, copiar, tpl-card.
+// Só #grade e #tpl-card são obrigatórios: sem o resto (ex.: componente "estoque" na home, sem o "filtro"), a peça que
+// falta simplesmente não aparece. HTML antigo (com todos os ids) continua funcionando igual.
 // Precisa de motor/link-carro.js carregado antes (link da página de cada carro).
 (async () => {
   const $ = (s) => document.querySelector(s);
@@ -20,20 +22,23 @@
   Motor.vendedor(); // guarda ?v= se existir
 
   // busca e ordenação
-  $('#q').hidden = !motor.buscaAtiva;
-  $('#ord').innerHTML = motor.ordens.map((o) => `<option value="${o.chave}">${esc(o.rotulo)}</option>`).join('');
-  $('#ord').hidden = motor.ordens.length < 2;
-  $('#q').addEventListener('input', (e) => motor.buscar(e.target.value));
-  $('#ord').addEventListener('change', (e) => motor.ordenar(e.target.value));
+  const q = $('#q'), ord = $('#ord');
+  if (q) { q.hidden = !motor.buscaAtiva; q.addEventListener('input', (e) => motor.buscar(e.target.value)); }
+  if (ord) {
+    ord.innerHTML = motor.ordens.map((o) => `<option value="${o.chave}">${esc(o.rotulo)}</option>`).join('');
+    ord.hidden = motor.ordens.length < 2;
+    ord.addEventListener('change', (e) => motor.ordenar(e.target.value));
+  }
 
   // um select por filtro configurado no site
   const selects = {};
-  motor.filtros.forEach((f) => {
+  const caixaFiltros = $('#filtros-dinamicos');
+  if (caixaFiltros) motor.filtros.forEach((f) => {
     const sel = document.createElement('select');
     sel.id = `f-${f.campo}`;
     sel.setAttribute('aria-label', f.rotulo);
     sel.addEventListener('change', () => motor.definir(f.campo, sel.value));
-    $('#filtros-dinamicos').appendChild(sel);
+    caixaFiltros.appendChild(sel);
     selects[f.campo] = sel;
   });
 
@@ -67,9 +72,9 @@
     grade.insertAdjacentHTML('beforeend', fatia.map((d) => preencher(tplCard, dadosCard(d))).join(''));
     [...grade.children].slice(antes).forEach((a) => { const i = a.querySelector('img[data-fb]'); if (i) UI.fallback(i); });
     mostrados += fatia.length;
-    $('#mais').hidden = mostrados >= lista.length;
+    if ($('#mais')) $('#mais').hidden = mostrados >= lista.length;
     const dica = motor.dica() ? ` · mostrando resultados para “${motor.dica()}”` : '';
-    $('#contagem').textContent = lista.length ? `${num(lista.length)} carro${lista.length > 1 ? 's' : ''}${dica}` : 'Nenhum carro encontrado';
+    if ($('#contagem')) $('#contagem').textContent = lista.length ? `${num(lista.length)} carro${lista.length > 1 ? 's' : ''}${dica}` : 'Nenhum carro encontrado';
   }
 
   // na página fixa de filtro (/multipla/cidade/ponta-grossa/), o filtro dela não vai para a URL: a própria página já é
@@ -86,10 +91,11 @@
 
   function sincronizar() {
     const e = motor.estado();
-    if ($('#q') !== document.activeElement) $('#q').value = e.q;
-    $('#ord').value = e.ord;
+    if (q && q !== document.activeElement) q.value = e.q;
+    if (ord) ord.value = e.ord;
     motor.filtros.forEach((f) => {
       const sel = selects[f.campo];
+      if (!sel) return;
       const html = `<option value="">${esc(f.rotulo)}</option>` + f.opcoes().map((o) => `<option value="${esc(o.valor)}">${esc(o.rotulo)}</option>`).join('');
       if (sel.dataset.sig !== html) { sel.innerHTML = html; sel.dataset.sig = html; }
       sel.value = f.valor();
@@ -98,10 +104,11 @@
     salvarURL();
   }
 
-  $('#filtros').addEventListener('submit', (e) => e.preventDefault());
-  $('#mais').addEventListener('click', () => desenhar(false));
-  $('#limpar').addEventListener('click', () => motor.limpar());
-  $('#copiar').addEventListener('click', (e) => UI.copiar(location.href, e.target));
+  const liga = (sel, ev, fn) => { const el = $(sel); if (el) el.addEventListener(ev, fn); };
+  liga('#filtros', 'submit', (e) => e.preventDefault());
+  liga('#mais', 'click', () => desenhar(false));
+  liga('#limpar', 'click', () => motor.limpar());
+  liga('#copiar', 'click', (e) => UI.copiar(location.href, e.target));
   motor.aoMudar(sincronizar);
   sincronizar();
 })();

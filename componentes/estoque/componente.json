@@ -1,0 +1,131 @@
+{
+  "nome": "estoque",
+  "descricao": "A lista de carros (cards), com contagem, ordenação e \"carregar mais\". Os primeiros cards já saem no HTML (Google); no navegador o motor redesenha conforme busca e filtros.",
+  "scripts": [
+    "motor/engine.js",
+    "motor/ui-util.js",
+    "motor/link-carro.js",
+    "motor/ui-lista.js"
+  ],
+  "opcoes": {
+    "titulo": {
+      "padrao": "",
+      "descricao": "título acima da lista (\"\" esconde; aceita {{listagem.h1}})"
+    },
+    "tituloTag": {
+      "padrao": "h2",
+      "valores": [
+        "h1",
+        "h2",
+        "h3"
+      ],
+      "descricao": "h1 na página do estoque (SEO), h2 dentro de outras páginas"
+    },
+    "contagem": {
+      "padrao": true,
+      "descricao": "mostra \"60 carros\""
+    },
+    "ordenacao": {
+      "padrao": true,
+      "descricao": "mostra o seletor de ordenação"
+    },
+    "rotuloOrdenacao": {
+      "padrao": "Ordenar por"
+    },
+    "porPagina": {
+      "padrao": 24,
+      "descricao": "cards por vez (\"carregar mais\" traz os próximos)"
+    },
+    "botaoMais": {
+      "padrao": "Carregar mais veículos"
+    },
+    "botaoEstoque": {
+      "padrao": "",
+      "descricao": "link para o estoque completo (\"\" esconde; útil na home)"
+    },
+    "colunas": {
+      "padrao": 250,
+      "tipo": "numero",
+      "css": "--c-colunas",
+      "unidade": "px",
+      "descricao": "largura mínima de cada card, em px (menor = mais colunas)"
+    },
+    "foto": {
+      "padrao": true
+    },
+    "versao": {
+      "padrao": true,
+      "descricao": "mostra a versão (XEi 2.0...)"
+    },
+    "campos": {
+      "padrao": "ano,km,cambio,combustivel",
+      "tipo": "lista",
+      "valores": [
+        "ano",
+        "km",
+        "cambio",
+        "combustivel",
+        "cor",
+        "carroceria"
+      ],
+      "descricao": "informações do card, na ordem"
+    },
+    "estiloCampos": {
+      "padrao": "linha",
+      "valores": [
+        "linha",
+        "chips"
+      ],
+      "descricao": "linha = separadas por ponto; chips = etiquetas"
+    },
+    "local": {
+      "padrao": true,
+      "descricao": "mostra loja/cidade"
+    },
+    "botaoDetalhes": {
+      "padrao": "Ver detalhes",
+      "descricao": "texto do botão (\"\" esconde)"
+    },
+    "whatsapp": {
+      "padrao": true,
+      "descricao": "botão de WhatsApp em cada card"
+    },
+    "cor": {
+      "padrao": "",
+      "tipo": "cor",
+      "css": "--c-cor",
+      "descricao": "botões (vazio = cor do tema)"
+    },
+    "preco": {
+      "padrao": "",
+      "tipo": "cor",
+      "css": "--c-preco",
+      "descricao": "cor do preço"
+    },
+    "fundo": {
+      "padrao": "",
+      "tipo": "cor",
+      "css": "--c-fundo",
+      "descricao": "fundo dos cards"
+    },
+    "texto": {
+      "padrao": "",
+      "tipo": "cor",
+      "css": "--c-texto",
+      "descricao": "cor do texto"
+    },
+    "borda": {
+      "padrao": "",
+      "tipo": "cor",
+      "css": "--c-borda",
+      "descricao": "borda dos cards"
+    },
+    "raio": {
+      "padrao": null,
+      "tipo": "numero",
+      "css": "--c-raio",
+      "unidade": "px",
+      "descricao": "arredondamento dos cards, em px"
+    }
+  }
+}

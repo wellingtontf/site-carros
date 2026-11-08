@@ -53,7 +53,8 @@ function abrir(url) {
     p.on('close', () => { clearTimeout(t); ok({ dom, erros: err.split('\n').filter((l) => /CONSOLE.*(Uncaught|Error)|Uncaught/.test(l)) }); });
   });
 }
-const cards = (dom) => (semModelo(dom).match(/class="card[" ]/g) || []).length;
+// card antigo (class="card") ou do componente estoque (class="c-card")
+const cards = (dom) => (semModelo(dom).match(/class="(c-)?card[" ]/g) || []).length;
 const semModelo = (dom) => dom.replace(/<script type="text\/html"[\s\S]*?<\/script>/g, '');
 
 for (const t of templates) {
@@ -65,7 +66,7 @@ for (const t of templates) {
     assert.equal(cards(dom), Math.min(24, TOTAL), 'primeira página de cards');
     assert.match(dom, new RegExp(`${TOTAL} carros`), 'contagem');
     assert.match(dom, /<select id="f-marca"/, 'filtro de marca montado');
-    const href = semModelo(dom).match(/class="card[^"]*" href="([^"]+)"|<a class="card-foto" href="([^"]+)"/);
+    const href = semModelo(dom).match(/class="card[^"]*" href="([^"]+)"|<a class="(?:c-)?card(?:-foto|__foto)" href="([^"]+)"/);
     assert.ok(href, 'card com link');
     const alvo = (href[1] || href[2]).replace(/^\.\.\//, '');
     assert.equal(alvo, `carros/Link/Do/Revenda-Mais/${t}-especial-1.html`, 'o card usa o link vindo do estoque');

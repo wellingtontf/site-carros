@@ -1,0 +1,25 @@
+<section class="c-estoque" style="{{{componente.estilo}}}">
+  <div class="c-estoque__topo">
+    <div class="c-estoque__cabeca">
+      {{#op.titulo}}<{{op.tituloTag}} class="c-estoque__titulo">{{op.titulo}}{{#op.contagem}} <small>(<span id="contagem"></span>)</small>{{/op.contagem}}</{{op.tituloTag}}>{{/op.titulo}}
+      {{^op.titulo}}{{#op.contagem}}<p class="c-estoque__contagem" id="contagem"></p>{{/op.contagem}}{{/op.titulo}}
+    </div>
+    {{#op.ordenacao}}<label class="c-estoque__ordenar">{{op.rotuloOrdenacao}} <select id="ord" aria-label="Ordenar"></select></label>{{/op.ordenacao}}
+    {{#op.botaoEstoque}}<a class="c-estoque__link" href="{{estoqueUrl}}">{{op.botaoEstoque}} &rsaquo;</a>{{/op.botaoEstoque}}
+  </div>
+  <div id="grade" class="c-estoque__grade" data-pagina="{{op.porPagina}}"></div>
+  <p class="c-estoque__rodape"><button id="mais" class="c-estoque__mais" hidden>{{op.botaoMais}}</button></p>
+  <script type="text/html" id="tpl-card">
+<article class="c-card">
+  {{#op.foto}}<a class="c-card__foto" href="[[href]]"><img loading="lazy" width="400" height="300" alt="[[nome]] [[versao]]" [[imgattrs]]></a>{{/op.foto}}
+  <div class="c-card__corpo">
+    <h3 class="c-card__nome"><a href="[[href]]">[[nome]]</a></h3>
+    {{#op.versao}}<p class="c-card__versao">[[versao]]</p>{{/op.versao}}
+    <p class="c-card__preco">[[preco]]</p>
+    {{#op.campos.length}}<ul class="c-card__campos c-card__campos--{{op.estiloCampos}}">{{#op.campos}}<li>[[{{.}}]]</li>{{/op.campos}}</ul>{{/op.campos.length}}
+    {{#op.local}}<p class="c-card__local">[[lojaLocal]]</p>{{/op.local}}
+    <div class="c-card__acoes">{{#op.botaoDetalhes}}<a class="c-card__detalhes" href="[[href]]">{{op.botaoDetalhes}}</a>{{/op.botaoDetalhes}}{{#op.whatsapp}}<a class="c-card__zap" href="[[zap]]" target="_blank" rel="noopener">WhatsApp</a>{{/op.whatsapp}}</div>
+  </div>
+</article>
+  </script>
+</section>

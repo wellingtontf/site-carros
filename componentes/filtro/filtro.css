@@ -1,0 +1,27 @@
+/* componente filtro: as cores vêm das opções (--c-*) e, sem elas, do tema do site (--cor, --texto, --raio, --fonte) */
+.c-filtro {
+  --_cor: var(--c-cor, var(--cor, #0b5fff)); --_fundo: var(--c-fundo, #fff); --_texto: var(--c-texto, var(--texto, #1b2430));
+  --_borda: var(--c-borda, #d6dbe3); --_raio: var(--c-raio, var(--raio, 10px));
+  display: flex; flex-direction: column; gap: 10px; padding: 16px; box-sizing: border-box;
+  background: var(--_fundo); color: var(--_texto); border: 1px solid var(--_borda); border-radius: var(--_raio); font-family: var(--fonte, inherit);
+}
+.c-filtro__titulo { margin: 0 0 2px; font-size: .95rem; text-transform: uppercase; letter-spacing: .04em; }
+.c-filtro__busca, .c-filtro select {
+  width: 100%; box-sizing: border-box; padding: 10px 12px; font: inherit; color: inherit;
+  background: #fff; border: 1px solid var(--_borda); border-radius: calc(var(--_raio) * .6);
+}
+.c-filtro__busca:focus, .c-filtro select:focus { outline: 2px solid var(--_cor); outline-offset: 1px; }
+.c-filtro__campos { display: flex; flex-direction: column; gap: 10px; }
+.c-filtro__acoes { display: flex; flex-direction: column; gap: 8px; }
+.c-filtro__acoes button {
+  padding: 10px 12px; font: inherit; cursor: pointer; color: inherit; background: #fff;
+  border: 1px solid var(--_borda); border-radius: calc(var(--_raio) * .6);
+}
+.c-filtro .c-filtro__copiar { background: var(--_cor); border-color: var(--_cor); color: #fff; }
+/* layout topo: barra horizontal acima da lista */
+.c-filtro--topo { flex-direction: row; flex-wrap: wrap; align-items: center; margin-bottom: 18px; }
+.c-filtro--topo .c-filtro__titulo { width: 100%; }
+.c-filtro--topo .c-filtro__busca { flex: 1 1 220px; width: auto; }
+.c-filtro--topo .c-filtro__campos { flex: 3 1 460px; flex-direction: row; flex-wrap: wrap; }
+.c-filtro--topo .c-filtro__campos select { flex: 1 1 140px; width: auto; }
+.c-filtro--topo .c-filtro__acoes { flex-direction: row; }

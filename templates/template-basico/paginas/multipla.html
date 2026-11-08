@@ -10,21 +10,13 @@
 {{> cabecalho}}
 {{{blocosAntes}}}
 <main class="multipla">
-  <div class="multipla-topo">
-    <h1>{{listagem.h1}} <small>(<span id="contagem"></span>)</small></h1>
-    <label class="ordenar">Ordenar por <select id="ord" aria-label="Ordenar"></select></label>
-  </div>
   <div class="multipla-corpo">
-    <aside>{{> filtros}}</aside>
-    <section>
-      <div id="grade" class="grade" data-pagina="24"></div>
-      <button id="mais" class="btn-mais" hidden>Carregar mais veículos</button>
-    </section>
+    <aside>{{componente filtro layout="lateral" titulo="Filtrar"}}</aside>
+    <section>{{componente estoque titulo="{{listagem.h1}}" tituloTag="h1" porPagina=24}}</section>
   </div>
 </main>
 {{{blocosDepois}}}
 {{> rodape}}
-{{> tpl-card}}
 <script src="{{rel}}motor/engine.js"></script>
 <script src="{{rel}}motor/ui-util.js"></script>
 <script src="{{rel}}motor/link-carro.js"></script>

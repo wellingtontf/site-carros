@@ -13,11 +13,13 @@ COPY package.json ./
 COPY core ./core
 COPY api ./api
 COPY templates ./templates
+COPY componentes ./componentes
 COPY ferramentas ./ferramentas
 
 ENV NODE_ENV=production \
     SITE_CARROS_RAIZ=/dados \
     SITE_CARROS_TEMPLATES=/app/templates \
+    SITE_CARROS_COMPONENTES=/app/componentes \
     PORT=8787 \
     LOG_JSON=1
 

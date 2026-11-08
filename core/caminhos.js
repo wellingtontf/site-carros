@@ -8,6 +8,7 @@
 //     estoque.json               o único JSON de carros do site
 //     assets/                    imagens próprias do site (logo, banner...) → <site>/assets/
 //     paginas/                   páginas livres dos designers SÓ deste site (HTML normal; ver core/paginas-livres.js)
+//   componentes/<nome>/      componentes (filtro, estoque...) que todo template e toda página usam: {{componente nome}}
 //   templates/<nome>/         visual (o web designer só mexe aqui)
 //     template.json, paginas/{home,multipla,carro,vendido,pagina}.html, blocos/, parciais/, css/, js/, img/
 //     paginas-extras/            páginas livres de TODOS os sites do template
@@ -23,7 +24,9 @@ const path = require('path');
 const ROOT = process.env.SITE_CARROS_RAIZ ? path.resolve(process.env.SITE_CARROS_RAIZ) : path.resolve(__dirname, '..');
 const CORE = __dirname;
 const SITES = path.join(ROOT, 'sites-config');
-const PUBLICO = 'sites-public'; // nome da pasta de saída (relativo à raiz): C.saida(C.PUBLICO) = <raiz>/sites-public
+const PUBLICO = 'sites-public';
+// componentes (filtro, estoque...) usados por todos os templates e páginas; código versionado, vai na imagem como os templates
+const COMPONENTES = process.env.SITE_CARROS_COMPONENTES ? path.resolve(process.env.SITE_CARROS_COMPONENTES) : path.join(ROOT, 'componentes'); // nome da pasta de saída (relativo à raiz): C.saida(C.PUBLICO) = <raiz>/sites-public
 // templates (com as páginas padrão de cada um em templates/<nome>/paginas-padrao/) são CÓDIGO versionado: na imagem
 // Docker eles vêm junto (SITE_CARROS_TEMPLATES aponta para dentro da imagem); os DADOS ficam no volume (EFS)
 const TEMPLATES = process.env.SITE_CARROS_TEMPLATES ? path.resolve(process.env.SITE_CARROS_TEMPLATES) : path.join(ROOT, 'templates');
@@ -32,7 +35,7 @@ const ESTADO = path.join(ROOT, '.estado');
 const INQUILINOS = path.join(ROOT, 'inquilinos'); // multi-tenant: inquilinos/<id>/{inquilino.json, config/}
 
 module.exports = {
-  ROOT, CORE, SITES, TEMPLATES, CONFIG, ESTADO, INQUILINOS, PUBLICO,
+  ROOT, CORE, SITES, TEMPLATES, CONFIG, ESTADO, INQUILINOS, PUBLICO, COMPONENTES,
   inquilino: (id) => path.join(INQUILINOS, id),
   inquilinoJson: (id) => path.join(INQUILINOS, id, 'inquilino.json'),
   inquilinoConfig: (id, arquivo) => path.join(INQUILINOS, id, 'config', arquivo),

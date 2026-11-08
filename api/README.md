@@ -88,6 +88,7 @@ PUT /v1/sites/loja1.com.br/paginas/feirao           content-type: text/html
 <h1>Feirão</h1><p>Veja as <a href="/lojas/">lojas</a>.</p>
 ```
 
+- **Componentes:** um bloco `{ "tipo": "componente", "nome": "estoque", "opcoes": { "porPagina": 8 } }` põe um componente (`filtro`, `estoque`) na página, com as opções que quiser. Para o site inteiro, use `"componentes": { "estoque": { "preco": "#0533ce" } }` no cadastro. Opção ou valor inválido volta 422. Lista de opções: `componentes/README.md` do projeto.
 - **Blocos (JSON):** os tipos são os do template do site (`banner`, `vitrine`, `listagem`, `lojas`, `titulo`, `texto`, `formulario`...). Bloco que o template não tem volta 422. `rotulo` põe a página no rodapé.
 - **HTML:** conteúdo livre, que entra com o cabeçalho e o rodapé do site; um documento completo (`<html>`) vai sozinho. Links como `href="/lojas/"` são ajustados para a página certa.
 - Gravar no outro formato substitui a página (não fica duplicada). A home só aceita blocos.

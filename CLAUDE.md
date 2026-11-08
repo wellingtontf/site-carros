@@ -40,6 +40,11 @@ Plataforma com ~2500 sites estáticos de revendas de carros, cada um em um domí
 - As rotas da API continuam `/v1/sites/...` (endereço público da API, não é pasta).
 - `core/sitemap.js`: `gerarSitemap(dominio)` reconstrói o sitemap.xml a partir do estado do build (páginas + carros no ar); o build usa `montarSitemap` ao reconstruir o site; `node core/cli.js sitemap [dominios]`.
 
+## Componentes (decisão do Wellington, 2026-11-08)
+- `componentes/<nome>/` (raiz, ao lado de `templates/`): UMA pasta, usada por todo template e toda página (não há componente por template). Hoje: `filtro` e `estoque` (os 4 templates usam os dois no `multipla.html`).
+- `componente.json` (opções com padrão, tipo, valores, `css` = variável CSS só do componente, `scripts` que ele precisa), `<nome>.html` (`{{op.*}}`, `{{{componente.estilo}}}`), `<nome>.css`/`.js` opcionais. `core/componentes.js` (mesclar/validar/renderizar/expandir).
+- Uso: template `{{componente estoque colunas=280 titulo="{{listagem.h1}}"}}`; página `{ "tipo": "componente", "nome": "estoque", "opcoes": {...} }`; site.json `"componentes": { "estoque": {...} }`. Camadas: componente < template < site.json < página. Opção/valor inválido = erro claro (build e API 422). O build injeta css no `<head>` e `scripts` no `<body>` sem repetir; id do motor repetido na página = erro. Componente "estoque" em página ganha os primeiros cards no HTML (comCards). `node core/cli.js componentes` lista as opções. `core/ui/ui-lista.js` tolera peças ausentes (só #grade e #tpl-card obrigatórios).
+
 ## Estrutura de arquivos
 ```
 core/                         SÓ CÓDIGO (isolado)

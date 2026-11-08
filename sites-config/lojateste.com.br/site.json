@@ -329,5 +329,10 @@
       }
     ]
   },
-  "formatoUrls": "revendamais"
+  "formatoUrls": "revendamais",
+  "componentes": {
+    "estoque": {
+      "preco": "#0533ce"
+    }
+  }
 }

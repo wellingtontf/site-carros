@@ -40,7 +40,8 @@ const LinkCarro = require('./ui/link-carro.js'); // regra do link da página do 
 const PL = require('./paginas-livres'); // páginas livres dos web designers (HTML normal)
 const Fotos = require('./fotos'); // fotos por URL: quantas já estão prontas
 const Robots = require('./robots');
-const Sitemap = require('./sitemap'); // sitemap.xml: páginas + carros no ar (core/sitemap.js; gerarSitemap(dominio) também roda sozinho)
+const Sitemap = require('./sitemap');
+const Comp = require('./componentes'); // componentes (componentes/<nome>/): {{componente x}} nos templates, bloco "componente" nas páginas // sitemap.xml: páginas + carros no ar (core/sitemap.js; gerarSitemap(dominio) também roda sozinho)
 const Inq = require('./inquilinos'); // inquilino do site: template próprio dele, se houver
 const Sites = require('./sites'); // repositório de sites: o único que lê a pasta sites-config/
 const Pendentes = require('./pendentes'); // o que falta publicar, um arquivo por site
@@ -117,6 +118,8 @@ const RETENCAO_PADRAO_DIAS = 30; // quanto tempo a página de um carro que saiu 
 const REDIRECIONAMENTO_PADRAO_DIAS = 180; // quanto tempo um link antigo de carro (que mudou de endereço) continua redirecionando
 
 const sha = (s) => crypto.createHash('sha1').update(s).digest('hex');
+// HTML sem os modelos de card (<script type="text/html">) e comentários: para contar ids sem pegar os [[campos]] dos modelos
+const A_semModelos = (html) => html.replace(/<script type="text\/html"[\s\S]*?<\/script>/g, '').replace(/<!--[\s\S]*?-->/g, '');
 // XML: tira caracteres que o XML não aceita (controle) e escapa os especiais
 const xmlEsc = (s) => String(s).replace(/[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD\u{10000}-\u{10FFFF}]/gu, '')
   .replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
@@ -125,7 +128,7 @@ const FEED_OK = /^[a-z0-9][a-z0-9_-]*(\/[a-z0-9][a-z0-9_-]*)*\.xml$/;
 // TODOS os sites (com 2500 sites, ~1 milhão de arquivos para publicar), então não amarramos isso ao arquivo inteiro:
 // um comentário ou refatoração não deve refazer nada. O teste tests/snapshot-html.test.js avisa se a saída mudou e a
 // versão não (e vice-versa). Templates, tema, textos e dados do site já entram no hash de cada site por conta própria.
-const VERSAO_HTML = 7; // 7: páginas de conteúdo em /paginas/<nome>/ (endereço antigo redireciona); 6: estoque.xml; 2: cards no HTML, filtros, <lastmod>; 3: páginas padrão; 4: link do estoque, URLs codificadas, formato revendamais; 5: 404.html, ?v= nos css/js, canonical nas páginas livres
+const VERSAO_HTML = 8; // 8: componentes (filtro, estoque) nos templates; 7: páginas de conteúdo em /paginas/<nome>/ (endereço antigo redireciona); 6: estoque.xml; 2: cards no HTML, filtros, <lastmod>; 3: páginas padrão; 4: link do estoque, URLs codificadas, formato revendamais; 5: 404.html, ?v= nos css/js, canonical nas páginas livres
 const RENDER_VERSION = `html-${VERSAO_HTML}`;
 
 const lerJSON = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -299,6 +302,8 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
   // paginas-extras/ fica de fora: editar uma página livre do template não deve refazer as páginas de carro de todos os sites
   // paginas-extras e paginas-padrao ficam de fora: editar o texto de uma página (LGPD, feirão...) não deve refazer as
   // páginas de carro de todos os sites (as páginas de conteúdo são refeitas sempre; os rótulos entram no hash do site)
+  Comp.limparCache();
+  const hashComponentes = fs.existsSync(C.COMPONENTES) ? sha(hashDir(C.COMPONENTES)) : ''; // mudou um componente: refaz as páginas
   const tplHash = (dir) => { if (!hashTpl.has(dir)) hashTpl.set(dir, sha(hashDir(dir, (r) => r === 'paginas-extras' || r === 'paginas-padrao'))); return hashTpl.get(dir); };
   const hoje = hojeParam || process.env.SITE_CARROS_HOJE || new Date().toISOString().slice(0, 10);
   const feitos = [];
@@ -414,7 +419,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     // nomes (não as contagens) de cidades/marcas/carrocerias entram: menus e rodapés podem listá-los em todas as páginas.
     // Contagens ("1052 veículos") mudam a toda hora: use-as só na listagem e nas páginas de conteúdo (sempre refeitas).
     const nomesEstoque = ['cidade', 'marca', 'carroceria', 'combustivel'].map((k) => [...new Set(carros.map((c) => c[k]))].sort().join('|'));
-    const baseHash = sha(JSON.stringify([RENDER_VERSION, tplHash(dirTpl), site.nome, site.slogan, site.url, site.cor, site.tema, site.textos, site.fotosBase, site.cabecalho, site.rodape, site.lojas, nomesEstoque,
+    const baseHash = sha(JSON.stringify([RENDER_VERSION, tplHash(dirTpl), hashComponentes, site.componentes || null, site.nome, site.slogan, site.url, site.cor, site.tema, site.textos, site.fotosBase, site.cabecalho, site.rodape, site.lojas, nomesEstoque,
       paginasSite.filter((p) => p.rotulo).map((p) => [p.rotulo, p.caminho]), // links legais aparecem no rodapé das páginas de carro
       ...(site.rascunho ? ['rascunho'] : [])])); // só entra quando é rascunho: os sites definitivos não refazem nada por causa disso
     const estadoAnt = completo || efemero ? null : lerEstado(pasta, site.id);
@@ -432,6 +437,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     for (const [k, v] of listarArvore(C.UI)) arquivos.set(`motor/${k}`, v);
     for (const [k, v] of listarArvore(dirTpl, (r) => ['paginas', 'paginas-extras', 'paginas-padrao', 'blocos', 'parciais', 'template.json', 'motor', 'assets'].includes(r))) arquivos.set(k, v);
     for (const [k, v] of listarArvore(C.assets(site.id))) arquivos.set(`assets/${k}`, v);
+    for (const n of Comp.listar()) for (const ext of ['css', 'js']) { const f = path.join(C.COMPONENTES, n, `${n}.${ext}`); if (fs.existsSync(f)) arquivos.set(`componentes/${n}.${ext}`, f); }
     for (const [k, v] of arquivos) copiarSe(v, path.join(out, k), rel(k), mud);
     const estaticos = new Set(arquivos.keys()); // arquivos copiados (template, assets, páginas livres): o que sumir da origem é apagado
     // cache busting: todo .css/.js do site vai no HTML com ?v=<hash do conteúdo>. A hospedagem pode guardar css/js por
@@ -604,10 +610,36 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       }
       return d;
     };
-    const renderBlocos = (lista, r) => (lista || []).map((b) => {
+    // usados: os componentes da página (para o build pôr o css/js deles); bloco "componente" chama um componente
+    const opcoesSite = site.componentes || {};
+    const renderBlocos = (lista, r, usados = new Set(), onde = `Site "${site.id}"`) => (lista || []).map((b) => {
+      if (b.tipo === 'componente') {
+        usados.add(b.nome);
+        return Comp.renderizar(b.nome, [{ origem: 'site.json "componentes"', opcoes: opcoesSite[b.nome] }, { origem: `${onde}, bloco componente`, opcoes: b.opcoes }], ctx(r), render, onde);
+      }
       const d = resolverLinks(enriquecer(b, r), r, paraPagina);
       return render(tplBloco(b.tipo), { ...ctx(r), ...d, bloco: d });
     }).join('\n');
+    // página inteira: expande {{componente x}} do template, renderiza, põe o css/js dos componentes usados e confere que
+    // os ids que o motor usa não se repetem (ex.: dois componentes "estoque" na mesma página)
+    const IDS_UNICOS = ['filtros', 'q', 'filtros-dinamicos', 'ord', 'contagem', 'grade', 'mais', 'limpar', 'copiar', 'tpl-card'];
+    const renderPagina = (tpl, c, onde, usados = new Set()) => {
+      const { texto, usados: doTemplate } = Comp.expandir(tpl, c, render, { opcoesSite, onde });
+      doTemplate.forEach((x) => usados.add(x));
+      let html = render(texto, c);
+      if (usados.size) {
+        const { css, js } = Comp.arquivosDe(usados);
+        const links = css.map((f) => `<link rel="stylesheet" href="${c.rel}${f}">`).join('\n');
+        const scripts = js.filter((f) => !html.includes(`${f}"`)).map((f) => `<script src="${c.rel}${f}"></script>`).join('\n');
+        if (links) html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${links}\n</head>`) : `${links}\n${html}`;
+        if (scripts) html = /<\/body>/i.test(html) ? html.replace(/<\/body>(?![\s\S]*<\/body>)/i, `${scripts}\n</body>`) : `${html}\n${scripts}`;
+      }
+      for (const id of IDS_UNICOS) {
+        const n = ((id === 'tpl-card' ? html : A_semModelos(html)).match(new RegExp(`\\bid="${id}"`, 'g')) || []).length;
+        if (n > 1) throw new Error(`${onde}: o id "${id}" aparece ${n} vezes na página (dois componentes "estoque" ou "filtro" juntos, ou o template já tem esse elemento além do componente)`);
+      }
+      return html;
+    };
 
     // <lastmod> do sitemap: dia em que o conteúdo de cada página mudou de verdade (guardado no estado do build)
     const datas = {};
@@ -665,9 +697,11 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
         filtro: f ? `${f.campo}=${encodeURIComponent(f.valor)}` : '', // a ui-lista aplica isto ao abrir (data-filtro no <body>)
         canon: raizUrlSite ? `<link rel="canonical" href="${esc(raizUrlSite)}/${esc(url(l.caminho))}/">` : '',
       };
-      const html = render(tplLista, {
-        ...ctx(r), listagem, blocosAntes: renderBlocos(cfgEstoque.blocosAntes, r), blocosDepois: renderBlocos(cfgEstoque.blocosDepois, r),
-      });
+      const usados = new Set();
+      const ondeL = `Site "${site.id}", templates/${nomeTpl}/paginas/multipla.html`;
+      const html = renderPagina(tplLista, {
+        ...ctx(r), listagem, blocosAntes: renderBlocos(cfgEstoque.blocosAntes, r, usados, ondeL), blocosDepois: renderBlocos(cfgEstoque.blocosDepois, r, usados, ondeL),
+      }, ondeL, usados);
       datar(arqRel, escreverHtml(arqRel, comCards(html, lista, r)));
     }
     // páginas de conteúdo
@@ -685,7 +719,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
         try { html = PL.linksRelativos(render(fs.readFileSync(p.livre.arquivo, 'utf8'), ctx(r)), r, paraPagina); }
         catch (e) { throw new Error(`Página livre ${p.livre.onde}: ${e.message}`); }
         const final = p.livre.semMoldura ? PL.completarLivre(html, r, { titulo: p.titulo, descricao: p.descricao, canon })
-          : render(tplPagina, { ...ctx(r), pagina: { titulo: p.titulo, descricao: p.descricao || site.slogan || '' }, canon, conteudo: html, temListagem: false });
+          : renderPagina(tplPagina, { ...ctx(r), pagina: { titulo: p.titulo, descricao: p.descricao || site.slogan || '' }, canon, conteudo: html, temListagem: false }, `Página livre ${p.livre.onde}`);
         for (const [k, v] of p.livre.assets) if (/\.(css|js)$/.test(k)) versoes.set(`${dirP}/${k}`, sha(fs.readFileSync(v)).slice(0, 8));
         datar(arqRel, escreverHtml(arqRel, final));
         for (const [k, v] of p.livre.assets) { const destino = `${dirP}/${k}`; copiarSe(v, path.join(out, destino), rel(destino), mud); estaticos.add(destino); }
@@ -693,20 +727,26 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       }
       const nListagem = p.blocos.filter((b) => b.tipo === 'listagem').length;
       if (nListagem > 1) throw new Error(`Site "${site.id}", página "${p.caminho || '(raiz)'}": só pode ter um bloco "listagem"`);
-      datar(arqRel, escreverHtml(arqRel, render(p.caminho ? tplPagina : tplHome, {
-        ...ctx(r), pagina: { titulo: p.titulo || site.nome, descricao: p.descricao || site.slogan || '' }, canon, conteudo: renderBlocos(p.blocos, r),
-        temListagem: nListagem > 0, // a página carrega o motor + ui-lista (ids da listagem: ver README)
-      })));
+      const usados = new Set();
+      const ondeP = `Site "${site.id}", página "${p.caminho || '(home)'}"`;
+      const conteudo = renderBlocos(p.blocos, r, usados, ondeP);
+      const htmlP = renderPagina(p.caminho ? tplPagina : tplHome, {
+        ...ctx(r), pagina: { titulo: p.titulo || site.nome, descricao: p.descricao || site.slogan || '' }, canon, conteudo,
+        temListagem: nListagem > 0, // bloco "listagem" do template: o template carrega o motor (componentes trazem o deles)
+      }, ondeP, usados);
+      // componente "estoque" na página: os primeiros cards já saem no HTML (Google e quem está sem JS)
+      datar(arqRel, escreverHtml(arqRel, usados.has('estoque') ? comCards(htmlP, carros, r) : htmlP));
     }
     // 404.html: a hospedagem devolve esta página em QUALQUER endereço que não existe (/carros/a/b/c.html, /x/y/), então
     // os links dela partem da raiz do domínio ("/css/...", "/multipla/"), não da pasta. Fica fora do sitemap (noindex).
     {
       const p = site.pagina404 || PAGINA_404_PADRAO;
       if (!Array.isArray(p.blocos)) throw new Error(`Site "${site.id}": "pagina404" precisa de "blocos" (lista)`);
-      escreverHtml('404.html', render(tplPagina, {
+      const usados = new Set();
+      escreverHtml('404.html', renderPagina(tplPagina, {
         ...ctx('/'), pagina: { titulo: `${p.titulo || PAGINA_404_PADRAO.titulo} | ${site.nome}`, descricao: '' },
-        canon: '<meta name="robots" content="noindex">', conteudo: renderBlocos(p.blocos, '/'), temListagem: false,
-      }));
+        canon: '<meta name="robots" content="noindex">', conteudo: renderBlocos(p.blocos, '/', usados, `Site "${site.id}", 404`), temListagem: false,
+      }, `Site "${site.id}", 404`, usados));
     }
     // arquivo copiado que não existe mais na origem (imagem tirada da página do designer, css removido do template...)
     for (const arq of (incremental && estadoAnt.estaticos) || []) {
@@ -793,7 +833,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
         ],
         opcionais: c.opcionais, endereco: lojas[c.lojaId].endereco || '', principalAttrs, fotos,
       };
-      datar(link, escreverHtml(link, render(tplCarro, { ...ctx(relDe(link)), carro, og })));
+      datar(link, escreverHtml(link, renderPagina(tplCarro, { ...ctx(relDe(link)), carro, og }, `Site "${site.id}", templates/${nomeTpl}/paginas/carro.html`)));
     }
 
     // sitemap e robots: é por aqui que o Google descobre as páginas dos carros (a listagem é montada por JS)
@@ -821,7 +861,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     for (const [id, v] of Object.entries(vendidos)) {
       if ((Date.parse(hoje) - Date.parse(v.data)) / 86400000 > retencao) { remover(v.link); delete vendidos[id]; continue; }
       titulos[id] = titulosAnt[id] || id;
-      escreverHtml(v.link, render(tplVendido, { ...ctx(relDe(v.link)), carro: { id, titulo: titulos[id] } }));
+      escreverHtml(v.link, renderPagina(tplVendido, { ...ctx(relDe(v.link)), carro: { id, titulo: titulos[id] } }, `Site "${site.id}", templates/${nomeTpl}/paginas/vendido.html`));
     }
 
     // carro que MUDOU de link (mudou marca/modelo/versão/cidade, ou o formato do link): o endereço antigo redireciona

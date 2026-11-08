@@ -12,38 +12,14 @@
 {{{blocosAntes}}}
 
 <main id="estoque" class="estoque">
-  <form id="filtros" class="filtros" autocomplete="off">
-    <input type="search" id="q" placeholder="{{site.textos.busca}}">
-    <div class="linha" id="filtros-dinamicos"></div>
-    <div class="acoes">
-      <span id="contagem"></span>
-      <select id="ord" aria-label="Ordenar"></select>
-      <button type="button" id="limpar">Limpar</button>
-      <button type="button" id="copiar">Copiar link da busca</button>
-    </div>
-  </form>
-  <div id="grade" class="grade"></div>
-  <button id="mais" class="btn sec" hidden>Carregar mais</button>
+  {{componente filtro layout="topo" titulo=""}}
+  <section>{{componente estoque titulo="{{listagem.h1}}" tituloTag="h1" campos="ano,km,cambio,combustivel" estiloCampos="chips" whatsapp=false}}</section>
 </main>
 
 {{{blocosDepois}}}
 
 {{> rodape}}
 
-<!-- HTML de cada card. Campos: [[nome]] [[versao]] [[ano]] [[km]] [[cambio]] [[cor]] [[combustivel]] [[preco]] [[loja]] [[local]] [[lojaLocal]] [[href]] [[imgattrs]] -->
-<script type="text/html" id="tpl-card">
-<a class="card" href="[[href]]">
-  <img loading="lazy" width="400" height="300" alt="[[nome]]" [[imgattrs]]>
-  <div class="card-corpo">
-    <h3>[[nome]]</h3>
-    <p class="versao">[[versao]]</p>
-    <ul class="chips"><li>[[ano]]</li><li>[[km]]</li><li>[[cambio]]</li><li>[[combustivel]]</li></ul>
-    <p class="preco">[[preco]]</p>
-    <p class="un">[[lojaLocal]]</p>
-    <span class="ver">Ver detalhes</span>
-  </div>
-</a>
-</script>
 
 <script src="{{rel}}motor/engine.js"></script>
 <script src="{{rel}}motor/ui-util.js"></script>

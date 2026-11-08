@@ -1,0 +1,71 @@
+{
+  "nome": "filtro",
+  "descricao": "Busca e filtros do estoque. Quais filtros aparecem (estado, cidade, marca, preço...) vem do \"filtros\" do site.json; aqui é a aparência e o que mais mostrar.",
+  "scripts": [
+    "motor/engine.js",
+    "motor/ui-util.js",
+    "motor/link-carro.js",
+    "motor/ui-lista.js"
+  ],
+  "opcoes": {
+    "layout": {
+      "padrao": "lateral",
+      "valores": [
+        "lateral",
+        "topo"
+      ],
+      "descricao": "lateral = coluna ao lado da lista; topo = barra acima da lista"
+    },
+    "titulo": {
+      "padrao": "Filtrar",
+      "descricao": "título do quadro (\"\" esconde)"
+    },
+    "busca": {
+      "padrao": true,
+      "descricao": "campo de busca por texto"
+    },
+    "textoBusca": {
+      "padrao": "",
+      "descricao": "texto de dica da busca (vazio = textos.busca do site)"
+    },
+    "botaoLimpar": {
+      "padrao": "Limpar filtros",
+      "descricao": "texto do botão (\"\" esconde)"
+    },
+    "botaoCopiar": {
+      "padrao": "Copiar link da busca",
+      "descricao": "texto do botão (\"\" esconde)"
+    },
+    "cor": {
+      "padrao": "",
+      "tipo": "cor",
+      "css": "--c-cor",
+      "descricao": "botão principal e destaque (vazio = cor do tema)"
+    },
+    "fundo": {
+      "padrao": "",
+      "tipo": "cor",
+      "css": "--c-fundo",
+      "descricao": "fundo do quadro"
+    },
+    "texto": {
+      "padrao": "",
+      "tipo": "cor",
+      "css": "--c-texto",
+      "descricao": "cor do texto"
+    },
+    "borda": {
+      "padrao": "",
+      "tipo": "cor",
+      "css": "--c-borda",
+      "descricao": "cor das bordas"
+    },
+    "raio": {
+      "padrao": null,
+      "tipo": "numero",
+      "css": "--c-raio",
+      "unidade": "px",
+      "descricao": "arredondamento dos cantos, em px (vazio = do tema)"
+    }
+  }
+}

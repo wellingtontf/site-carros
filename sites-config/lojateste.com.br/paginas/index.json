@@ -66,12 +66,15 @@
       ]
     },
     {
-      "tipo": "listagem",
-      "titulo": "Veículos em estoque",
-      "subtitulo": "Confira alguns destaques",
-      "quantidade": 8,
-      "filtros": false,
-      "botao": "Ver estoque completo"
+      "tipo": "componente",
+      "nome": "estoque",
+      "opcoes": {
+        "titulo": "Veículos em estoque",
+        "porPagina": 8,
+        "ordenacao": false,
+        "botaoEstoque": "Ver estoque completo",
+        "botaoMais": "Ver mais"
+      }
     },
     {
       "tipo": "chamada",

@@ -1,6 +1,6 @@
 {
-  "versaoHtml": 7,
-  "hash": "27e38352f1a89b82692903e618cb589e47fc16eef39eb35d9976b2cf9d96a1ae",
+  "versaoHtml": 8,
+  "hash": "06016d71f3773b565ecd8e4b5709411e33e4dfcfe44353662491b88f365e9098",
   "arquivos": [
     "404.html",
     "carros.json",
@@ -8,6 +8,8 @@
     "carros/Honda/Civic/Exl-20/Honda-Civic-Exl-20-2021-Curitiba-Parana-S1.html",
     "carros/Honda/Civic/Exl-20/Honda-Civic-Exl-20-2021-Curitiba-Parana-S3.html",
     "carros/Honda/Civic/Touring-15/Honda-Civic-Touring-15-2021-Curitiba-Parana-S1.html",
+    "componentes/estoque.css",
+    "componentes/filtro.css",
     "config.json",
     "estoque.xml",
     "index.html",

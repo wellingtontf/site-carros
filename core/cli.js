@@ -9,6 +9,7 @@
 //   node core/cli.js historico
 //   node core/cli.js atualizar [a.com.br,b.com.br] [--publicar]   busca o estoque em config/fontes.json e refaz só o que mudou
 //   node core/cli.js publicar                           publica só o que mudou e ainda não foi publicado (config/publicacao.json)
+//   node core/cli.js componentes [nome]                 lista os componentes e todas as opções
 //   node core/cli.js sitemap [a.com.br,b.com.br]        reconstrói o sitemap.xml (páginas + carros no ar; core/sitemap.js)
 //   node core/cli.js fotos [a.com.br,b.com.br]          baixa e converte as fotos por URL pendentes e refaz os sites (config/fotos.json)
 // Depois de aplicar, gere os sites: node core/build.js --sites a.com.br   e publique as pastas de sites-public/.
@@ -260,6 +261,19 @@ function mostrarHistorico() {
       const r = await publicarPendentes({});
       process.exit(r.falhas.length ? 2 : 0);
       break;
+    }
+    case 'componentes': {
+      // node core/cli.js componentes [nome]   lista os componentes e todas as opções (do componente.json)
+      const Comp = require('./componentes');
+      for (const n of args._[0] ? [args._[0]] : Comp.listar()) {
+        const c = Comp.carregar(n);
+        console.log(`\n${n}: ${c.def.descricao || ''}`);
+        for (const [k, d] of Object.entries(c.opcoes)) {
+          const tipo = d.tipo || (typeof d.padrao === 'boolean' ? 'booleano' : typeof d.padrao === 'number' ? 'numero' : 'texto');
+          console.log(`  ${k.padEnd(16)} ${tipo.padEnd(9)} padrão ${JSON.stringify(d.padrao)}${d.valores ? ` · aceita: ${d.valores.join(', ')}` : ''}${d.descricao ? ` · ${d.descricao}` : ''}`);
+        }
+      }
+      return;
     }
     case 'sitemap': {
       // node core/cli.js sitemap [dominio1,dominio2]  reconstrói o sitemap.xml a partir do que está gerado

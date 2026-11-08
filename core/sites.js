@@ -94,7 +94,7 @@ function registrarRascunho(d) {
 // AVISO: "whatsap" escrito errado gravaria sem efeito e o site ficaria sem WhatsApp sem ninguém perceber.
 const CAMPOS_SITE = new Set(['inquilino', 'nome', 'slogan', 'template', 'motor', 'url', 'whatsapp', 'fotosBase', 'cor', 'tema', 'textos',
   'cabecalho', 'rodape', 'lojas', 'empresa', 'vendedores', 'busca', 'filtros', 'ordenacao', 'restricoes', 'estoque', 'paginasFiltro',
-  'formatoUrls', 'avisoCookies', 'paginasPadrao', 'pagina404', 'retencaoVendidosDias', 'retencaoRedirecionamentoDias', 'robots', 'feedXml', 'rascunho']);
+  'formatoUrls', 'avisoCookies', 'paginasPadrao', 'pagina404', 'retencaoVendidosDias', 'retencaoRedirecionamentoDias', 'robots', 'feedXml', 'rascunho', 'componentes']);
 const avisosSite = (s) => (s && typeof s === 'object' ? Object.keys(s).filter((k) => !CAMPOS_SITE.has(k)).map((k) => `campo "${k}" não é usado pela plataforma (erro de digitação?)`) : []);
 
 // página de blocos de um site (sites-config/<dominio>/paginas/<caminho>.json): formato e blocos que o template do site tem
@@ -107,7 +107,10 @@ function validarPagina(dominio, caminho, pagina) {
   const s = existe(dominio) ? carregar(dominio) : null;
   if (s && Array.isArray(pagina.blocos)) {
     const dir = Inq.dirTemplate(Inq.doSite(s), s.template);
-    pagina.blocos.forEach((b, i) => { if (!b || !/^[a-z0-9-]+$/.test(String(b.tipo)) || !fs.existsSync(path.join(dir, 'blocos', `${b.tipo}.html`))) erros.push(`bloco ${i + 1}: tipo "${b && b.tipo}" não existe no template "${s.template}"`); });
+    pagina.blocos.forEach((b, i) => {
+      if (b && b.tipo === 'componente') { require('./componentes').validar(b.nome, b.opcoes, `bloco ${i + 1}`).forEach((x) => erros.push(`bloco ${i + 1}: ${x}`)); return; }
+      if (!b || !/^[a-z0-9-]+$/.test(String(b.tipo)) || !fs.existsSync(path.join(dir, 'blocos', `${b.tipo}.html`))) erros.push(`bloco ${i + 1}: tipo "${b && b.tipo}" não existe no template "${s.template}"`);
+    });
     if (pagina.blocos.filter((b) => b && b.tipo === 'listagem').length > 1) erros.push('só pode ter um bloco "listagem" por página');
   }
   return erros;
@@ -135,6 +138,11 @@ function validarSite(s, dominio) {
   for (const k of ['filtros', 'ordenacao']) if (s[k] != null && !Array.isArray(s[k])) e(`"${k}" deve ser lista`);
   if (s.paginas != null) e('"paginas" não vai no cadastro: cada página é um arquivo em sites-config/<dominio>/paginas/ (index.json = home, lojas.json...)');
   if (s.rascunho != null && typeof s.rascunho !== 'boolean') e('"rascunho" deve ser true ou false');
+  // "componentes": { "estoque": { "cor": "#c00" } } = opções dos componentes para o site inteiro
+  if (s.componentes != null) {
+    if (typeof s.componentes !== 'object' || Array.isArray(s.componentes)) e('"componentes" deve ser um objeto: { "estoque": { "cor": "#c00000" } }');
+    else for (const [n, op] of Object.entries(s.componentes)) require('./componentes').validar(n, op, `componentes.${n}`).forEach(e);
+  }
   if (s.robots != null) { const r = require('./robots').validarRobots(s.robots); r.erros.forEach((x) => e(`robots: ${x}`)); }
   if (s.feedXml != null && s.feedXml !== false && !(typeof s.feedXml === 'object' && typeof s.feedXml.caminho === 'string' && /^[a-z0-9][a-z0-9_/-]*\.xml$/.test(s.feedXml.caminho))) e('"feedXml" deve ser false ou { "caminho": "estoque.xml" }');
   // lojas: opcionais num site novo (sem lojas, o site sobe sem estoque); se vierem, cada uma completa
