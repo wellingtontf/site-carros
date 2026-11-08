@@ -1,7 +1,7 @@
 // Inquilinos (multi-tenant): a plataforma hospeda sites de mais de uma empresa (Revenda Mais, Webmotors, terceiros...).
 // Cada site pertence a UM inquilino ("inquilino" no site.json) e cada inquilino tem a SUA configuração:
 //
-//   inquilinos/<id>/inquilino.json   { "nome": "Revenda Mais", "templates": ["servopa", ...], "rascunhos": { "padrao": "site{n}.carro57.com.br" } }
+//   inquilinos/<id>/inquilino.json   { "nome": "Revenda Mais", "templates": ["template-basico", ...], "rascunhos": { "padrao": "site{n}.carro57.com.br" } }
 //                                    templates ausente = todos; rascunhos ausente = sem rascunho automático
 //   inquilinos/<id>/config/<arquivo> fotos.json, infra.json, publicacao.json, robots.txt, site-modelo.json
 //                                    (o que não estiver aqui vem de config/<arquivo>, a configuração global)

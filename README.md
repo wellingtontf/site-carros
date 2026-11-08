@@ -154,7 +154,7 @@ Site antigo com `"paginas"` no `site.json`: o build recusa e explica; `node ferr
 | `formulario` | `titulo`, `subtitulo`, `botao`, `aviso`, `mensagem`, `campos[{rotulo, tipo, obrigatorio, dica, meia, opcoes}]` — envia pelo WhatsApp (site estático não tem servidor) |
 | `chamada` | `titulo`, `texto`, `botao`, `mensagem`, `fundo` — faixa com botão de WhatsApp |
 
-Blocos do template `servopa`: `carrossel` (`slides[{imagem, alt, link | mensagem}]`), `carrocerias` (atalhos por tipo, vindos do estoque), `busca` (marca com total, modelo dependente, preço e ano dos filtros do site, `atalhos`), `listagem` (`titulo`, `subtitulo`, `quantidade`, `filtros`, `botao`), `vitrine`, `chamada` (`link` ou `mensagem`), `titulo`, `texto`, `banner`, `lojas` (as lojas do site, com endereço, telefone e estoque de cada uma) e `formulario`.
+Blocos do template `template-basico`: `carrossel` (`slides[{imagem, alt, link | mensagem}]`), `carrocerias` (atalhos por tipo, vindos do estoque), `busca` (marca com total, modelo dependente, preço e ano dos filtros do site, `atalhos`), `listagem` (`titulo`, `subtitulo`, `quantidade`, `filtros`, `botao`), `vitrine`, `chamada` (`link` ou `mensagem`), `titulo`, `texto`, `banner`, `lojas` (as lojas do site, com endereço, telefone e estoque de cada uma) e `formulario`.
 
 ## Para o web designer: criar páginas sem mexer em nada do sistema
 Você só cria **arquivos HTML** numa pasta. Sem JSON, sem configuração, sem programação.

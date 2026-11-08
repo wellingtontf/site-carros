@@ -1,4 +1,4 @@
-/* Template "servopa": azul da marca (--cor), preto/cinza escuro, cards com ano/preço em destaque,
+/* Template "template-basico": azul da marca (--cor), preto/cinza escuro, cards com ano/preço em destaque,
    /multipla com filtros na lateral. Base comum em base.css. */
 :root{--escuro:#1c1c1c;--cinza:#424242;--bd:#e3e5ea;--mut:#6b7280;--larg:1240px;--zap:#25d366}
 body{background:var(--fundo)}

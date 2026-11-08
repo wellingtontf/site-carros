@@ -77,7 +77,7 @@ test('domínio é único na plataforma; templates liberados por inquilino; o inq
   assert.equal(usado.status, 409);
   assert.match(usado.j.erro, /em uso/);
   assert.doesNotMatch(usado.j.erro, /revenda/i, 'não conta de quem é');
-  const tpl = await req('POST', '/v1/sites', { corpo: { dominio: 'nova-wm.com.br', cadastro: { template: 'servopa' } }, token: tokWM });
+  const tpl = await req('POST', '/v1/sites', { corpo: { dominio: 'nova-wm.com.br', cadastro: { template: 'template-basico' } }, token: tokWM });
   assert.equal(tpl.status, 422);
   assert.match(tpl.j.erros.join(' '), /não está liberado para o inquilino "webmotors"/);
   // PUT sem "inquilino": continua da Webmotors

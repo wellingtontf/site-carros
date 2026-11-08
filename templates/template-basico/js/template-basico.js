@@ -1,4 +1,4 @@
-// Template "servopa": WhatsApp (.js-zap, com a loja do carro em data-loja), total do estoque (.js-total),
+// Template "template-basico": WhatsApp (.js-zap, com a loja do carro em data-loja), total do estoque (.js-total),
 // carrossel, busca da home (modelo depende da marca), formulário por WhatsApp e menu do celular.
 (async () => {
   const REL = document.body.dataset.rel || '';
