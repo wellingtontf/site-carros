@@ -2,5 +2,6 @@
   "versao": "v2",
   "data": "2026-11-07 20:35",
   "nota": "Ordenação 'destaque' (ordem do estoque, padrão), filtro de carroceria, valores vazios não viram opção",
-  "origem": "rascunho"
+  "origem": "rascunho",
+  "sha256": "0ab717e195fd41ff3a4468509784d84748922f1d73591f4ccc5dbef8614e3e81"
 }

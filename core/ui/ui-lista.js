@@ -11,7 +11,8 @@
     Motor.carregarConfig(`${REL}config.json`), // para o WhatsApp de cada card ([[zap]])
   ]);
   const idLoja = Object.fromEntries(Object.entries(cfg.lojas || {}).map(([id, l]) => [l.nome, id]));
-  motor.aplicarQuery(location.search);
+  // página fixa de filtro (/multipla/marca/toyota/): o <body data-filtro="marca=Toyota"> vale quando a URL não traz outro
+  motor.aplicarQuery(location.search || document.body.dataset.filtro || '');
   Motor.vendedor(); // guarda ?v= se existir
 
   // busca e ordenação

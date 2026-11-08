@@ -12,7 +12,9 @@
     "texto": "#1c1c1c",
     "raio": 8,
     "fonteGoogle": "Montserrat",
-    "colunas": 250
+    "colunas": 250,
+    "logo": "assets/logo.webp",
+    "logoRodape": "assets/logo-branco.webp"
   },
   "textos": {
     "busca": "Busque por marca, modelo, versão...",
@@ -50,7 +52,7 @@
       },
       {
         "rotulo": "LGPD",
-        "link": "https://www.gruposervopa.com.br/lgpd"
+        "link": "lgpd/"
       }
     ]
   },
@@ -68,10 +70,6 @@
       {
         "rotulo": "Contato",
         "link": "contato/"
-      },
-      {
-        "rotulo": "LGPD",
-        "link": "https://www.gruposervopa.com.br/lgpd"
       },
       {
         "rotulo": "Avaliação",
@@ -100,7 +98,11 @@
         "link": "https://www.facebook.com/seminovosgruposervopa"
       }
     ],
-    "credito": "Desenvolvido por Revenda Mais"
+    "credito": "Desenvolvido por Revenda Mais",
+    "contato": {
+      "rotulo": "Contato",
+      "link": "contato/"
+    }
   },
   "lojas": {
     "servopa-curitiba-marechal": {
@@ -262,6 +264,12 @@
       "uf": "PR",
       "endereco": "Rua Jerônimo Durski, 925 - Batel - Curitiba - PR",
       "telefone": "(41) 3340-6650"
+    },
+    "grupo-servopa-seminovos-ribeirao-preto": {
+      "nome": "Grupo Servopa Seminovos Ribeirão Preto",
+      "cidade": "Ribeirão Preto",
+      "uf": "SP",
+      "endereco": "Ribeirão Preto - SP"
     }
   },
   "busca": true,
@@ -355,7 +363,7 @@
             {
               "imagem": "assets/banner-6.webp",
               "alt": "Sua próxima aventura começa aqui: motos",
-              "link": "multipla/?carroceria=Moto"
+              "link": "multipla/carroceria/moto/"
             },
             {
               "imagem": "assets/banner-7.webp",
@@ -375,7 +383,7 @@
           "atalhos": [
             {
               "rotulo": "Motos",
-              "link": "multipla/?carroceria=Moto"
+              "link": "multipla/carroceria/moto/"
             },
             {
               "rotulo": "Premium",
@@ -412,7 +420,7 @@
         {
           "tipo": "titulo",
           "titulo": "Nossas lojas",
-          "subtitulo": "23 lojas no Paraná e no Rio Grande do Sul. Atendimento: 0800-999-2000."
+          "subtitulo": "24 lojas no Paraná, no Rio Grande do Sul e em São Paulo. Atendimento: 0800-999-2000."
         },
         {
           "tipo": "lojas"
@@ -475,6 +483,7 @@
                 "Paranaguá",
                 "Ponta Grossa",
                 "Porto Alegre",
+                "Ribeirão Preto",
                 "São José dos Pinhais",
                 "Umuarama"
               ]

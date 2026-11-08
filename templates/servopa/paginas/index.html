@@ -2,15 +2,16 @@
 <html lang="pt-BR">
 <head>
 {{> head}}
-<title>Estoque de seminovos | {{site.nome}}</title>
-<meta name="description" content="Estoque completo do {{site.nome}}: {{estoque.total}} veículos com 1 ano de garantia.">
+<title>{{listagem.titulo}}</title>
+<meta name="description" content="{{listagem.descricao}}">
+{{{listagem.canon}}}
 </head>
-<body data-page="lista" data-base="{{base}}" data-rel="{{rel}}">
+<body data-page="lista" data-base="{{base}}" data-rel="{{rel}}" data-filtro="{{listagem.filtro}}">
 {{> cabecalho}}
 {{{blocosAntes}}}
 <main class="multipla">
   <div class="multipla-topo">
-    <h1>Estoque <small>(<span id="contagem"></span>)</small></h1>
+    <h1>{{listagem.h1}} <small>(<span id="contagem"></span>)</small></h1>
     <label class="ordenar">Ordenar por <select id="ord" aria-label="Ordenar"></select></label>
   </div>
   <div class="multipla-corpo">

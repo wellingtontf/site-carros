@@ -2,5 +2,6 @@
   "versao": "v1",
   "data": "2026-11-07 18:11",
   "nota": "Primeira versão: busca, filtros em cascata, busca aproximada",
-  "origem": "rascunho"
+  "origem": "rascunho",
+  "sha256": "36ef7ebc7e6afcaa3559c01ed8ed9871504b1c731045e500ec83e35277c2c8ef"
 }

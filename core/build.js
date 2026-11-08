@@ -17,17 +17,23 @@
 //   multipla/index.html                  ← templates/<nome>/paginas/index.html (a listagem do estoque; sempre em /multipla)
 //   carros/<Marca>/<Modelo>/<Versao>/<...>-<id>.html ← templates/<nome>/paginas/carro.html (e vendido.html); regra em core/ui/link-carro.js
 //   <caminho>/index.html                 ← templates/<nome>/paginas/pagina.html + blocos/<tipo>.html ("paginas" no site.json)
-//   carros.json, config.json, sitemap.xml, robots.txt
+//   multipla/<campo>/<valor>/index.html  ← páginas fixas de filtro (marca, cidade, carroceria): a listagem já filtrada,
+//                                          com título próprio e os carros no HTML (SEO). "paginasFiltro" no site.json
+//   carros.json, config.json, sitemap.xml (com <lastmod> = quando cada página mudou de verdade), robots.txt
 //
 // Páginas de conteúdo (home institucional, "quero vender", política...) são listas de BLOCOS no site.json:
 //   "paginas": [ { "caminho": "", "titulo": "...", "blocos": [ { "tipo": "banner", "imagem": "assets/x.webp" }, ... ] } ]
-// Cada tipo de bloco é um HTML do template (templates/<nome>/blocos/<tipo>.html). Campos de link/imagem com caminho
+// Cada tipo de bloco é um HTML do template (templates/<nome>/blocos/<tipo>.html).
+// Páginas que TODO site ganha (contato, privacidade, cookies, LGPD) vêm de paginas-padrao/<nome>.json, com
+// {{site.nome}}, {{site.dominio}}, {{empresa.cnpj}}, {{rel}}... preenchidos por site. O site substitui uma delas com uma
+// página de mesmo "caminho" em "paginas", ou desliga com "paginasPadrao": { "<nome>": false }. Campos de link/imagem com caminho
 // relativo (link, imagem, foto, logo...) recebem o prefixo certo para a página onde aparecem.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const C = require('./caminhos');
 const LinkCarro = require('./ui/link-carro.js'); // regra do link da página do carro (a mesma usada no navegador)
+const PL = require('./paginas-livres'); // páginas livres dos web designers (HTML normal)
 
 const ROOT = C.ROOT;
 const ESTADO = C.ESTADO;
@@ -36,7 +42,16 @@ const TEXTOS_PADRAO = { botaoWhatsapp: 'Tenho interesse (WhatsApp)', busca: 'Bus
 const TEMA_PADRAO = { cor: '#0b5fff', fundo: '#f5f6f8', texto: '#1b2430', raio: 12, colunas: 250, fonte: 'system-ui,-apple-system,"Segoe UI",Roboto,sans-serif' };
 const ID_SITE = /^(?=.{3,253}$)([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/; // o id do site é o domínio (nome da pasta)
 const PAGINAS = ['index.html', 'carro.html', 'vendido.html', 'pagina.html'];
+// blocos que todo template precisa ter: home padrão (banner, vitrine) e páginas padrão (titulo, texto, formulario, lojas)
+const BLOCOS_OBRIGATORIOS = ['banner', 'vitrine', 'titulo', 'texto', 'formulario', 'lojas'];
+const AVISO_COOKIES_PADRAO = 'Usamos cookies para melhorar sua experiência e, se ativadas, ferramentas de medição. Ao continuar, você concorda.';
 const CAMINHO_ESTOQUE = 'multipla'; // a listagem do estoque fica SEMPRE em /multipla; a raiz é a home institucional
+// páginas fixas de filtro: campo do carro → pasta em /multipla/ (padrão quando o site não define "paginasFiltro")
+const FILTROS_PAGINA = { marca: 'marca', cidade: 'cidade', carroceria: 'carroceria', combustivel: 'combustivel', modelo: 'modelo' };
+const PAGINAS_FILTRO_PADRAO = ['marca', 'cidade', 'carroceria'];
+// filtros que o motor de cada versão conhece sem configuração (a página de filtro só existe se o filtro existir no motor)
+const FILTROS_MOTOR_V1 = ['estado', 'cidade', 'loja', 'marca', 'modelo', 'ano', 'preco', 'km', 'cambio', 'combustivel', 'cor'];
+const CARDS_POR_PAGINA = 24; // padrão da ui-lista (data-pagina no #grade muda)
 // home de quem não configurou uma (o template precisa ter os blocos "banner" e "vitrine")
 const HOME_PADRAO = (site) => [
   { tipo: 'banner', titulo: site.nome, subtitulo: site.slogan || '' },
@@ -49,7 +64,12 @@ const RETENCAO_PADRAO_DIAS = 30; // quanto tempo a página de um carro que saiu 
 const REDIRECIONAMENTO_PADRAO_DIAS = 180; // quanto tempo um link antigo de carro (que mudou de endereço) continua redirecionando
 
 const sha = (s) => crypto.createHash('sha1').update(s).digest('hex');
-const RENDER_VERSION = sha(fs.readFileSync(__filename)); // mudou este arquivo → refaz todas as páginas (por segurança)
+// VERSAO_HTML: aumente quando uma mudança NESTE arquivo alterar o HTML/JSON gerado. Mudar a versão refaz as páginas de
+// TODOS os sites (com 2500 sites, ~1 milhão de arquivos para publicar), então não amarramos isso ao arquivo inteiro:
+// um comentário ou refatoração não deve refazer nada. O teste tests/snapshot-html.test.js avisa se a saída mudou e a
+// versão não (e vice-versa). Templates, tema, textos e dados do site já entram no hash de cada site por conta própria.
+const VERSAO_HTML = 3; // 2: cards no HTML, páginas de filtro, <lastmod>; 3: páginas padrão (contato, privacidade, cookies, LGPD)
+const RENDER_VERSION = `html-${VERSAO_HTML}`;
 
 const lerJSON = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 const lerJSONSeExiste = (p, padrao) => { try { return lerJSON(p); } catch (e) { return padrao; } };
@@ -112,11 +132,12 @@ function listarArvore(dir, pular = () => false, prefixo = '') {
   }
   return m;
 }
-function hashDir(dir) {
+function hashDir(dir, pular = () => false) {
   const h = crypto.createHash('sha1');
   const andar = (d) => {
     for (const e of fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
       const p = path.join(d, e.name);
+      if (pular(path.relative(dir, p))) continue;
       if (e.isDirectory()) andar(p); else { h.update(path.relative(ROOT, p)); h.update(fs.readFileSync(p)); }
     }
   };
@@ -201,7 +222,21 @@ function juntar(site) {
   return carros;
 }
 
-function construir({ sites = null, motor = null, saida = null, completo = false, efemero = false } = {}) {
+// hoje: "AAAA-MM-DD" (padrão: a data atual; SITE_CARROS_HOJE ou o parâmetro servem para testar prazos de retenção)
+// paginas-padrao/*.json (lidas uma vez por build)
+function lerPaginasPadrao() {
+  if (!fs.existsSync(C.PAGINAS_PADRAO)) return [];
+  return fs.readdirSync(C.PAGINAS_PADRAO).filter((f) => f.endsWith('.json')).sort().map((f) => {
+    const p = lerJSON(path.join(C.PAGINAS_PADRAO, f));
+    if (!p.caminho || !Array.isArray(p.blocos)) throw new Error(`paginas-padrao/${f}: precisa de "caminho" e "blocos"`);
+    return { ...p, nome: f.replace(/\.json$/, '') };
+  });
+}
+// preenche {{site.nome}}, {{rel}}... em todos os textos de uma página padrão
+const preencherTextos = (o, ctx) => (typeof o === 'string' ? render(o, ctx) : Array.isArray(o) ? o.map((x) => preencherTextos(x, ctx))
+  : o && typeof o === 'object' ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, preencherTextos(v, ctx)])) : o);
+
+function construir({ sites = null, motor = null, saida = null, completo = false, efemero = false, hoje: hojeParam = null } = {}) {
   const pasta = saida || (motor ? 'dist-preview' : 'dist');
   const DIST = C.saida(pasta);
   const todos = listarSites();
@@ -210,9 +245,13 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     : todos;
   fs.mkdirSync(DIST, { recursive: true });
   const hashTpl = new Map();
-  const tplHash = (nome) => { if (!hashTpl.has(nome)) hashTpl.set(nome, sha(hashDir(C.template(nome)))); return hashTpl.get(nome); };
-  const hoje = new Date().toISOString().slice(0, 10);
+  // paginas-extras/ fica de fora: editar uma página livre do template não deve refazer as páginas de carro de todos os sites
+  const tplHash = (nome) => { if (!hashTpl.has(nome)) hashTpl.set(nome, sha(hashDir(C.template(nome), (r) => r === 'paginas-extras'))); return hashTpl.get(nome); };
+  const hoje = hojeParam || process.env.SITE_CARROS_HOJE || new Date().toISOString().slice(0, 10);
   const feitos = [];
+  const PADRAO = lerPaginasPadrao();
+  const provisorias = PADRAO.filter((p) => p.provisorio).map((p) => p.nome);
+  if (provisorias.length) console.warn(`  aviso: páginas padrão com TEXTO PROVISÓRIO (falta o texto do jurídico): ${provisorias.map((n) => `paginas-padrao/${n}.json`).join(', ')}`);
 
   for (const site of alvo) {
     if (!ID_SITE.test(String(site.id))) throw new Error(`Pasta de site inválida: "sites/${site.id}" (o nome da pasta é o domínio, ex.: sites/minhaloja.com.br)`);
@@ -222,8 +261,9 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     if (!fs.existsSync(arqMotor)) throw new Error(`Site "${site.id}": motor "${versao}" não existe (core/motor/${versao}/engine.js)`);
     const nomeTpl = site.template;
     if (!nomeTpl || !fs.existsSync(C.template(nomeTpl))) throw new Error(`Site "${site.id}": template "${nomeTpl}" não existe (templates/${nomeTpl}/)`);
-    const faltam = PAGINAS.filter((p) => !fs.existsSync(C.pagina(nomeTpl, p)));
-    if (faltam.length) throw new Error(`Template "${nomeTpl}" incompleto: falta ${faltam.map((p) => `paginas/${p}`).join(', ')}`);
+    const faltam = [...PAGINAS.map((p) => [C.pagina(nomeTpl, p), `paginas/${p}`]), ...BLOCOS_OBRIGATORIOS.map((b) => [path.join(C.template(nomeTpl), 'blocos', `${b}.html`), `blocos/${b}.html`])]
+      .filter(([arq]) => !fs.existsSync(arq)).map(([, nome]) => nome);
+    if (faltam.length) throw new Error(`Template "${nomeTpl}" incompleto: falta ${faltam.join(', ')}`);
 
     // páginas de conteúdo; a home ("") é obrigatória: sem ela no site.json, o core usa HOME_PADRAO
     const cfgEstoque = site.estoque || {};
@@ -231,6 +271,37 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       console.warn(`  aviso: site "${site.id}": "estoque.caminho" foi ignorado (a listagem fica sempre em /${CAMINHO_ESTOQUE}/)`);
     const caminhoEstoque = CAMINHO_ESTOQUE;
     const paginasSite = (site.paginas || []).map((p) => ({ ...p, caminho: limparCaminho(p.caminho) }));
+    const desligadas = site.paginasPadrao || {};
+    // páginas livres dos designers (HTML normal). Prioridade de quem tem o mesmo caminho:
+    //   site.json "paginas" > sites/<dominio>/paginas/ > templates/<nome>/paginas-extras/ > paginas-padrao/
+    const livres = [
+      ...PL.lerPaginasLivres(C.paginasLivresSite(site.id)).map((p) => ({ ...p, origem: `sites/${site.id}/paginas` })),
+      ...PL.lerPaginasLivres(C.paginasLivresTemplate(nomeTpl)).map((p) => ({ ...p, origem: `templates/${nomeTpl}/paginas-extras`, doTemplate: true })),
+    ];
+    const vistosLivres = new Map();
+    for (const p of livres) {
+      const onde = `${p.origem}/${path.relative(p.origem.startsWith('sites') ? C.paginasLivresSite(site.id) : C.paginasLivresTemplate(nomeTpl), p.arquivo)}`;
+      if (vistosLivres.get(p.caminho) === p.origem) throw new Error(`Página "${p.caminho}" duplicada em ${p.origem} (existe ${p.caminho}.html e ${p.caminho}/index.html)`);
+      if (paginasSite.some((x) => x.caminho === p.caminho) || vistosLivres.has(p.caminho)) continue; // quem vem antes ganha
+      if (p.doTemplate && desligadas[p.caminho] === false) continue;
+      if (!CAMINHO_OK.test(p.caminho)) throw new Error(`Página livre ${onde}: nome inválido "${p.caminho}" (use letras minúsculas, números e hífen: ex. feirao-novembro.html)`);
+      vistosLivres.set(p.caminho, p.origem);
+      const html = fs.readFileSync(p.arquivo, 'utf8');
+      const m = PL.metadados(html, p.caminho);
+      paginasSite.push({ caminho: p.caminho, titulo: m.titulo, descricao: m.descricao, ...(m.rotulo ? { rotulo: m.rotulo } : {}), blocos: [],
+        livre: { arquivo: p.arquivo, assets: p.assets, semMoldura: m.livre, onde } });
+    }
+    // páginas padrão (contato, privacidade, cookies, LGPD): entram se o site não tem uma de mesmo caminho nem desligou
+    const extrasTpl = PL.lerPaginasLivres(C.paginasLivresTemplate(nomeTpl)).map((p) => p.caminho);
+    for (const n of Object.keys(desligadas)) if (!PADRAO.some((p) => p.nome === n) && !extrasTpl.includes(n)) console.warn(`  aviso: site "${site.id}": paginasPadrao "${n}" não existe em paginas-padrao/ nem em templates/${nomeTpl}/paginas-extras/`);
+    for (const p of PADRAO) {
+      const caminho = limparCaminho(p.caminho);
+      if (desligadas[p.nome] === false || paginasSite.some((x) => x.caminho === caminho)) continue;
+      const { nome, provisorio, ...resto } = p;
+      paginasSite.push({ ...preencherTextos(resto, {
+        site: { nome: site.nome, url: site.url || '', dominio: site.id, whatsapp: site.whatsapp || '' }, empresa: site.empresa || {}, rel: prefixo(caminho),
+      }), caminho, padrao: nome });
+    }
     if (!paginasSite.some((p) => p.caminho === '')) paginasSite.unshift({ caminho: '', titulo: site.nome, descricao: site.slogan || '', blocos: HOME_PADRAO(site) });
     const usados = new Set();
     for (const p of paginasSite) {
@@ -258,7 +329,8 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     // nomes (não as contagens) de cidades/marcas/carrocerias entram: menus e rodapés podem listá-los em todas as páginas.
     // Contagens ("1052 veículos") mudam a toda hora: use-as só na listagem e nas páginas de conteúdo (sempre refeitas).
     const nomesEstoque = ['cidade', 'marca', 'carroceria', 'combustivel'].map((k) => [...new Set(carros.map((c) => c[k]))].sort().join('|'));
-    const baseHash = sha(JSON.stringify([RENDER_VERSION, tplHash(nomeTpl), site.nome, site.slogan, site.url, site.cor, site.tema, site.textos, site.fotosBase, site.cabecalho, site.rodape, site.lojas, nomesEstoque]));
+    const baseHash = sha(JSON.stringify([RENDER_VERSION, tplHash(nomeTpl), site.nome, site.slogan, site.url, site.cor, site.tema, site.textos, site.fotosBase, site.cabecalho, site.rodape, site.lojas, nomesEstoque,
+      paginasSite.filter((p) => p.rotulo).map((p) => [p.rotulo, p.caminho])])); // links legais aparecem no rodapé das páginas de carro
     const estadoAnt = completo || efemero ? null : lerEstado(pasta, site.id);
     const incremental = !!estadoAnt && fs.existsSync(path.join(out, 'index.html'));
     if (!incremental) fs.rmSync(out, { recursive: true, force: true });
@@ -271,9 +343,10 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     escreverSe(path.join(out, 'motor', 'engine.js'), fs.readFileSync(arqMotor, 'utf8').replace(/__VERSAO__/g, versao), rel('motor/engine.js'), mud);
     const arquivos = new Map();
     for (const [k, v] of listarArvore(C.UI)) arquivos.set(`motor/${k}`, v);
-    for (const [k, v] of listarArvore(C.template(nomeTpl), (r) => ['paginas', 'blocos', 'parciais', 'template.json', 'motor', 'assets'].includes(r))) arquivos.set(k, v);
+    for (const [k, v] of listarArvore(C.template(nomeTpl), (r) => ['paginas', 'paginas-extras', 'blocos', 'parciais', 'template.json', 'motor', 'assets'].includes(r))) arquivos.set(k, v);
     for (const [k, v] of listarArvore(C.assets(site.id))) arquivos.set(`assets/${k}`, v);
     for (const [k, v] of arquivos) copiarSe(v, path.join(out, k), rel(k), mud);
+    const estaticos = new Set(arquivos.keys()); // arquivos copiados (template, assets, páginas livres): o que sumir da origem é apagado
     // {{> nome}} inclui templates/<nome>/parciais/<nome>.html (cabeçalho, rodapé... escritos uma vez só)
     const parciais = (txt, nivel = 0) => txt.replace(/\{\{>\s*([a-z0-9-]+)\s*\}\}/g, (_, n) => {
       const arq = path.join(C.template(nomeTpl), 'parciais', `${n}.html`);
@@ -296,16 +369,43 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       JSON.stringify({
         nome: site.nome, motor: versao, template: nomeTpl, whatsapp: site.whatsapp, vendedores: site.vendedores || {},
         busca: site.busca !== false, filtros: site.filtros || null, ordenacao: site.ordenacao || null, total: carros.length,
+        // aviso de cookies (core/ui/ui-site.js): link para a política de cookies, ou de privacidade, se o site tiver
+        avisoCookies: site.avisoCookies === false ? null : {
+          texto: textos.avisoCookies || AVISO_COOKIES_PADRAO,
+          link: (() => { const p = paginasSite.find((x) => x.padrao === 'politica-de-cookies') || paginasSite.find((x) => x.padrao === 'politica-de-privacidade'); return p ? `${p.caminho}/` : ''; })(),
+        },
         lojas: Object.fromEntries(usadas.map((id) => [id, { nome: lojas[id].nome, cidade: lojas[id].cidade, uf: lojas[id].uf, endereco: lojas[id].endereco || '', whatsapp: lojas[id].whatsapp || '' }])),
       }),
       rel('config.json'), mud
     );
 
+    // ---- páginas fixas de filtro (/multipla/marca/toyota/...) ----
+    // só para filtros que o motor do site tem (senão o JS da página não saberia filtrar) e com 2+ valores
+    const filtrosMotor = (site.filtros && site.filtros.length ? site.filtros.map((x) => (typeof x === 'string' ? x : x.campo))
+      : [...FILTROS_MOTOR_V1, ...(/^v\d+$/.test(versao) && Number(versao.slice(1)) < 2 ? [] : ['carroceria'])]);
+    const camposPagina = (site.paginasFiltro || PAGINAS_FILTRO_PADRAO).filter((k) => {
+      if (!FILTROS_PAGINA[k]) { console.warn(`  aviso: site "${site.id}": paginasFiltro "${k}" desconhecido (use: ${Object.keys(FILTROS_PAGINA).join(', ')})`); return false; }
+      return filtrosMotor.includes(k);
+    });
+    const paginasFiltro = new Map(); // "campo|valor" → { campo, valor, caminho, total }
+    for (const k of camposPagina) {
+      const valores = [...new Set(carros.map((c) => c[k]).filter(Boolean))];
+      if (valores.length < 2) continue; // 1 valor só: a página seria igual à /multipla (conteúdo duplicado)
+      const usados = new Set();
+      for (const v of valores.sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'))) {
+        const slug = LinkCarro.parte(v).toLowerCase();
+        if (usados.has(slug)) { console.warn(`  aviso: site "${site.id}": "${v}" tem o mesmo endereço de outro valor de ${k}; sem página própria`); continue; }
+        usados.add(slug);
+        paginasFiltro.set(`${k}|${v}`, { campo: k, valor: v, caminho: `${CAMINHO_ESTOQUE}/${FILTROS_PAGINA[k]}/${slug}`, total: carros.filter((c) => c[k] === v).length });
+      }
+    }
+
     // números e listas do estoque que qualquer página/bloco pode usar (menu de cidades, marcas no rodapé, "1052 veículos"...)
     const contar = (k) => { const m = new Map(); for (const c of carros) if (c[k]) m.set(c[k], (m.get(c[k]) || 0) + 1); return [...m].sort((a, b) => String(a[0]).localeCompare(String(b[0]), 'pt-BR')); };
     const estoqueInfo = (r) => {
       const url = r + `${CAMINHO_ESTOQUE}/`;
-      const q = (k, v) => `${url}?${k}=${encodeURIComponent(v)}`;
+      // link de um filtro: a página fixa, se existir; senão a /multipla com ?campo=valor
+      const q = (k, v) => (paginasFiltro.has(`${k}|${v}`) ? `${r}${paginasFiltro.get(`${k}|${v}`).caminho}/` : `${url}?${k}=${encodeURIComponent(v)}`);
       return {
         total: carros.length, destaques: carros.filter((c) => c.destaque).length,
         // chave = valor sem acento/espaço, em minúsculas (para classes CSS: ic-utilitario, ic-suv...)
@@ -319,7 +419,9 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     const ctx = (r) => ({
       ...ctxSite, rel: r, tema: temaDaPagina(tema, r),
       site: { nome: site.nome, slogan: site.slogan || '', url: site.url || '', textos,
-        cabecalho: resolverLinks(site.cabecalho || {}, r), rodape: resolverLinks(site.rodape || {}, r) },
+        cabecalho: resolverLinks(site.cabecalho || {}, r), rodape: resolverLinks(site.rodape || {}, r),
+        // páginas com "rotulo" (as padrão têm): para o rodapé de qualquer template ({{#site.links}})
+        links: paginasSite.filter((p) => p.rotulo && p.caminho).map((p) => ({ rotulo: p.rotulo, link: `${r}${p.caminho}/` })) },
       inicioUrl: r || './', estoqueUrl: r + `${CAMINHO_ESTOQUE}/`, estoque: estoqueInfo(r),
     });
 
@@ -365,11 +467,13 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
         d.opcoesPreco = opcoesFiltro('preco', (v) => `até ${brl(v)}`);
         d.opcoesAno = opcoesFiltro('ano', (v) => `a partir de ${v}`);
       }
-      if (b.tipo === 'lojas' && !b.itens) d.itens = estoqueInfo(r).lojas;
+      // links SEM prefixo: renderBlocos passa tudo por resolverLinks(r) depois (prefixar aqui dobrava o "../")
+      if (b.tipo === 'lojas' && !b.itens) d.itens = estoqueInfo('').lojas;
       if (Array.isArray(b.itens)) d.itens = b.itens.map((i) => (i && i.nota ? { ...i, estrelas: '★'.repeat(Math.min(5, i.nota)) } : i));
       if (Array.isArray(b.campos)) {
         d.campos = b.campos.map((c, i) => ({
           ...c, id: `campo-${i + 1}`, nome: c.rotulo || `campo ${i + 1}`,
+          ...(c.opcoesDe === 'lojas' ? { opcoes: Object.values(lojas).map((l) => l.nome) } : {}),
           ehLista: c.tipo === 'lista', ehTextoLongo: c.tipo === 'texto-longo', ehLinha: c.tipo !== 'lista' && c.tipo !== 'texto-longo',
           tipoHtml: { email: 'email', telefone: 'tel', numero: 'number' }[c.tipo] || 'text',
         }));
@@ -381,15 +485,66 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       return render(tplBloco(b.tipo), { ...ctx(r), ...d, bloco: d });
     }).join('\n');
 
-    // listagem (estoque)
+    // <lastmod> do sitemap: dia em que o conteúdo de cada página mudou de verdade (guardado no estado do build)
+    const datas = {};
+    const datasAnt = (incremental && estadoAnt.datas) || {};
+    const datar = (arqRel, escreveu) => { datas[arqRel] = escreveu || !datasAnt[arqRel] ? hoje : datasAnt[arqRel]; };
+
+    // cards já no HTML da listagem (o Google e quem está sem JS veem os carros). Usa o próprio modelo de card do
+    // template (<script type="text/html" id="tpl-card"> com [[campo]]) e os mesmos campos da ui-lista; no navegador,
+    // a ui-lista redesenha por cima.
+    const lojasMultiplas = new Set(carros.map((c) => c.lojaId)).size > 1;
+    const dadosCard = (c, r) => {
+      const nome = `${c.marca} ${c.modelo}`;
+      const local = `${c.cidade}/${c.uf}`;
+      const loja = lojas[c.lojaId] || {};
+      return {
+        id: c.id, nome, versao: c.versao, ano: c.ano, km: `${c.km.toLocaleString('pt-BR')} km`, cambio: c.cambio, cor: c.cor,
+        combustivel: c.combustivel, carroceria: c.carroceria || '', preco: brl(c.preco), loja: c.loja, local,
+        lojaLocal: lojasMultiplas ? `${c.loja} · ${local}` : local, href: r + LinkCarro.caminho(c),
+        zap: `https://wa.me/${loja.whatsapp || site.whatsapp || ''}?text=${encodeURIComponent(`Olá! Tenho interesse no ${nome} ${c.versao} ${c.ano} (ref. ${c.id}). Ainda está disponível?`)}`,
+        imgattrs: base && c.fotos
+          ? `src="${esc(foto(base, c.id, 1, 400))}" srcset="${esc(foto(base, c.id, 1, 400))} 400w, ${esc(foto(base, c.id, 1, 800))} 800w" sizes="(max-width:600px) 100vw, 300px" data-fb="${esc(nome)}"`
+          : `src="${ph(nome)}"`,
+      };
+    };
+    const comCards = (html, lista, r) => {
+      const modelo = (html.match(/<script type="text\/html" id="tpl-card">([\s\S]*?)<\/script>/) || [])[1];
+      if (!modelo) return html;
+      return html.replace(/(<div id="grade"[^>]*>)\s*(<\/div>)/, (_, abre, fecha) => {
+        const n = Number((abre.match(/data-pagina="(\d+)"/) || [])[1]) || CARDS_POR_PAGINA;
+        const cards = lista.slice(0, n).map((c) => {
+          const d = dadosCard(c, r);
+          return modelo.replace(/\[\[(\w+)\]\]/g, (m, k) => (k === 'imgattrs' ? d[k] : k in d ? esc(d[k]) : m)).trim();
+        }).join('\n');
+        return `${abre}\n${cards}\n${fecha}`;
+      });
+    };
+
     const geradas = []; // páginas de listagem e de conteúdo (para apagar as que deixarem de existir)
-    {
-      const r = prefixo(caminhoEstoque);
-      const arqRel = caminhoEstoque ? `${caminhoEstoque}/index.html` : 'index.html';
+    const tplLista = pagina('index.html');
+    const raizUrlSite = site.url ? site.url.replace(/\/$/, '') : '';
+    // listagem: /multipla e cada página de filtro (mesmo template, com o filtro já aplicado e os carros dele no HTML)
+    const listagens = [{ caminho: caminhoEstoque, filtro: null }, ...[...paginasFiltro.values()].map((p) => ({ caminho: p.caminho, filtro: p }))];
+    for (const l of listagens) {
+      const r = prefixo(l.caminho);
+      const arqRel = `${l.caminho}/index.html`;
       geradas.push(arqRel);
-      escreverSe(path.join(out, arqRel), render(pagina('index.html'), {
-        ...ctx(r), blocosAntes: renderBlocos(cfgEstoque.blocosAntes, r), blocosDepois: renderBlocos(cfgEstoque.blocosDepois, r),
-      }), rel(arqRel), mud);
+      const f = l.filtro;
+      const lista = f ? carros.filter((c) => c[f.campo] === f.valor) : carros;
+      const h1 = !f ? 'Estoque' : f.campo === 'cidade' ? `Seminovos em ${f.valor}` : f.campo === 'marca' || f.campo === 'modelo' ? `${f.valor} seminovos` : `${f.valor} seminovos`;
+      const listagem = {
+        h1, total: lista.length,
+        titulo: !f ? `Estoque de seminovos | ${site.nome}` : `${h1} | ${site.nome}`,
+        descricao: !f ? `${carros.length} veículos à venda no ${site.nome}. ${site.slogan || ''}`.trim()
+          : `${lista.length} ${lista.length === 1 ? 'veículo' : 'veículos'}: ${h1.toLowerCase()} à venda no ${site.nome}.`,
+        filtro: f ? `${f.campo}=${encodeURIComponent(f.valor)}` : '', // a ui-lista aplica isto ao abrir (data-filtro no <body>)
+        canon: raizUrlSite ? `<link rel="canonical" href="${esc(raizUrlSite)}/${esc(l.caminho)}/">` : '',
+      };
+      const html = render(tplLista, {
+        ...ctx(r), listagem, blocosAntes: renderBlocos(cfgEstoque.blocosAntes, r), blocosDepois: renderBlocos(cfgEstoque.blocosDepois, r),
+      });
+      datar(arqRel, escreverSe(path.join(out, arqRel), comCards(html, lista, r), rel(arqRel), mud));
     }
     // páginas de conteúdo
     const tplPagina = pagina('pagina.html');
@@ -398,12 +553,30 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       const arqRel = p.caminho ? `${p.caminho}/index.html` : 'index.html';
       geradas.push(arqRel);
       const canon = site.url ? `<link rel="canonical" href="${esc(site.url.replace(/\/$/, ''))}/${p.caminho ? esc(p.caminho) + '/' : ''}">` : '';
-      const listagens = p.blocos.filter((b) => b.tipo === 'listagem').length;
-      if (listagens > 1) throw new Error(`Site "${site.id}", página "${p.caminho || '(raiz)'}": só pode ter um bloco "listagem"`);
-      escreverSe(path.join(out, arqRel), render(tplPagina, {
+      if (p.livre) {
+        // página do designer: variáveis {{ }} (se usar), links "/x" relativos, e moldura do site ou só o essencial
+        let html;
+        try { html = PL.linksRelativos(render(fs.readFileSync(p.livre.arquivo, 'utf8'), ctx(r)), r); }
+        catch (e) { throw new Error(`Página livre ${p.livre.onde}: ${e.message}`); }
+        const final = p.livre.semMoldura ? PL.completarLivre(html, r, { titulo: p.titulo, descricao: p.descricao })
+          : render(tplPagina, { ...ctx(r), pagina: { titulo: p.titulo, descricao: p.descricao || site.slogan || '' }, canon, conteudo: html, temListagem: false });
+        datar(arqRel, escreverSe(path.join(out, arqRel), final, rel(arqRel), mud));
+        for (const [k, v] of p.livre.assets) { const destino = `${p.caminho}/${k}`; copiarSe(v, path.join(out, destino), rel(destino), mud); estaticos.add(destino); }
+        continue;
+      }
+      const nListagem = p.blocos.filter((b) => b.tipo === 'listagem').length;
+      if (nListagem > 1) throw new Error(`Site "${site.id}", página "${p.caminho || '(raiz)'}": só pode ter um bloco "listagem"`);
+      datar(arqRel, escreverSe(path.join(out, arqRel), render(tplPagina, {
         ...ctx(r), pagina: { titulo: p.titulo || site.nome, descricao: p.descricao || site.slogan || '' }, canon, conteudo: renderBlocos(p.blocos, r),
-        temListagem: listagens > 0, // a página carrega o motor + ui-lista (ids da listagem: ver README)
-      }), rel(arqRel), mud);
+        temListagem: nListagem > 0, // a página carrega o motor + ui-lista (ids da listagem: ver README)
+      }), rel(arqRel), mud));
+    }
+    // arquivo copiado que não existe mais na origem (imagem tirada da página do designer, css removido do template...)
+    for (const arq of (incremental && estadoAnt.estaticos) || []) {
+      if (estaticos.has(arq)) continue;
+      fs.rmSync(path.join(out, arq), { force: true });
+      mud.removidos.push(rel(arq));
+      for (let d = path.dirname(path.join(out, arq)); d.startsWith(out + path.sep); d = path.dirname(d)) { try { fs.rmdirSync(d); } catch (e) { break; } }
     }
     // página que saiu do site.json (ou listagem que mudou de lugar): apaga
     for (const arqRel of (incremental && estadoAnt.paginas) || []) {
@@ -440,7 +613,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       hashes[c.id] = h;
       const antes = incremental ? estadoAnt.carros[c.id] : undefined;
       const arq = path.join(out, link);
-      if (!baseMudou && antes === h && fs.existsSync(arq)) { inalterados++; continue; }
+      if (!baseMudou && antes === h && fs.existsSync(arq)) { inalterados++; datar(link, false); continue; }
       if (incremental) { if (antes === undefined) novos++; else alterados++; }
       const canon = raizUrl ? `<link rel="canonical" href="${esc(raizUrl)}/${esc(link)}"><meta property="og:url" content="${esc(raizUrl)}/${esc(link)}">` : '';
       const og =
@@ -471,14 +644,15 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
         ],
         opcionais: c.opcionais, endereco: lojas[c.lojaId].endereco || '', principalAttrs, fotos,
       };
-      escreverSe(arq, render(tplCarro, { ...ctx(relDe(link)), carro, og }), rel(link), mud);
+      datar(link, escreverSe(arq, render(tplCarro, { ...ctx(relDe(link)), carro, og }), rel(link), mud));
     }
 
     // sitemap e robots: é por aqui que o Google descobre as páginas dos carros (a listagem é montada por JS)
     if (raizUrl) {
-      const urls = [...geradas.map((g) => `${raizUrl}/${g.replace(/index\.html$/, '')}`), ...carros.map((c) => `${raizUrl}/${links[c.id]}`)];
+      // <lastmod>: dia em que a página mudou de verdade (o Google revisita só o que mudou)
+      const urls = [...geradas.map((g) => [`${raizUrl}/${g.replace(/index\.html$/, '')}`, datas[g]]), ...carros.map((c) => [`${raizUrl}/${links[c.id]}`, datas[links[c.id]]])];
       escreverSe(path.join(out, 'sitemap.xml'),
-        `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `<url><loc>${esc(u)}</loc></url>`).join('\n')}\n</urlset>\n`, rel('sitemap.xml'), mud);
+        `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(([u, d]) => `<url><loc>${esc(u)}</loc>${d ? `<lastmod>${d}</lastmod>` : ''}</url>`).join('\n')}\n</urlset>\n`, rel('sitemap.xml'), mud);
       escreverSe(path.join(out, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${raizUrl}/sitemap.xml\n`, rel('robots.txt'), mud);
     }
 
@@ -528,7 +702,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     }
 
     if (!efemero) {
-      gravarEstado(pasta, site.id, { render: RENDER_VERSION, base: baseHash, carros: hashes, links, titulos, vendidos, redirecionados, paginas: geradas, em: new Date().toISOString() });
+      gravarEstado(pasta, site.id, { render: RENDER_VERSION, base: baseHash, carros: hashes, links, titulos, vendidos, redirecionados, paginas: geradas, datas, estaticos: [...estaticos].sort(), em: new Date().toISOString() });
       registrarPendente(pasta, site.id, mud, !incremental);
     }
 
@@ -554,7 +728,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
   return { pasta, feitos };
 }
 
-module.exports = { construir, listarSites, carregarSite, idsSites, ID_SITE };
+module.exports = { construir, listarSites, carregarSite, idsSites, ID_SITE, render, resolverLinks, VERSAO_HTML };
 
 if (require.main === module) {
   const a = process.argv.slice(2);

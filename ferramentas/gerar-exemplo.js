@@ -110,11 +110,12 @@ const SITES = [
     { loja: 'campinas', prefixo: 'OC', total: 120, modelos: MODELOS.filter((m) => m[3] <= 70000) },
     { loja: 'sp-centro', prefixo: 'OS', total: 80, modelos: MODELOS.filter((m) => m[3] <= 70000) },
   ] },
-  { dominio: 'gruposervopaseminovos.com.br', ordem: true, lojas: [ // 23 lojas, ~1050 carros, com "ordem" e "destaque"
+  { dominio: 'gruposervopaseminovos.com.br', ordem: true, lojas: [ // 24 lojas (PR, RS e SP), ~1050 carros, com "ordem" e "destaque"
     ...['servopa-curitiba-marechal', 'servopa-curitiba-pinheirinho', 'servopa-curitiba-rockefeller', 'servopa-maringa', 'servopa-paranagua',
       'servopa-ponta-grossa-oficinas', 'grupo-servopa-seminovos-canoas', 'grupo-servopa-seminovos-gravatai', 'grupo-servopa-seminovos-novo-hamburgo',
       'grupo-servopa-seminovos-londrina', 'grupo-servopa-seminovos-umuarama', 'grupo-servopa-seminovos-ipiranga']
-      .map((loja, i) => ({ loja, prefixo: `G${String.fromCharCode(65 + i)}`, total: 60, modelos: MODELOS })),
+      .map((loja, i) => ({ loja, prefixo: `G${String.fromCharCode(65 + i)}`, total: ['servopa-paranagua', 'grupo-servopa-seminovos-umuarama'].includes(loja) ? 40 : 60, modelos: MODELOS })),
+    { loja: 'grupo-servopa-seminovos-ribeirao-preto', prefixo: 'RP', total: 40, modelos: MODELOS }, // SP (só aparece no menu de cidades do site atual)
     { loja: 'honda-servopa-curitiba', prefixo: 'HC', total: 50, modelos: MODELOS.filter((m) => m[0] === 'Honda') },
     { loja: 'honda-servopa-sao-jose-dos-pinhais', prefixo: 'HS', total: 40, modelos: MODELOS.filter((m) => m[0] === 'Honda') },
     { loja: 'audi-center-cascavel', prefixo: 'AC', total: 25, modelos: PREMIUM_MODELOS.filter((m) => m[0] === 'Audi') },

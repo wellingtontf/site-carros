@@ -32,6 +32,26 @@ node core/cli.js status             # versões do motor e o que cada site usa
 ```
 Os mesmos comandos existem como `npm run build`, `npm run testar`, `npm run status`, `npm run cli -- <comando>`.
 
+## Testes
+```
+npm test               # tudo (~10 s): unidade, build, atualização, servidor, motor, sites reais e navegador
+npm run test:rapido    # sem o navegador (Chrome)
+```
+| arquivo | o que garante |
+|---|---|
+| `tests/unidade-*.test.js` | link do carro, mini-renderer (escape/XSS), validação do estoque |
+| `tests/build.test.js` | geração, incremental, vendidos e retenção, redirecionamentos, ordem, páginas, blocos, links relativos, segurança, erros de configuração |
+| `tests/atualizar.test.js` | fontes HTTP (`${VAR}`, erro 500, JSON quebrado), trava de queda, estoque vazio, trava de execução, publicação incremental, injeção no shell |
+| `tests/servidor.test.js` | receptor HTTP: token, rotas, corpo inválido, PUT → grava → refaz |
+| `tests/motor.test.js` | busca, busca aproximada, filtros em cascata, link da busca, ordens, WhatsApp — em **todas** as versões; e que as congeladas não foram editadas (`sha256` em `versao.json`) |
+| `tests/sites-e-templates.test.js` | gera os sites reais e varre **todas** as páginas: link local quebrado, `{{marcador}}` sobrando, título/viewport, ids da listagem; todo template com o mínimo exigido |
+| `tests/navegador.test.js` | Chrome headless em cada template: cards montados pelo JS, filtro vindo da URL, WhatsApp da página do carro, nenhum erro de JS |
+| `tests/snapshot-html.test.js` | o HTML gerado só muda junto com `VERSAO_HTML` (veja abaixo) |
+
+O GitHub roda tudo a cada push (`.github/workflows/testes.yml`).
+
+**`VERSAO_HTML` (core/build.js):** mudar a versão refaz as páginas de **todos** os sites. Aumente só quando uma mudança no `build.js` alterar o HTML gerado; o teste de snapshot avisa nos dois sentidos. Depois de aumentar: `npm run test:snapshot`.
+
 ## O que vai para cada site gerado (`dist/<dominio>/`)
 | no site gerado | vem de |
 |---|---|
@@ -116,6 +136,38 @@ Além da listagem e das páginas dos carros, um site pode ter páginas de conte�
 
 Blocos do template `servopa`: `carrossel` (`slides[{imagem, alt, link | mensagem}]`), `carrocerias` (atalhos por tipo, vindos do estoque), `busca` (marca com total, modelo dependente, preço e ano dos filtros do site, `atalhos`), `listagem` (`titulo`, `subtitulo`, `quantidade`, `filtros`, `botao`), `vitrine`, `chamada` (`link` ou `mensagem`), `titulo`, `texto`, `banner`, `lojas` (as lojas do site, com endereço, telefone e estoque de cada uma) e `formulario`.
 
+## Para o web designer: criar páginas sem mexer em nada do sistema
+Você só cria **arquivos HTML** numa pasta. Sem JSON, sem configuração, sem programação.
+
+| Quero uma página... | Onde coloco | Vira |
+|---|---|---|
+| só para **um site** | `sites/<dominio>/paginas/feirao.html` | `/feirao/` |
+| para **todos os sites** de um template | `templates/<template>/paginas-extras/financiamento.html` | `/financiamento/` em cada site |
+| com imagens e CSS próprios | uma pasta: `sites/<dominio>/paginas/feirao/index.html` + `faixa.jpg`, `estilo.css`… | `/feirao/` (a pasta vai inteira) |
+| dentro de uma seção | `sites/<dominio>/paginas/promocoes/feirao/index.html` | `/promocoes/feirao/` |
+
+- **Escreveu só o conteúdo** (sem `<html>`)? A página entra com o **cabeçalho e o rodapé do site**.
+- **Escreveu o documento inteiro** (`<html>…</html>`)? Vira página **100% livre** (landing de campanha). O sistema só acrescenta o aviso de cookies e o que faltar para funcionar no celular.
+- **Links para o site:** escreva como num site normal, `href="/multipla/"`, `href="/contato/"`. O sistema ajusta.
+- **Imagens da pasta:** caminho relativo normal (`src="faixa.jpg"`). Dá para abrir o `index.html` direto no navegador e ver.
+- **Título da página:** vem do `<title>` ou do primeiro `<h1>`. Nada a configurar.
+- **Opcional**, comentários no começo do arquivo: `<!-- titulo: ... -->`, `<!-- descricao: ... -->`, `<!-- rotulo: Feirão -->` (põe um link no rodapé), `<!-- moldura: nenhuma -->` (página livre mesmo sem `<html>`).
+- **Opcional**, dados do site: `{{site.nome}}`, `{{estoque.total}}`, `{{#estoque.marcas}}<a href="{{link}}">{{valor}}</a>{{/estoque.marcas}}`.
+- Nome do arquivo: letras minúsculas, números e hífen (`feirao-de-novembro.html`). Não use `multipla`, `carros`, `motor`, `css`, `js`, `img`, `assets` (são do sistema).
+- Um site **troca** a página do template criando uma com o mesmo nome em `sites/<dominio>/paginas/`, ou **desliga**: `"paginasPadrao": { "financiamento": false }` no `site.json`.
+- Exemplos prontos: `sites/autocentral.exemplo.com.br/paginas/` (feirão com imagem; Black Friday livre) e `templates/barra-topo/paginas-extras/financiamento.html`.
+- Gerar e ver: `node core/build.js` e abrir `dist/<dominio>/`. Arquivo apagado da pasta some do site no próximo build.
+
+## Páginas padrão (todo site ganha): `paginas-padrao/`
+`contato`, `politica-de-privacidade`, `politica-de-cookies` e `lgpd` ficam em `paginas-padrao/<nome>.json` (mesmo formato de uma página do `site.json`) e são geradas em **todos** os sites, com os dados de cada um: `{{site.nome}}`, `{{site.dominio}}`, `{{site.url}}`, `{{site.whatsapp}}`, `{{empresa.razaoSocial}}`, `{{empresa.cnpj}}`, `{{empresa.email}}`, `{{empresa.encarregado}}` e `{{rel}}` (prefixo até a raiz, para links internos). O jurídico muda o texto em **um** arquivo e o build atualiza os 2500 sites.
+- Dados legais por site: `"empresa": { "razaoSocial": "...", "cnpj": "...", "email": "dpo@...", "encarregado": "Fulano" }` no `site.json` (sem eles, o texto usa o nome do site e a página de contato).
+- O site **substitui** uma página padrão criando em `paginas` uma de mesmo `caminho`, ou **desliga**: `"paginasPadrao": { "lgpd": false }`.
+- Página com `"provisorio": true` gera um aviso no build (uma vez, não um por site) até o texto oficial chegar.
+- Formulário: campo `"opcoesDe": "lojas"` lista as lojas do site.
+- Páginas com `"rotulo"` entram em `{{#site.links}}` (rodapé de todos os templates).
+- **Aviso de cookies** (core, `core/ui/ui-site.js`, em todas as páginas): texto em `textos.avisoCookies`, link para a política de cookies (ou de privacidade); `"avisoCookies": false` desliga. O mesmo arquivo trata os formulários `.js-form-zap` (enviam pelo WhatsApp).
+- Todo template precisa dos blocos `banner`, `vitrine`, `titulo`, `texto`, `formulario`, `lojas` e de carregar `{{rel}}motor/ui-site.js` em todas as páginas (o build e os testes cobram).
+
 ### Filtros (configuráveis por site)
 `filtros` é a lista, na ordem em que aparece. Sem `filtros`, usa todos. Cada item é um nome (`"marca"`) ou um objeto com `campo` e, se quiser, `rotulo`, `opcoes` e `sempre`.
 
@@ -171,6 +223,12 @@ node core/cli.js historico
 ## Busca
 Procura em marca, modelo, versão, ano, cor, câmbio, combustível, loja, cidade e UF. Ignora maiúsculas e acentos, aceita pedaço de palavra e exige todas as palavras digitadas.
 Tolera erro de digitação: se nenhum carro tem a palavra exata, procura a parecida (`civc` → civic) e avisa "mostrando resultados para...". Tolera 1 letra errada (2 em palavras com 7 letras ou mais); palavras com menos de 4 letras e números são sempre exatos.
+
+## SEO
+- **Cards no HTML:** a `/multipla` e as páginas de filtro já saem com os primeiros carros (24, ou o `data-pagina` do `#grade`) montados pelo build com o próprio `tpl-card` do template. O Google vê os carros sem rodar JS; no navegador, a `ui-lista` assume.
+- **Páginas fixas de filtro:** `/multipla/marca/toyota/`, `/multipla/cidade/curitiba/`, `/multipla/carroceria/suv/` (título, descrição e canonical próprios, carros no HTML, filtro já aplicado via `<body data-filtro>`). Padrão: marca, cidade e carroceria; `"paginasFiltro": ["marca", "cidade", "carroceria", "combustivel", "modelo"]` no `site.json` muda. Só são criadas para filtros que o motor do site tem e com 2+ valores (1 valor seria conteúdo duplicado). Marca que sai do estoque tem a página apagada. Links de `{{#estoque.marcas}}`, `cidades`, `carrocerias` apontam para elas.
+- **Sitemap com `<lastmod>`:** o dia em que cada página mudou de verdade (guardado no estado do build), não o dia do build.
+- Templates: a listagem usa `{{listagem.titulo}}`, `{{listagem.descricao}}`, `{{{listagem.canon}}}`, `{{listagem.h1}}` e `<body ... data-filtro="{{listagem.filtro}}">`.
 
 ## Links personalizados
 - Busca: `?estado=SP&cidade=Campinas&marca=Honda&preco=100000&ord=menor` (o botão "Copiar link da busca" gera isso).

@@ -12,17 +12,7 @@
     a.rel = 'noopener';
   });
 
-  // formulário (ex.: "quero vender meu carro"): junta "Rótulo: valor" de cada campo preenchido
-  document.querySelectorAll('.js-form-zap').forEach((form) => {
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const linhas = [...form.elements]
-        .filter((el) => el.name && String(el.value).trim())
-        .map((el) => `${el.name}: ${String(el.value).trim()}`);
-      const texto = [form.dataset.msg || 'Olá!', '', ...linhas].join('\n');
-      window.open(zap(texto), '_blank', 'noopener');
-    });
-  });
+  // formulários .js-form-zap e aviso de cookies: core (motor/ui-site.js)
 
   // fotos da vitrine (blocos): se não carregar, placeholder
   if (window.UI) document.querySelectorAll('.b-vitrine img[data-fb]').forEach((img) => UI.fallback(img));

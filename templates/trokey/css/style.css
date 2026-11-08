@@ -155,3 +155,11 @@ img{max-width:100%}
 .btn{border-radius:6px}
 .btn.zap{background:#25d366}
 .voltar{font-weight:500}
+
+/* links legais (páginas padrão) */
+.links-legais{display:flex;gap:16px;flex-wrap:wrap;font-size:.88rem}
+.links-legais a:hover{text-decoration:underline}
+.b-titulo-pagina{max-width:var(--larg);margin:40px auto 0;padding:0 16px;text-align:center}.b-titulo-pagina h1{margin:0;text-transform:uppercase}.b-titulo-pagina p{color:var(--mut)}
+.b-lojas{max-width:var(--larg);margin:32px auto;padding:0 16px;display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+.b-loja{background:#fff;border:1px solid var(--bd);border-radius:var(--raio);padding:16px}.b-loja h3{margin:0 0 4px}.b-loja p{margin:2px 0;color:var(--mut);font-size:.92rem}
+.b-texto a{color:var(--cor);text-decoration:underline}

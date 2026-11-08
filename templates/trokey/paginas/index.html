@@ -2,10 +2,11 @@
 <html lang="pt-BR">
 <head>
 {{> head}}
-<title>Estoque | {{site.nome}}</title>
-<meta name="description" content="{{site.slogan}}">
+<title>{{listagem.titulo}}</title>
+<meta name="description" content="{{listagem.descricao}}">
+{{{listagem.canon}}}
 </head>
-<body data-page="lista" data-base="{{base}}" data-rel="{{rel}}">
+<body data-page="lista" data-base="{{base}}" data-rel="{{rel}}" data-filtro="{{listagem.filtro}}">
 {{> cabecalho}}
 
 {{{blocosAntes}}}

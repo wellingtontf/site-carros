@@ -1,0 +1,21 @@
+# Roda todos os testes a cada push e pull request. Se algo quebrar, o GitHub avisa (e marca o commit com ✗).
+name: testes
+on:
+  push:
+  pull_request:
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Testes (unidade, build, atualização, servidor, motor, sites reais, navegador)
+        run: npm test
+      - name: Os sites reais geram sem erro e o build é estável (2ª execução = "sem mudanças")
+        run: |
+          node core/build.js
+          node core/build.js | tee /tmp/build2.txt
+          if grep -v "sem mudanças" /tmp/build2.txt | grep -q "carros ·"; then echo "build não ficou estável"; exit 1; fi

@@ -86,7 +86,9 @@ function congelar(args) {
   if (ultima && hash('rascunho') === hash(ultima) && !args.forcar) falha(`o rascunho é igual à ${ultima}: nada para congelar (use --forcar se quiser mesmo assim)`);
   fs.mkdirSync(destino, { recursive: true });
   for (const f of fs.readdirSync(C.motor('rascunho'))) fs.copyFileSync(path.join(C.motor('rascunho'), f), path.join(destino, f));
-  fs.writeFileSync(path.join(destino, 'versao.json'), JSON.stringify({ versao: v, data: agora(), nota: args.nota || '', origem: 'rascunho' }, null, 2) + '\n');
+  // sha256 do engine.js: os testes (tests/motor.test.js) falham se uma versão congelada for editada
+  const sha256 = crypto.createHash('sha256').update(fs.readFileSync(path.join(destino, 'engine.js'))).digest('hex');
+  fs.writeFileSync(path.join(destino, 'versao.json'), JSON.stringify({ versao: v, data: agora(), nota: args.nota || '', origem: 'rascunho', sha256 }, null, 2) + '\n');
   console.log(`Rascunho congelado como ${v}. Próximo passo: node core/cli.js testar --motor ${v}   e   node core/cli.js aplicar ${v} --sites <site>`);
 }
 

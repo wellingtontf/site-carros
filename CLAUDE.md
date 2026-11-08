@@ -13,7 +13,9 @@ Plataforma com ~2500 sites estáticos de revendas de carros, cada um em um domí
    - Páginas de conteúdo (home institucional, vender, lojas, política) são listas de **blocos** em `site.json` → `paginas`; cada tipo de bloco é `templates/<nome>/blocos/<tipo>.html`, a moldura é `paginas/pagina.html`, e pedaços comuns ficam em `parciais/` (`{{> nome}}`). `estoque.caminho` põe a listagem numa subpasta (Trokey: `/estoque/`). `cabecalho` e `rodape` também vêm do `site.json`. Hoje só o template `trokey` tem blocos.
    - **A listagem do estoque fica SEMPRE em `/multipla/`** (constante `CAMINHO_ESTOQUE` no build); a raiz é a home institucional (página `""` de `paginas`, ou a `HOME_PADRAO` do core: banner + vitrine). Todo template precisa de `paginas/pagina.html` e dos blocos `banner` e `vitrine`. O bloco `listagem` põe o estoque interativo dentro de uma página (ex.: home da Servopa).
    - **Ordem de exibição vem do estoque:** campo `ordem` (ou a posição no arquivo) → `carros.json` sai nessa ordem (campo `r`) e o motor v2 tem a ordenação `destaque` (padrão). Campos opcionais do carro: `ordem`, `destaque`, `carroceria`.
-   - O web designer mexe só nos templates.
+   - **Páginas padrão** (`paginas-padrao/*.json`: contato, política de privacidade, cookies, LGPD) entram em TODO site, preenchidas com `{{site.*}}`/`{{empresa.*}}`/`{{rel}}`; o site substitui (mesmo `caminho`) ou desliga (`paginasPadrao`). Textos legais estão como MODELO PROVISÓRIO até o jurídico do Revenda Mais mandar o oficial. Aviso de cookies e formulários por WhatsApp ficam no core (`core/ui/ui-site.js`), carregado por todas as páginas de todos os templates.
+   - **Páginas livres dos designers** (HTML normal, sem JSON): `sites/<dominio>/paginas/` (só aquele site) e `templates/<nome>/paginas-extras/` (todos os sites do template). Lógica em `core/paginas-livres.js`. Prioridade de mesmo caminho: `site.json` > pasta do site > template > `paginas-padrao/`. Editar `paginas-extras` NÃO refaz páginas de carro (fica fora do hash do template). O designer não pode precisar mexer no core: tudo que ele fizer de comum (links "/x", título, imagens na pasta) o build resolve.
+   - O web designer mexe só nos templates e nas pastas de páginas.
 3. **Motor versionado, com rollout:** `core/motor/rascunho` é o único lugar onde se edita. `congelar vN` copia o rascunho para `core/motor/vN`, que passa a ser imutável. `aplicar vN --sites a,b` ou `--todos` roda os testes antes. Existem `reverter` e `historico`. O site fixa a versão em `"motor": "v1"`.
 4. **Filtros configuráveis por site:** estado, cidade, loja, marca, modelo, ano, preço, km, câmbio, combustível e cor. Estado, cidade e loja funcionam em cascata, e marca filtra modelo. Dá para mudar rótulos, opções e ordem, e há `restricoes` (precoMin, precoMax, anoMin, marcas, estados, cidades).
 5. **Busca com tolerância a erro de digitação:** só tenta aproximar quando não há resultado exato. Palavras com 4 letras ou mais e não numéricas aceitam 1 erro (2 erros se tiver 7 letras ou mais). Ignora acento e maiúsculas, aceita pedaço de palavra e exige todas as palavras digitadas.
@@ -56,13 +58,16 @@ Gerados e fora do git: `dist*/`, `.estado/`, `s3-local/` (simula o bucket de fot
 - Chrome simulando celular (4G rápido, CPU 4x mais lenta): primeira tela 0,6 s, lista pronta 1,2 s, ~263 KB baixados, CLS 0.
 - Em 3G lento (CPU 6x): primeira tela 0,8 s, lista pronta 1,8 s.
 - Busca respondeu em ~140 ms.
-- SEO: a listagem é montada por JS, então o Google descobre os carros pelo `sitemap.xml`. O build gera `sitemap.xml`, `robots.txt` e JSON-LD (`Car` + `Offer`) quando o site tem `url`. As páginas de carro têm title, description, canonical e og:image.
+- SEO: a `/multipla` e as páginas fixas de filtro (`/multipla/marca/<x>/`, `/cidade/<x>/`, `/carroceria/<x>/`, campo `paginasFiltro`) já saem com os primeiros cards no HTML (montados pelo build com o `tpl-card` do template). Sitemap com `<lastmod>` real (dia em que a página mudou, guardado em `.estado`). O build gera `sitemap.xml`, `robots.txt` e JSON-LD (`Car` + `Offer`) quando o site tem `url`. As páginas de carro têm title, description, canonical e og:image.
 - A compressão (gzip/brotli) precisa estar ligada no servidor/CDN.
 
 ## Regras ao mexer no código
 - **Arquitetura de pastas é prioridade do Wellington:** core isolado em `core/`; cada site em `sites/<dominio>/` com subpastas; cada template inteiro dentro de `templates/<nome>/` (nada solto na raiz de `templates/`). Caminho novo → adicionar em `core/caminhos.js`.
 - Nunca editar versões congeladas do motor (`core/motor/v1`, ...). Só `core/motor/rascunho`.
-- Rodar `node core/cli.js testar` antes de entregar mudanças.
+- Rodar `npm test` antes de entregar mudanças (139+ testes, ~10 s; `npm run test:rapido` pula o Chrome). Bug corrigido → teste de regressão junto. O GitHub Actions roda os testes a cada push.
+- `VERSAO_HTML` em `core/build.js`: aumentar SÓ quando mudar o HTML/JSON gerado pelo build (refaz as páginas de todos os sites). O `tests/snapshot-html.test.js` cobra; depois de aumentar, `npm run test:snapshot`.
+- Versões congeladas do motor têm `sha256` em `versao.json` (o `congelar` grava); `tests/motor.test.js` falha se alguém editar uma.
+- Os testes usam `SITE_CARROS_RAIZ` (pasta de dados temporária) e `construir({ hoje })` / `SITE_CARROS_HOJE` (data simulada para retenção).
 - Build incremental: depois de mudar o `core/build.js`, rodar `node core/build.js` duas vezes. A segunda deve dizer "sem mudanças".
 - Nos templates, referenciar arquivos sempre com `{{rel}}` (`{{rel}}css/style.css`, `{{rel}}motor/engine.js`). Imagens do `tema` com caminho relativo (`assets/logo.png`) já chegam com o prefixo certo em `{{tema.logo}}`.
 - O template mini-renderer usa `{{x}}` (escapa), `{{{x}}}` (HTML cru, só gerado pelo build), `{{#x}}…{{/x}}` e `{{^x}}…{{/x}}`. Os cards ficam em `<script type="text/html" id="tpl-card">` com tokens `[[campo]]`.
@@ -74,7 +79,7 @@ Gerados e fora do git: `dist*/`, `.estado/`, `s3-local/` (simula o bucket de fot
 1. **Hospedagem dos 2500 domínios:** S3+CloudFront, Cloudflare Pages ou outro? Isso define o `comandoSite` do `publicacao.json`. Com `--delete` em `aws s3 sync`, cuidado com a publicação incremental; use `{lista}` para enviar só os arquivos alterados.
 2. **Volume diário de mudanças de veículos:** define se publicar só o que mudou basta ou se precisa de outra abordagem.
 3. **Rollout por ondas:** campo `canal` (estável/beta), `--percentual`, `--grupo`, e roteador por domínio. Não implementado.
-4. **Páginas fixas de cidade/marca** (`/campinas/`, `/honda/`) com carros já no HTML, para SEO da home. Opcional.
+4. ~~Páginas fixas de cidade/marca~~ feito: `/multipla/marca|cidade|carroceria/<x>/`. Falta mapear as URLs antigas do Revenda Mais (`/multipla/marca/TOYOTA`, `/multipla/revenda_cidade_nome/...`) com 301 na hospedagem.
 5. **Script de exportação do Revenda Mais:** precisa de um exemplo do formato de exportação, ou da estrutura da tabela de veículos (campos de data de atualização e status).
 6. Cadastrar cada domínio no Google Search Console e enviar o sitemap (por API, dado o volume).
 7. Builds em paralelo para muitos sites, se o tempo ficar alto.

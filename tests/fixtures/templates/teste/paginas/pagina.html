@@ -1,0 +1,9 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>{{pagina.titulo}}</title><meta name="description" content="{{pagina.descricao}}">{{{canon}}}
+<link rel="stylesheet" href="{{rel}}css/style.css"></head>
+<body data-page="pagina" data-base="{{base}}" data-rel="{{rel}}">
+<a class="marca" href="{{inicioUrl}}">{{site.nome}}</a> <a href="{{estoqueUrl}}">Estoque ({{estoque.total}})</a>
+{{#site.cabecalho.menu}}<a href="{{link}}">{{rotulo}}</a>{{/site.cabecalho.menu}}
+<main>{{{conteudo}}}</main>
+{{#temListagem}}<script type="text/html" id="tpl-card"><a class="card" href="[[href]]">[[nome]]</a></script><script src="{{rel}}motor/link-carro.js"></script><script src="{{rel}}motor/ui-lista.js"></script>{{/temListagem}}
+<script src="{{rel}}motor/engine.js"></script><script src="{{rel}}motor/ui-util.js"></script>
+{{#site.links}}<a class="legal" href="{{link}}">{{rotulo}}</a>{{/site.links}}<script src="{{rel}}motor/ui-site.js"></script></body></html>

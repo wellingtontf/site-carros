@@ -3,14 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{{site.nome}}</title>
-<meta name="description" content="{{site.slogan}}">
+<title>{{listagem.titulo}}</title>
+<meta name="description" content="{{listagem.descricao}}">
+{{{listagem.canon}}}
 {{{fonteLink}}}
 <link rel="stylesheet" href="{{rel}}css/base.css">
 <link rel="stylesheet" href="{{rel}}css/style.css">
 <style>{{{temaCss}}}</style>
 </head>
-<body data-page="lista" data-base="{{base}}" data-rel="{{rel}}">
+<body data-page="lista" data-base="{{base}}" data-rel="{{rel}}" data-filtro="{{listagem.filtro}}">
 <header class="topo">
   {{#tema.logo}}<img class="logo" src="{{tema.logo}}" alt="{{site.nome}}">{{/tema.logo}}
   <a class="marca" href="{{inicioUrl}}">{{site.nome}}</a>
@@ -53,5 +54,7 @@
 <script src="{{rel}}motor/ui-util.js"></script>
 <script src="{{rel}}motor/link-carro.js"></script>
 <script src="{{rel}}motor/ui-lista.js"></script>
+{{#site.links.length}}<nav class="links-legais">{{#site.links}}<a href="{{link}}">{{rotulo}}</a>{{/site.links}}</nav>{{/site.links.length}}
+<script src="{{rel}}motor/ui-site.js"></script>
 </body>
 </html>

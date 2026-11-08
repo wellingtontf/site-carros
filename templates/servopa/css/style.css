@@ -178,3 +178,6 @@ select:focus,input:focus{outline:2px solid var(--cor);outline-offset:-1px}
 .btn{border-radius:6px}
 .btn.zap{background:var(--zap)}
 .voltar{color:var(--cor);font-weight:600}
+.b-texto a{color:var(--cor);text-decoration:underline}
+.topo .logo{height:28px;width:auto}
+.logo-rodape{display:block;height:28px;width:auto;margin-bottom:6px}

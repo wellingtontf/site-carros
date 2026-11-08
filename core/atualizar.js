@@ -59,6 +59,8 @@ function gravarEstoque(id, obj, { forcar = false } = {}) {
   const antigo = lerJSON(arqEstoque(id), null);
   if (antigo && hashCarros(antigo) === hashCarros(obj)) return { id, status: 'igual', total: obj.carros.length };
   const antes = antigo ? antigo.carros.length : 0;
+  if (!forcar && antes > 0 && obj.carros.length === 0) // estoque zerado quase sempre é erro da API, mesmo em loja pequena
+    return { id, status: 'recusado', erros: [`estoque veio vazio (antes tinha ${antes} carros); confira a API ou use forçar`] };
   if (!forcar && antes >= 10 && obj.carros.length < antes * 0.5)
     return { id, status: 'recusado', erros: [`caiu de ${antes} para ${obj.carros.length} carros (mais de 50%); confira a API ou use forçar`] };
   if (antigo) {

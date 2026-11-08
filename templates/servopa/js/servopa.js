@@ -26,14 +26,7 @@
     form.addEventListener('submit', () => [...form.elements].forEach((el) => { if (el.name && !el.value) el.disabled = true; }));
   });
 
-  // formulário que envia pelo WhatsApp (contato)
-  document.querySelectorAll('.js-form-zap').forEach((form) => {
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const linhas = [...form.elements].filter((el) => el.name && String(el.value).trim()).map((el) => `${el.name}: ${String(el.value).trim()}`);
-      window.open(zap([form.dataset.msg || 'Olá!', '', ...linhas].join('\n')), '_blank', 'noopener');
-    });
-  });
+  // formulários .js-form-zap e aviso de cookies: core (motor/ui-site.js)
 
   // carrossel: rolagem nativa (arrasta no celular) + setas, bolinhas e troca automática
   document.querySelectorAll('.b-carrossel').forEach((c) => {
