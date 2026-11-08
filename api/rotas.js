@@ -59,13 +59,15 @@ function criarRotas({ fila }) {
       return enviar(res, 200, { sites: Sites.resumos((d) => CL.pode(cliente, d)) });
     }
 
-    // SITE NOVO com toda a estrutura (pasta, cadastro, estoque vazio, site gerado, infra). Só o domínio é obrigatório:
-    // o resto vem de config/site-modelo.json, e o que vier em "cadastro" vale mais. {"dominio": "...", "cadastro": {...}}
+    // SITE NOVO com toda a estrutura (pasta, cadastro, estoque vazio, site gerado, infra). O resto vem de
+    // config/site-modelo.json, e o que vier em "cadastro" vale mais. {"dominio": "...", "cadastro": {...}}
+    // SEM "dominio": cria o próximo RASCUNHO da sequência (site1.carro57.com.br, site2...; config/rascunhos.json)
     if (m === 'POST' && p === '/v1/sites') {
       exigirTodos('criar um site novo');
-      const b = await corpoJSON(req, LIMITE.site);
-      const d = b && b.dominio;
-      if (typeof d !== 'string' || !Sites.ID_SITE.test(d)) throw new Erro(422, 'informe "dominio" válido (ex.: novaloja.com.br, só minúsculas, sem www nem https)');
+      const b = await corpoJSON(req, LIMITE.site, {});
+      if (b.dominio == null) return criar(Sites.proximoRascunho(), b.cadastro || {}, true);
+      const d = b.dominio;
+      if (typeof d !== 'string' || !Sites.ID_SITE.test(d)) throw new Erro(422, 'informe "dominio" válido (ex.: novaloja.com.br, só minúsculas, sem www nem https), ou nenhum para criar o próximo rascunho');
       return criar(d, b.cadastro || {});
     }
 
@@ -149,11 +151,13 @@ function criarRotas({ fila }) {
     }
 
     // ---------- um site ----------
-    async function criar(d, parcial) {
+    // reservar = rascunho da sequência: o número só é gasto depois que o cadastro passou na validação
+    async function criar(d, parcial, reservar = false) {
       if (Sites.existe(d) || fila.pendentesDoSite(d).some((x) => x.tipo === 'criar')) throw new Erro(409, `site "${d}" já existe`);
       if (parcial === null || typeof parcial !== 'object' || Array.isArray(parcial)) throw new Erro(422, '"cadastro" deve ser um objeto');
       const erros = Sites.validarSite(Sites.cadastroNovo(d, parcial), d);
       if (erros.length) throw new Erro(422, 'cadastro inválido: nada foi criado', { erros });
+      if (reservar && Sites.proximoRascunho({ reservar: true }) !== d) throw new Erro(409, 'outro rascunho foi criado ao mesmo tempo; tente de novo');
       return responderPedido(res, url, fila.adicionar({ tipo: 'criar', site: d, corpo: { cadastro: parcial }, cliente: cliente.nome }), 202, 201);
     }
     r = /^\/v1\/sites\/([^/]+)(\/.*)?$/.exec(p);
@@ -187,6 +191,7 @@ function criarRotas({ fila }) {
       const b = await corpoJSON(req, LIMITE.outro, {});
       if (!Sites.carregar(d).rascunho) throw new Erro(409, `o site "${d}" já é definitivo (não está em rascunho)`);
       if (b.dominio != null && (typeof b.dominio !== 'string' || !Sites.ID_SITE.test(b.dominio))) throw new Erro(422, '"dominio" inválido (ex.: lojafinal.com.br, só minúsculas, sem www nem https)');
+      if (Sites.ehDominioRascunho(b.dominio || d)) throw new Erro(422, `informe o domínio definitivo em "dominio" ("${b.dominio || d}" é endereço de rascunho)`);
       if (b.url != null && !(typeof b.url === 'string' && /^https:\/\/[^\s/]+\/?$/i.test(b.url))) throw new Erro(422, '"url" precisa ser https://dominio');
       if (b.dominio && b.dominio !== d && fs.existsSync(C.site(b.dominio))) throw new Erro(409, `já existe um site "${b.dominio}"`);
       const pend = fila.pendentesDoSite(d);

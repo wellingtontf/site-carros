@@ -134,3 +134,32 @@ test('promover no próprio domínio; recusas: já definitivo, foto em localhost 
   assert.equal(A.lerSite('local.rascunho.com.br').rascunho, true);
   assert.ok(A.existe('local.rascunho.com.br', 'index.html'));
 });
+
+// ---------- rascunhos em sequência: site1.carro57.com.br, site2... ----------
+test('proximoRascunho: segue a sequência, pula o que existe e nunca reutiliza número', () => {
+  assert.equal(Sites.proximoRascunho(), 'site1.carro57.com.br');
+  assert.equal(Sites.proximoRascunho(), 'site1.carro57.com.br', 'sem reservar, não gasta o número');
+  assert.equal(Sites.proximoRascunho({ reservar: true }), 'site1.carro57.com.br');
+  assert.equal(Sites.proximoRascunho({ reservar: true }), 'site2.carro57.com.br');
+  Sites.criarArquivos('site7.carro57.com.br', Sites.cadastroNovo('site7.carro57.com.br', { template: 'teste' })); // criado com domínio explícito
+  assert.equal(Sites.proximoRascunho(), 'site8.carro57.com.br');
+  fs.rmSync(path.join(A.raiz(), 'sites', 'site7.carro57.com.br'), { recursive: true }); // promovido/removido
+  Sites.proximoRascunho({ reservar: true }); // site8
+  assert.equal(Sites.proximoRascunho(), 'site9.carro57.com.br', 'o 7 não volta');
+  for (const [d, e] of [['site12.carro57.com.br', true], ['site0.carro57.com.br', false], ['xsite1.carro57.com.br', false], ['site1.carro57.com.br.br', false], ['lojax.com.br', false]]) assert.equal(Sites.ehDominioRascunho(d), e, d);
+});
+
+test('padrão de rascunho configurável; endereço de rascunho é sempre rascunho; promover para rascunho é recusado', async () => {
+  fs.writeFileSync(path.join(A.raiz(), 'config', 'rascunhos.json'), JSON.stringify({ padrao: 'loja{n}.previa.com.br' }));
+  try {
+    assert.equal(Sites.proximoRascunho(), 'loja1.previa.com.br');
+    assert.equal(Sites.cadastroNovo('loja1.previa.com.br', { rascunho: false }).rascunho, true);
+    assert.equal(Sites.cadastroNovo('lojafinal.com.br', {}).rascunho, undefined);
+    A.criarSite('loja1.previa.com.br', { carros: [A.carro()], site: { rascunho: true } });
+    A.silencioso(() => construir({ sites: ['loja1.previa.com.br'] }));
+    assert.equal((await Ops.promoverSite('loja1.previa.com.br', { log: () => {} })).status, 'invalido', 'no próprio endereço de rascunho não');
+    assert.equal((await Ops.promoverSite('loja1.previa.com.br', { final: 'loja2.previa.com.br', log: () => {} })).status, 'invalido');
+    fs.writeFileSync(path.join(A.raiz(), 'config', 'rascunhos.json'), JSON.stringify({ padrao: 'sem-numero.com.br' }));
+    assert.throws(() => Sites.proximoRascunho(), /\{n\}/);
+  } finally { fs.rmSync(path.join(A.raiz(), 'config', 'rascunhos.json'), { force: true }); }
+});

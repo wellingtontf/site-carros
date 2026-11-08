@@ -277,7 +277,7 @@ A plataforma é agnóstica: não conhece o sistema de origem, cada um converte p
 
 **Saídas de compatibilidade:** cada site publica `estoque.xml`, o estoque em XML (mesma ordem do site; link, fotos e loja com endereço completo) para portais, catálogos e integrações que só leem XML. `"feedXml": { "caminho": "xml/estoque.xml" }` muda o endereço e `"feedXml": false` desliga. O `robots.txt` vem de um modelo único (`config/robots.txt`, trocado por `PUT /v1/robots`), com `"robots"` no site.json para o site que precisar de um próprio.
 
-**Rascunho:** site novo nasce com `"rascunho": true` (endereço provisório, `noindex` em tudo e robots.txt fechado) e vai para o domínio definitivo com `/promover`.
+**Rascunho:** `POST /v1/sites` sem domínio cria o próximo rascunho da sequência (`site1.carro57.com.br`, `site2...`; padrão em `config/rascunhos.json`, número nunca reutilizado). Site novo nasce com `"rascunho": true` (endereço provisório, `noindex` em tudo e robots.txt fechado) e vai para o domínio definitivo com `/promover`.
 
 **Infraestrutura:** `config/infra.json` (veja `config/infra.exemplo.json`) tem os comandos `criar` ({site} {pasta}), `promover` ({rascunho} {site} {pasta}) e `renomear` ({antigo} {novo} {pasta}) que ligam a plataforma à hospedagem (CDN, certificado, DNS, 301 do domínio antigo), sem amarrar a nenhuma.
 

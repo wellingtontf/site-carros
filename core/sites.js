@@ -14,6 +14,9 @@
 //   validarSite(obj, dominio) → [erros]          cadastroNovo(dominio, parcial) → cadastro completo a partir do modelo
 //   gravarSite(dominio, obj)  → { criado }       criarArquivos(dominio, cadastro) → estrutura de um site novo
 //   renomearArquivos(antigo, novo) → desfazer()  troca o domínio em tudo que é do site (com volta atrás)
+//
+// Rascunhos: endereços provisórios em sequência (config/rascunhos.json → "padrao": "site{n}.carro57.com.br")
+//   proximoRascunho({ reservar }) → 'site7.carro57.com.br'   ehDominioRascunho(dominio) → true/false
 const fs = require('fs');
 const path = require('path');
 const C = require('./caminhos');
@@ -44,6 +47,36 @@ function resumo(d) {
   return { site: d, nome: s.nome || '', rascunho: !!s.rascunho, template: s.template || '', motor: s.motor || '', url: s.url || '', carros: (e.carros || []).length, lojas: Object.keys(s.lojas || {}).length, atualizado: e.atualizado || null };
 }
 const resumos = (filtro = () => true) => listar().filter(filtro).map(resumo);
+
+// ---------- rascunhos: site1.carro57.com.br, site2..., em sequência ----------
+// O número NUNCA volta: depois que o site3 é promovido, o próximo é o site4 (o endereço do 3 pode ter sido compartilhado
+// com o cliente; reaproveitar mostraria a loja errada). Contador em .estado/rascunhos.json + o maior número existente.
+const PADRAO_RASCUNHO = 'site{n}.carro57.com.br';
+function padraoRascunho() {
+  const p = lerJSON(C.config('rascunhos.json'), {}).padrao || PADRAO_RASCUNHO;
+  if (p.split('{n}').length !== 2 || !ID_SITE.test(p.replace('{n}', '1'))) throw new Error(`config/rascunhos.json: "padrao" precisa ter {n} uma vez e virar um domínio (ex.: ${PADRAO_RASCUNHO})`);
+  return p;
+}
+const reRascunho = () => { const [a, b] = padraoRascunho().split('{n}').map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')); return new RegExp(`^${a}([1-9]\\d*)${b}$`); };
+const ehDominioRascunho = (d) => reRascunho().test(String(d));
+function proximoRascunho({ reservar = false } = {}) {
+  const re = reRascunho();
+  const arq = path.join(C.ESTADO, 'rascunhos.json');
+  const usados = listar().map((d) => re.exec(d)).filter(Boolean).map((m) => Number(m[1]));
+  let n = Math.max(lerJSON(arq, {}).ultimo || 0, ...usados, 0) + 1;
+  const dom = (k) => padraoRascunho().replace('{n}', k);
+  while (fs.existsSync(C.site(dom(n)))) n++;
+  if (reservar) gravarJSON(arq, { ultimo: n, em: new Date().toISOString() }, false);
+  return dom(n);
+}
+// site criado num endereço de rascunho por qualquer caminho (inclusive com domínio explícito): o contador sobe junto,
+// para o número não ser usado de novo depois que esse site for promovido
+function registrarRascunho(d) {
+  const m = reRascunho().exec(String(d));
+  if (!m) return;
+  const arq = path.join(C.ESTADO, 'rascunhos.json');
+  if (Number(m[1]) > (lerJSON(arq, {}).ultimo || 0)) gravarJSON(arq, { ultimo: Number(m[1]), em: new Date().toISOString() }, false);
+}
 
 // ---------- cadastro ----------
 function validarSite(s, dominio) {
@@ -88,10 +121,11 @@ function validarSite(s, dominio) {
 
 // cadastro de um site novo: config/site-modelo.json (o "padrão da casa") + o que veio na chamada.
 // Só com o domínio já dá um site válido: nome = domínio, url = https://<domínio>, motor = a última versão congelada.
+// Endereço de rascunho (siteN.carro57.com.br) é sempre rascunho, mesmo que venha "rascunho": false.
 function cadastroNovo(dominio, parcial = {}) {
   const modelo = lerJSON(C.config('site-modelo.json'), {});
   const limpo = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith('_'))); // "_comentario" no modelo
-  return { ...limpo(modelo), ...parcial, nome: parcial.nome || dominio, url: parcial.url || `https://${dominio}`, motor: parcial.motor || modelo.motor || ultimaVersao(), template: parcial.template || modelo.template || 'barra-topo' };
+  return { ...limpo(modelo), ...parcial, ...(ehDominioRascunho(dominio) ? { rascunho: true } : {}), nome: parcial.nome || dominio, url: parcial.url || `https://${dominio}`, motor: parcial.motor || modelo.motor || ultimaVersao(), template: parcial.template || modelo.template || 'barra-topo' };
 }
 
 function gravarSite(dominio, obj) {
@@ -111,6 +145,7 @@ function criarArquivos(dominio, cadastro) {
   fs.mkdirSync(C.assets(dominio), { recursive: true });
   fs.mkdirSync(C.paginasLivresSite(dominio), { recursive: true });
   gravarSite(dominio, cadastro);
+  registrarRascunho(dominio);
   if (!fs.existsSync(C.estoque(dominio))) gravarJSON(C.estoque(dominio), { carros: [] }, false);
 }
 
@@ -145,4 +180,4 @@ function renomearArquivos(antigo, novo, { pasta = 'dist' } = {}) {
   return { trocas, desfazer };
 }
 
-module.exports = { ID_SITE, listar, existe, carregar, carregarTodos, lojas, estoque, resumo, resumos, validarSite, cadastroNovo, gravarSite, criarArquivos, renomearArquivos };
+module.exports = { proximoRascunho, ehDominioRascunho, padraoRascunho, ID_SITE, listar, existe, carregar, carregarTodos, lojas, estoque, resumo, resumos, validarSite, cadastroNovo, gravarSite, criarArquivos, renomearArquivos };

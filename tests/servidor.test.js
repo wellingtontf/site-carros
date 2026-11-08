@@ -406,3 +406,25 @@ test('POST /v1/sites/<d>/promover: rascunho vira o site definitivo; token acompa
   assert.equal((await req('GET', `/v1/sites/${F}`, { token: tokR })).status, 200, 'o token do rascunho passa a valer no definitivo');
   assert.equal((await req('POST', `/v1/sites/${F}/promover`, { token: tokTodos })).status, 409, 'já é definitivo');
 });
+
+test('POST /v1/sites sem domínio: cria o próximo rascunho da sequência (siteN.carro57.com.br)', async () => {
+  const a = await reqJ('POST', '/v1/sites?esperar=20', { corpo: { cadastro: { template: 'teste', nome: 'Loja do João' } }, token: tokTodos });
+  assert.equal(a.status, 201, JSON.stringify(a.j));
+  assert.match(a.j.site, /^site(\d+)\.carro57\.com\.br$/);
+  const n = Number(a.j.site.match(/\d+/)[0]);
+  const cad = JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites', a.j.site, 'site.json'), 'utf8'));
+  assert.deepEqual([cad.nome, cad.rascunho, cad.url], ['Loja do João', true, `https://${a.j.site}`]);
+  assert.match(A.ler(a.j.site, 'robots.txt'), /Disallow: \//, 'rascunho fora do Google');
+  // sem corpo nenhum também vale; o número segue
+  const b = await reqJ('POST', '/v1/sites', { token: tokTodos });
+  assert.equal(b.status, 202);
+  assert.equal(b.j.site, `site${n + 1}.carro57.com.br`);
+  // cadastro inválido não gasta número
+  assert.equal((await req('POST', '/v1/sites', { corpo: { cadastro: { template: 'nao-existe' } }, token: tokTodos })).status, 422);
+  const c = await reqJ('POST', '/v1/sites', { corpo: { cadastro: { template: 'teste' } }, token: tokTodos });
+  assert.equal(c.j.site, `site${n + 2}.carro57.com.br`);
+  // promover: para um domínio carro57 não pode
+  const p = await reqJ('POST', `/v1/sites/${a.j.site}/promover`, { corpo: { dominio: 'site99.carro57.com.br' }, token: tokTodos });
+  assert.equal(p.status, 422);
+  assert.equal((await req('POST', `/v1/sites/${a.j.site}/promover`, { token: tokTodos })).status, 422, 'no próprio endereço de rascunho não');
+});

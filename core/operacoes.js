@@ -71,6 +71,7 @@ async function promoverSite(dominio, { final = null, url = null, pasta = 'dist',
   const atual = Sites.carregar(dominio);
   if (!atual.rascunho) return { status: 'recusado', erros: [`o site "${dominio}" já é definitivo (não está em rascunho)`] };
   const destino = final || dominio;
+  if (Sites.ehDominioRascunho(destino)) return { status: 'invalido', erros: [`"${destino}" é um endereço de rascunho (${Sites.padraoRascunho()}): informe o domínio definitivo em "dominio"`] };
   if (destino !== dominio) {
     if (!Sites.ID_SITE.test(String(destino))) return { status: 'invalido', erros: [`domínio definitivo inválido "${destino}" (ex.: novaloja.com.br, só minúsculas)`] };
     if (fs.existsSync(C.site(destino))) return { status: 'existe', erros: [`já existe um site "${destino}"`] };

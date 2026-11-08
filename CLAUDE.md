@@ -39,7 +39,9 @@ core/                         SÓ CÓDIGO (isolado)
                               lista sites por conta própria (um teste cobra)
   operacoes.js                criarSite (estrutura + build + infra "criar"), promoverSite (RASCUNHO → definitivo: domínio final, tira
                               "rascunho", gera do zero sem o histórico, infra "promover") e renomearSite (site já no ar: leva o histórico
-                              de SEO, infra "renomear" com 301), com volta atrás. "rascunho": true = noindex em tudo + robots fechado; config/infra.json liga à hospedagem; config/site-modelo.json = padrão de site novo
+                              de SEO, infra "renomear" com 301), com volta atrás. "rascunho": true = noindex em tudo + robots fechado.
+                              Rascunhos em sequência site{n}.carro57.com.br (config/rascunhos.json; contador em .estado/rascunhos.json,
+                              número nunca reutilizado; Sites.proximoRascunho/ehDominioRascunho); config/infra.json liga à hospedagem; config/site-modelo.json = padrão de site novo
   trava.js, versoes.js        trava de execução (.estado/atualizar.lock) e versões congeladas do motor
   fotos.js                    fotos por URL: baixa (anti-SSRF), converte (converter-foto.py/Pillow ou comando de config/fotos.json),
                               "enviar" sobe para a S3 a partir de pasta temporária (nada fica no servidor), "apagar" tira as de

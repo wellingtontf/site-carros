@@ -32,7 +32,7 @@ O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da
 |---|---|---|
 | GET | `/v1/saude` | sem token: diz se a API está de pé |
 | GET | `/v1/sites` | sites que o token pode alterar, com o total de carros e a data da última atualização |
-| POST | `/v1/sites` | **cria um site novo com toda a estrutura**: `{"dominio": "novaloja.com.br"}` (ver "Site novo") |
+| POST | `/v1/sites` | **cria um site novo com toda a estrutura**: sem domínio = próximo rascunho (`siteN.carro57.com.br`); ou `{"dominio": "novaloja.com.br"}` (ver "Site novo") |
 | PUT | `/v1/sites/{dominio}` | **cria o site, se não existir, ou atualiza o cadastro** (ver "Cadastro do site") e gera o site |
 | POST | `/v1/sites/{dominio}/promover` | **rascunho → site definitivo**: `{"dominio": "lojafinal.com.br"}` (ver "Rascunho e promoção") |
 | POST | `/v1/sites/{dominio}/dominio` | site **já no ar** troca de domínio, levando tudo junto: `{"novo": "outro.com.br"}` (ver "Trocar o domínio") |
@@ -70,7 +70,18 @@ Parâmetros das rotas que alteram dados:
 
 ## Rascunho e promoção
 
-O fluxo normal de um site novo: ele nasce como **rascunho** num endereço provisório (ex.: `loja-x.rascunho.plataforma.com.br`). Lá o time monta e confere tudo. Quando estiver pronto, ele é **promovido** para o domínio definitivo.
+O fluxo normal de um site novo: ele nasce como **rascunho** num endereço provisório da sequência `site1.carro57.com.br`, `site2.carro57.com.br`, `site3.carro57.com.br`...
+
+```
+POST /v1/sites                     {"cadastro": {"nome": "Loja do João", "template": "servopa"}}   (ou corpo vazio)
+→ 202 { "pedido": "...", "site": "site14.carro57.com.br", ... }
+```
+
+- O número segue a sequência e **nunca é reutilizado**: depois que o `site3` é promovido, o próximo é o `site15`, nunca o 3 de novo (o endereço pode ter sido compartilhado). Cadastro inválido não gasta número.
+- O padrão fica em `config/rascunhos.json` (`"padrao": "site{n}.carro57.com.br"`).
+- Endereço do padrão é **sempre rascunho**, mesmo com `"rascunho": false`. Promover para um endereço do padrão, ou no próprio endereço de rascunho, é recusado (422): informe o domínio definitivo.
+
+Lá o time monta e confere tudo. Lá o time monta e confere tudo. Quando estiver pronto, ele é **promovido** para o domínio definitivo.
 
 - **Rascunho (`"rascunho": true` no cadastro; é o padrão de `POST /v1/sites`)**: nenhuma página entra no Google. Todas saem com `noindex` e o `robots.txt` fecha o site inteiro (`Disallow: /`), mesmo que o modelo de robots de todos os sites diga outra coisa.
 - **Promover**: `POST /v1/sites/{rascunho}/promover` com `{"dominio": "lojafinal.com.br"}`. Opcionalmente, `"url": "https://www.lojafinal.com.br"` define o endereço público. Sem `dominio`, o site só deixa de ser rascunho no próprio endereço.
