@@ -41,6 +41,7 @@ function validarEstoque(obj, lojas = []) {
     else vistos.add(c.id);
     for (const k of ['marca', 'modelo', 'versao', 'cor', 'cambio', 'combustivel']) if (!txt(c[k])) e(`"${k}" vazio ou ausente`);
     if (!int(c.ano) || c.ano < 1950 || c.ano > anoMax) e('ano inválido');
+    if (c.publicado != null && !(typeof c.publicado === 'string' && /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2})?.*)?$/.test(c.publicado) && !isNaN(Date.parse(c.publicado.slice(0, 10))))) e('publicado: data no formato AAAA-MM-DD (ou AAAA-MM-DDTHH:MM)');
     if (typeof c.preco !== 'number' || !(c.preco > 0)) e('preco inválido');
     if (typeof c.km !== 'number' || c.km < 0) e('km inválido');
     // fotos: a quantidade (as fotos já estão no armazenamento) ou a lista de URLs (a plataforma baixa e converte: core/fotos.js)

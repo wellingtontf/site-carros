@@ -79,6 +79,14 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
 - Etapa 1 feita: `templates/` → `temas/` (estrutura do Shopify), `"template"` → `"tema"`, objeto `"tema"` →
   `"configuracoes"`, `"blocos"` → `"secoes"`, `ferramentas/migrar-temas.js`; HTML gerado idêntico. O tema `trokey` foi
   apagado pelo Wellington. Etapas seguintes (layout, schema e locales, scripts, versão) em CLAUDE.md.
+- Etapa 2: `layout/tema.html` (moldura única, herança de templates do Mustache `{{$bloco}}`); saída idêntica.
+- Etapa 3: o tema declara o que o site pode configurar (`config/settings_schema.json`) e os textos padrão
+  (`locales/pt-BR.json`); chave desconhecida = aviso, tipo errado = erro; `GET /v1/temas`.
+- Etapa 4: GTM, GA4, Pixel e código livre (`codigos/` do site e do inquilino) em todas as páginas, só depois do "Aceitar"
+  do aviso de cookies (Aceitar/Recusar).
+- Componente **barra-busca** (igual ao site da Servopa): marca e modelo em cascata, Pesquisar e ordenação à direita
+  (Menor/Maior preço, Menor/Maior ano, A-Z, Z-A, Data de publicação) com o **motor v4**; data de publicação = campo
+  `publicado` do carro ou o dia em que ele apareceu. Etapa 5 (versão do tema) ficou para depois.
 
 ## Decisões do Wellington (consolidadas)
 
@@ -124,7 +132,7 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
 
 ## Anexo: todas as mensagens do Wellington, na íntegra
 
-118 mensagens, na ordem. Ficaram de fora só avisos automáticos do sistema. Respostas a perguntas de múltipla escolha
+121 mensagens, na ordem. Ficaram de fora só avisos automáticos do sistema. Respostas a perguntas de múltipla escolha
 (como "Espelho do site") não aparecem aqui, porque entraram como resposta de ferramenta e não como mensagem.
 
 **1.** _07/11 18:32_
@@ -736,3 +744,22 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
 > eu quero usar o padrao de mercado de nomeclatura A estrutura típica, no modelo do Shopify:
 >
 > e para eu ter cabeçalho e rodapes qeu eu consigo injetar algum script?
+
+**119.** _08/11 19:19_
+
+> vai para proxima etapa.
+
+**120.** _08/11 19:36_
+
+> em qual pasta vou poder por minhas customizações?
+
+**121.** _08/11 19:40_
+
+> pode ir para 4
+>
+>
+> eu tb quero criar um componente acima da busca ativa 
+>
+> igual a foto
+>
+> deve ter um como para pesquisar marcar, modelo e lá na direita deve ter um combo por ordenação com as opções menor preco, menor valor, menor ano, maior ano, A-Z, Z-A, data de publicação

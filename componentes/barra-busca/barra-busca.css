@@ -1,0 +1,18 @@
+/* componente barra-busca: marca, modelo, Pesquisar e a ordenação à direita; cores das opções (--c-busca-*) ou do site */
+.c-busca {
+  --_cor: var(--c-busca-cor, var(--cor, #0b5fff)); --_fundo: var(--c-busca-fundo, #f1f2f4); --_borda: var(--c-busca-borda, var(--_cor));
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 16px; padding: 10px 14px;
+  background: var(--_fundo); border: 2px solid var(--_borda); font-family: var(--fonte, inherit);
+}
+.c-busca__form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; flex: 1 1 auto; margin: 0; }
+.c-busca select, .c-busca__botao { font: inherit; font-size: .95rem; height: 38px; border-radius: 4px; }
+.c-busca select { min-width: 170px; padding: 0 30px 0 12px; border: 1px solid #c9ced6; background-color: #fff; color: #444; cursor: pointer; }
+.c-busca select[hidden] { display: none; }
+.c-busca__botao { padding: 0 16px; border: 0; background: var(--_cor); color: #fff; cursor: pointer; }
+.c-busca__botao:hover { filter: brightness(.92); }
+.c-busca__ordem { margin-left: auto; min-width: 220px; }
+@media (max-width: 640px) {
+  .c-busca__form { flex: 1 1 100%; }
+  .c-busca select, .c-busca__ordem { flex: 1 1 100%; min-width: 0; margin-left: 0; }
+  .c-busca__botao { flex: 1 1 100%; }
+}

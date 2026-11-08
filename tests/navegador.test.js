@@ -22,7 +22,7 @@ before(async () => {
   for (const t of templates) {
     const carros = Array.from({ length: TOTAL }, (_, i) => A.carro({ marca: i % 3 ? 'Toyota' : 'Honda', modelo: i % 3 ? 'Corolla' : 'Civic', loja: i % 2 ? 'sul' : 'centro', ordem: TOTAL - i }));
     carros[TOTAL - 1].link = `carros/Link/Do/Revenda-Mais/${t}-especial-1.html`; // o primeiro na tela (ordem 1) usa link vindo do estoque
-    A.criarSite(`${t}.teste.com.br`, { carros, site: { tema: t, fotosBase: '', motor: 'v3' } });
+    A.criarSite(`${t}.teste.com.br`, { carros, site: { tema: t, fotosBase: '', motor: 'v4' } });
     // estado em caixas de marcar (opção "checkbox" do componente filtro, configurada na PÁGINA: web/multipla.json)
     A.gravarMultipla(`${t}.teste.com.br`, { componentes: { filtro: { checkbox: 'estado' } } });
   }
@@ -197,3 +197,38 @@ test('LGPD: scripts de terceiros só rodam depois do "Aceitar"; "Recusar" nunca 
     assert.equal(r, '1:0,0,-,Aceitar/Recusar,2;aceitou:1,1,body,sem-aviso,0;2:1,1,body,sem-aviso,0;3:0,0,-,Aceitar/Recusar,2;recusou:0,0,-,sem-aviso,2;4:0,0,-,sem-aviso,2;', r);
   } finally { fs.rmSync(arq); }
 });
+
+// barra de busca (componente barra-busca; no template-basico fica acima dos filtros ativos)
+for (const t of templates.filter((x) => fs.readFileSync(path.join(A.PROJETO, 'temas', x, 'templates', 'multipla.html'), 'utf8').includes('{{componente barra-busca'))) {
+  const id = `${t}.teste.com.br`;
+  test(`[${t}] barra de busca: marca e modelo em cascata, ordenação à direita, tudo no endereço e nos filtros ativos`, { skip: pular }, async () => {
+    const arq = path.join(raiz, 'sites-public', id, 'teste-barra.html');
+    fs.writeFileSync(arq, `<!doctype html><body><pre id="r"></pre><iframe id="f" src="multipla/"></iframe><script>
+      const f = document.getElementById('f'), log = (x) => (document.getElementById('r').textContent += x + ';');
+      f.onload = () => setTimeout(() => { const d = f.contentDocument, w = f.contentWindow;
+        const n = () => d.getElementById('contagem').textContent.trim();
+        const sel = (c) => d.querySelector('[data-busca-campo="' + c + '"]'), ord = d.querySelector('[data-busca-ordem]');
+        const ops = (s) => [...s.options].map((o) => o.textContent).join('/');
+        const muda = (s, v) => { s.value = v; s.dispatchEvent(new Event('change', { bubbles: true })); };
+        try {
+          log(n() + '|' + ops(sel('marca')) + '|' + ops(sel('modelo')) + '|' + ops(ord));
+          muda(sel('marca'), 'Honda'); log(n() + '|' + ops(sel('modelo')) + '|' + w.location.pathname.split('/multipla/')[1]);
+          muda(sel('modelo'), 'Civic'); log(n() + '|' + [...d.querySelectorAll('.c-ativos__chip')].map((b) => b.dataset.valor).join(','));
+          muda(ord, 'menor'); log(w.location.search + '|' + ord.value);
+          muda(ord, ''); log(w.location.search + '|' + ord.value);
+          d.querySelector('.c-busca__botao').click(); log('pesquisar');
+          d.querySelector('.c-ativos__limpar').click(); log(n() + '|' + sel('marca').value + '|' + sel('modelo').value);
+        } catch (e) { log('ERRO ' + e.message); } }, 2000);
+    </script>`);
+    try {
+      const { dom, erros } = await abrir(`${base}/${id}/teste-barra.html`);
+      assert.deepEqual(erros, []);
+      const r = (dom.match(/<pre id="r">([^<]*)/) || [])[1] || '';
+      assert.equal(r, [
+        '30 carros|Selecione a Marca/Honda/Toyota|Selecione o Modelo/Civic/Corolla|Ordenar por.../Menor preço/Maior preço/Menor ano/Maior ano/A-Z/Z-A/Data de publicação',
+        '10 carros|Selecione o Modelo/Civic|marca/honda',
+        '10 carros|Honda,Civic',
+        '?ord=menor|menor', '|', 'pesquisar', '30 carros||', ''].join(';'), r);
+    } finally { fs.rmSync(arq); }
+  });
+}

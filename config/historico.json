@@ -42,5 +42,22 @@
         "para": "v3"
       }
     ]
+  },
+  {
+    "data": "2026-11-08 19:48",
+    "acao": "aplicar",
+    "versao": "v4",
+    "sites": [
+      {
+        "site": "lojateste.com.br",
+        "anterior": "v3",
+        "para": "v4"
+      },
+      {
+        "site": "primeseminovos.exemplo.com.br",
+        "anterior": "v3",
+        "para": "v4"
+      }
+    ]
   }
 ]

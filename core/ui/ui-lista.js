@@ -161,6 +161,54 @@
     return rota.base + caminho + (s ? `?${s}` : '');
   }
 
+  // BARRA DE BUSCA (componente barra-busca): selects de filtro (marca, modelo...; aplicam na hora, em cascata) e o combo de
+  // ordenação; "Pesquisar" aplica o que está escolhido e leva até a lista. Sem ids: pode haver mais de uma na página.
+  const barras = [...document.querySelectorAll('[data-busca]')];
+  // opções de um select de filtro: a primeira (texto), o grupo de vários valores (vindo do link) e as do estoque
+  const opcoesDoSelect = (f, primeira) => {
+    const vs = f.valores ? f.valores() : [];
+    const existe = vs.length === 1 && f.opcoes().some((o) => o.valor === vs[0]);
+    const grupo = vs.length && !existe ? `<option value="${esc(f.valor())}">${esc(vs.slice(0, 2).join(', '))}${vs.length > 2 ? ` +${vs.length - 2}` : ''}</option>` : '';
+    return `<option value="">${esc(primeira)}</option>` + grupo + f.opcoes().map((o) => `<option value="${esc(o.valor)}">${esc(o.rotulo)}</option>`).join('');
+  };
+  barras.forEach((b) => {
+    b.querySelectorAll('[data-busca-campo]').forEach((s) => {
+      const f = motor.filtros.find((x) => x.campo === s.dataset.buscaCampo);
+      if (!f) { s.hidden = true; return; } // filtro que o site não tem
+      s.setAttribute('aria-label', f.rotulo);
+      s.addEventListener('change', () => motor.definir(f.campo, s.value));
+    });
+    const o = b.querySelector('[data-busca-ordem]');
+    if (o) {
+      const quero = (o.dataset.ordens || '').split(',').map((x) => x.trim()).filter(Boolean);
+      const lista = quero.length ? quero.map((k) => motor.ordens.find((x) => x.chave === k)).filter(Boolean) : motor.ordens;
+      o.insertAdjacentHTML('beforeend', lista.map((x) => `<option value="${esc(x.chave)}">${esc(x.rotulo)}</option>`).join(''));
+      o.addEventListener('change', () => motor.ordenar(o.value || motor.ordens[0].chave));
+    }
+    const form = b.querySelector('form');
+    if (form) form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const g = $('#grade');
+      if (g && g.scrollIntoView) g.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+  function desenharBarras() {
+    const e = motor.estado();
+    barras.forEach((b) => {
+      b.querySelectorAll('[data-busca-campo]').forEach((s) => {
+        const f = motor.filtros.find((x) => x.campo === s.dataset.buscaCampo);
+        if (!f) return;
+        const nomeCampo = f.campo.charAt(0).toUpperCase() + f.campo.slice(1);
+        const html = opcoesDoSelect(f, b.dataset[`texto${nomeCampo}`] || f.rotulo);
+        if (s.dataset.sig !== html) { s.innerHTML = html; s.dataset.sig = html; }
+        s.value = f.valor();
+      });
+      const o = b.querySelector('[data-busca-ordem]');
+      // ordem padrão do site = a primeira opção ("Ordenar por..."); outra ordem que não está no combo também
+      if (o) o.value = e.ord !== motor.ordens[0].chave && o.querySelector(`option[value="${e.ord}"]`) ? e.ord : '';
+    });
+  }
+
   // FILTROS ATIVOS (componente filtros-ativos): uma etiqueta por filtro aplicado, com X; o botão limpa todos
   const ativos = $('#filtros-ativos');
   function desenharAtivos() {
@@ -218,14 +266,12 @@
       if (!sel) return;
       // vários valores (vindos do link: cidade/Canoas|Cascavel): uma opção a mais com o grupo escolhido
       // ...e o valor do link que não tem carro no estoque (a lista mostra "nenhum carro"; o select não fica em branco)
-      const vs = f.valores ? f.valores() : [];
-      const existe = vs.length === 1 && f.opcoes().some((o) => o.valor === vs[0]);
-      const grupo = vs.length && !existe ? `<option value="${esc(f.valor())}">${esc(vs.slice(0, 2).join(', '))}${vs.length > 2 ? ` +${vs.length - 2}` : ''}</option>` : '';
-      const html = `<option value="">${esc(f.rotulo)}</option>` + grupo + f.opcoes().map((o) => `<option value="${esc(o.valor)}">${esc(o.rotulo)}</option>`).join('');
+      const html = opcoesDoSelect(f, f.rotulo);
       if (sel.dataset.sig !== html) { sel.innerHTML = html; sel.dataset.sig = html; }
       sel.value = f.valor();
     });
     desenharAtivos();
+    desenharBarras();
     desenhar(true);
     salvarURL();
   }

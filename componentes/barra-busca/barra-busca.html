@@ -1,0 +1,7 @@
+{{#op.mostrar}}<div class="c-busca" data-busca data-texto-marca="{{op.textoMarca}}" data-texto-modelo="{{op.textoModelo}}" style="{{{componente.estilo}}}">
+  <form class="c-busca__form" role="search" autocomplete="off">
+    {{#op.campos}}<select class="c-busca__campo" data-busca-campo="{{.}}" aria-label="{{.}}"></select>{{/op.campos}}
+    {{#op.botao}}<button type="submit" class="c-busca__botao">{{op.botao}}</button>{{/op.botao}}
+  </form>
+  {{#op.ordenacao}}<select class="c-busca__ordem" data-busca-ordem data-ordens="{{op.ordensTexto}}" aria-label="Ordenar"><option value="">{{op.textoOrdem}}</option></select>{{/op.ordenacao}}
+</div>{{/op.mostrar}}

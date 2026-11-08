@@ -237,7 +237,7 @@ test('6) recusas claras: arquivo que não é o que diz, SVG com script, página 
 
 test('7) componentes do site pela API: grava sites-config/<d>/componentes/<nome>.json e o site muda; inválido é 422', async () => {
   const lista = await pedir('GET', `/v1/sites/${D}/componentes`);
-  assert.deepEqual(lista.j.componentes.map((c) => c.nome), ['estoque', 'filtro', 'filtros-ativos']);
+  assert.deepEqual(lista.j.componentes.map((c) => c.nome), ['barra-busca', 'estoque', 'filtro', 'filtros-ativos']);
   const r = await pedir('PUT', `/v1/sites/${D}/componentes/estoque?esperar=30`, { preco: '#c00000', porPagina: 2, whatsapp: false });
   assert.equal(r.status, 200, JSON.stringify(r.j));
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites-config', D, 'componentes', 'estoque.json'), 'utf8')), { preco: '#c00000', porPagina: 2, whatsapp: false });

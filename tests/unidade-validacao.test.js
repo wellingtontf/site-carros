@@ -66,3 +66,8 @@ test('link (opcional): formato do Revenda Mais; inválido e repetido são recusa
   erro([carro({ link: 'carros/x' })], /link inválido/);
   erro([carro({ link: 'carros/a.html' }), carro({ link: '/carros/a.html' })], /link repetido/);
 });
+
+test('publicado (data de publicação, opcional): AAAA-MM-DD ou com hora', () => {
+  ok([carro({ publicado: '2026-11-05' }), carro({ publicado: '2026-11-05T10:30' }), carro({ publicado: '2026-11-05 10:30:00' })]);
+  for (const ruim of ['05/11/2026', '2026-13-45', 20261105, '']) erro([carro({ publicado: ruim })], /publicado: data no formato AAAA-MM-DD/);
+});

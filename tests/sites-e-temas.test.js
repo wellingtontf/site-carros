@@ -47,9 +47,10 @@ for (const id of reais) {
       assert.ok(fs.existsSync(path.join(dir, p)), p);
     }
     const lista = fs.readFileSync(path.join(dir, 'multipla', 'index.html'), 'utf8');
-    for (const idHtml of ['q', 'filtros-dinamicos', 'ord', 'contagem', 'grade', 'mais', 'limpar', 'copiar', 'tpl-card']) {
+    for (const idHtml of ['q', 'filtros-dinamicos', 'contagem', 'grade', 'mais', 'limpar', 'copiar', 'tpl-card']) {
       assert.match(lista, new RegExp(`id="${idHtml}"`), `/multipla sem id="${idHtml}"`);
     }
+    assert.match(lista, /id="ord"|data-busca-ordem/, '/multipla sem ordenação (#ord do estoque ou o combo da barra-busca)');
     assert.match(lista, /data-rel="\.\.\/"/, '/multipla precisa de data-rel para achar estoque.json');
     for (const arq of A.listar(dir).filter((f) => f.endsWith('.html'))) {
       const html = fs.readFileSync(arq, 'utf8');

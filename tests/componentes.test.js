@@ -22,8 +22,8 @@ function templateComComponentes(nome, multipla) {
   return nome;
 }
 
-test('a pasta componentes/ tem filtro, estoque e filtros-ativos, com opções documentadas', () => {
-  assert.deepEqual(Comp.listar(), ['estoque', 'filtro', 'filtros-ativos']);
+test('a pasta componentes/ tem barra-busca, filtro, estoque e filtros-ativos, com opções documentadas', () => {
+  assert.deepEqual(Comp.listar(), ['barra-busca', 'estoque', 'filtro', 'filtros-ativos']);
   for (const n of Comp.listar()) for (const [k, d] of Object.entries(Comp.carregar(n).opcoes)) assert.ok('padrao' in d, `${n}.${k} sem padrão`);
 });
 

@@ -315,6 +315,7 @@ HTTP 422
 | `ordem` | não | inteiro ≥ 0; menor aparece primeiro. Sem ele, vale a posição na lista |
 | `destaque` | não | `true`/`false`; aparece na vitrine da home |
 | `carroceria` | não | Hatch, Sedan, SUV, Picape... (vira filtro e rota da listagem: `/multipla/carroceria/suv`) |
+| `publicado` | não | data de publicação, `AAAA-MM-DD` ou `AAAA-MM-DDTHH:MM` (ordenação "Data de publicação"); sem ela, vale o dia em que o carro apareceu no site |
 | `link` | não | endereço da página do carro, para **manter URLs já indexadas no Google** numa migração (`carros/.../nome.html`, sem espaço, `?`, `#` ou `..`). Sem ele, a plataforma gera o endereço |
 
 ### Fotos

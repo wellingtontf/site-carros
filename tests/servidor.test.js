@@ -324,7 +324,7 @@ test('POST /v1/sites: cria site novo só com o domínio (modelo + infra), toda a
   const dir = path.join(A.raiz(), 'sites-config', D);
   for (const f of ['site.json', 'estoque.json', 'assets', 'web/paginas']) assert.ok(fs.existsSync(path.join(dir, f)), f);
   const cad = JSON.parse(fs.readFileSync(path.join(dir, 'site.json'), 'utf8'));
-  assert.deepEqual([cad.nome, cad.url, cad.tema, cad.configuracoes.cor, cad.motor, '_comentario' in cad], [D, `https://${D}`, 'teste', '#123456', 'v3', false]);
+  assert.deepEqual([cad.nome, cad.url, cad.tema, cad.configuracoes.cor, cad.motor, '_comentario' in cad], [D, `https://${D}`, 'teste', '#123456', 'v4', false]); // motor: a última congelada
   assert.ok(A.existe(D, 'index.html') && A.existe(D, 'multipla/index.html') && A.existe(D, 'robots.txt'), 'site gerado');
   assert.match(fs.readFileSync(path.join(A.raiz(), 'infra.log'), 'utf8'), new RegExp(`${D} sites-public/${D}`));
   // estoque antes das lojas: recusado com explicação; depois de cadastrar a loja, entra

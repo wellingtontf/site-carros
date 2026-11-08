@@ -131,6 +131,21 @@ for (const v of versoes) {
     mo.ordenar('nao-existe'); assert.equal(mo.estado().ord, 'km', 'ordem desconhecida é ignorada');
   });
 
+  if (numero(v) >= 4) test(`[${v}] ordenação v4: menor/maior ano, A-Z, Z-A e data de publicação (dp; sem data, vai para o fim)`, async () => {
+    const dp = { a: '2026-10-01', b: '2026-11-05T10:30', c: '2026-11-05T09:00', d: '2026-09-15' }; // "e" sem data
+    const mo = await criar(M, {}, DADOS.map((d) => (dp[d.i] ? { ...d, dp: dp[d.i] } : d)));
+    const ordem = (k) => { mo.ordenar(k); return mo.resultado().map((c) => c.id).join(''); };
+    assert.equal(ordem('anoMenor'), 'cabed');
+    assert.equal(ordem('anoMaior'), 'debac');
+    assert.equal(ordem('az'), 'dbace', 'Chevrolet Onix, Honda City, Honda Civic, Toyota, Volkswagen');
+    assert.equal(ordem('za'), 'ecabd');
+    assert.equal(ordem('publicacao'), 'bcade');
+    assert.deepEqual(['anoMenor', 'anoMaior', 'az', 'za', 'publicacao'].map((k) => mo.ordens.find((o) => o.chave === k).rotulo),
+      ['Menor ano', 'Maior ano', 'A-Z', 'Z-A', 'Data de publicação']);
+    const so = await criar(M, { ordenacao: ['menor', 'az'] });
+    assert.deepEqual(so.ordens.map((o) => o.chave), ['menor', 'az'], 'o site escolhe quais aparecem');
+  });
+
   test(`[${v}] WhatsApp: vendedor (?v=) > loja > site; texto codificado`, () => {
     const cfg = { whatsapp: '5500', lojas: { centro: { whatsapp: '5511' }, sul: {} }, vendedores: { ana: '5599' } };
     const guarda = { location: globalThis.location, localStorage: globalThis.localStorage };

@@ -102,8 +102,9 @@ converte.
 
 ### Ordenação
 
-`destaque` (a ordem do estoque; padrão a partir do motor v2), `recentes`, `menor` (preço), `maior` (preço), `km`.
-A primeira da lista do site é a padrão.
+`destaque` (a ordem do estoque; padrão a partir do motor v2), `recentes`, `menor` (preço), `maior` (preço), `km` e, no
+motor v4, `anoMenor`, `anoMaior`, `az`, `za` e `publicacao` (data de publicação). A primeira da lista do site é a padrão;
+o combo da `barra-busca` só mostra as que estão aqui.
 
 ### Restrições
 
@@ -155,6 +156,7 @@ sem mexer no tema. Três lugares, nesta ordem:
 | `ordem` | não | menor aparece primeiro ("Destaques"); sem ele, vale a posição no arquivo |
 | `destaque` | não | marca o carro como destaque (vitrine com `somenteDestaques`) |
 | `carroceria` | não | Hatch, Sedan, SUV, Picape, Moto, Utilitário... (vira filtro) |
+| `publicado` | não | data de publicação, `AAAA-MM-DD` ou `AAAA-MM-DDTHH:MM` (ordenação "Data de publicação"); sem ela, vale o dia em que o carro apareceu no site |
 | `opcionais`, `descricao` | não | aparecem na página do carro |
 | `link` | não | endereço da página do carro já indexado (o do Revenda Mais): a página fica **exatamente** nele. Começa com `carros/` e termina com `.html`; `//` vira `/` |
 

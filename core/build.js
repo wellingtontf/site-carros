@@ -138,7 +138,7 @@ const OBSOLETOS = ['carros.json', 'estoque.xml'];
 // TODOS os sites (com 2500 sites, ~1 milhão de arquivos para publicar), então não amarramos isso ao arquivo inteiro:
 // um comentário ou refatoração não deve refazer nada. O teste tests/snapshot-html.test.js avisa se a saída mudou e a
 // versão não (e vice-versa). Templates, tema, textos e dados do site já entram no hash de cada site por conta própria.
-const VERSAO_HTML = 11; // 11: rotas da listagem (/multipla/marca/toyota, minúsculas), <base> da rota; 10: sem páginas de filtro (/multipla/marca/x/...): filtro só por parâmetro; 9: estoque.json (era carros.json), sem estoque.xml; 8: componentes (filtro, estoque) nos templates; 7: páginas de conteúdo em /paginas/<nome>/ (endereço antigo redireciona); 6: estoque.xml; 2: cards no HTML, filtros, <lastmod>; 3: páginas padrão; 4: link do estoque, URLs codificadas, formato revendamais; 5: 404.html, ?v= nos css/js, canonical nas páginas livres
+const VERSAO_HTML = 12; // 12: estoque.json com a data de publicação (dp, ordenação do motor v4), config.json com "tema" (era "template"); 11: rotas da listagem (/multipla/marca/toyota, minúsculas), <base> da rota; 10: sem páginas de filtro (/multipla/marca/x/...): filtro só por parâmetro; 9: estoque.json (era carros.json), sem estoque.xml; 8: componentes (filtro, estoque) nos templates; 7: páginas de conteúdo em /paginas/<nome>/ (endereço antigo redireciona); 6: estoque.xml; 2: cards no HTML, filtros, <lastmod>; 3: páginas padrão; 4: link do estoque, URLs codificadas, formato revendamais; 5: 404.html, ?v= nos css/js, canonical nas páginas livres
 const RENDER_VERSION = `html-${VERSAO_HTML}`;
 
 const lerJSON = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -532,6 +532,11 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     // e o template preenche só os que precisa. Template sem nenhum {{$...}} é o documento inteiro (sem layout).
     const pagina = (arquivo) => parciais(comLayout(fs.readFileSync(path.join(dirTpl, C.TEMA.templates, arquivo), 'utf8'), dirTpl, `temas/${nomeTpl}/templates/${arquivo}`));
 
+    // DATA DE PUBLICAÇÃO de cada carro (ordenação "Data de publicação" do motor v4): a que veio no estoque ("publicado"),
+    // ou o dia em que o carro apareceu no site pela primeira vez (guardado no estado; vale mesmo num build "completo")
+    const entradasAnt = (lerEstado(pasta, site.id) || {}).entradas || {};
+    const entradas = Object.fromEntries(carros.map((c) => [c.id, c.publicado ? String(c.publicado).slice(0, 16) : entradasAnt[c.id] || hoje]));
+
     // dados que o motor lê
     escreverSe(
       path.join(out, ARQ_ESTOQUE),
@@ -539,7 +544,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       // "formatoEstoque": "compacto" → dicionário + colunas (core/ui/formato-estoque.js; ~4x menor sem gzip); o navegador
       // desempacota para exatamente esta mesma lista antes de entregar ao motor (busca e filtros iguais)
       ((lista) => JSON.stringify(site.formatoEstoque === 'compacto' ? FormatoEstoque.compactar(lista) : lista))(
-        carros.map((c, r) => ({ i: c.id, m: c.marca, o: c.modelo, v: c.versao, a: c.ano, p: c.preco, k: c.km, c: c.cor, b: c.cambio, f: c.combustivel, n: c.fotos, u: c.loja, cd: c.cidade, uf: c.uf, r, ...(c.carroceria ? { cr: c.carroceria } : {}), ...(c.link ? { l: c.link } : {}) }))), // l = link vindo do estoque
+        carros.map((c, r) => ({ i: c.id, m: c.marca, o: c.modelo, v: c.versao, a: c.ano, p: c.preco, k: c.km, c: c.cor, b: c.cambio, f: c.combustivel, n: c.fotos, u: c.loja, cd: c.cidade, uf: c.uf, r, ...(c.carroceria ? { cr: c.carroceria } : {}), ...(c.link ? { l: c.link } : {}), dp: entradas[c.id] }))), // l = link vindo do estoque; dp = data de publicação
       rel(ARQ_ESTOQUE), mud
     );
     // nomes antigos (carros.json; estoque.xml, o feed XML que saiu da plataforma): apaga e despublica
@@ -548,8 +553,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     escreverSe(
       path.join(out, 'config.json'),
       JSON.stringify({
-        // "template" = nome do tema (a chave muda junto com a próxima VERSAO_HTML; o core/ui não lê)
-        nome: site.nome, motor: versao, template: nomeTpl, whatsapp: site.whatsapp, vendedores: site.vendedores || {},
+        nome: site.nome, motor: versao, tema: nomeTpl, whatsapp: site.whatsapp, vendedores: site.vendedores || {},
         busca: site.busca !== false, filtros: site.filtros || null, ordenacao: site.ordenacao || null, total: carros.length,
         // aviso de cookies (core/ui/ui-site.js): link para a política de cookies, ou de privacidade, se o site tiver
         avisoCookies: site.avisoCookies === false ? null : {
@@ -916,7 +920,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     }
 
     if (!efemero) {
-      gravarEstado(pasta, site.id, { render: RENDER_VERSION, base: baseHash, carros: hashes, links, titulos, vendidos, redirecionados, paginas: geradas, datas, estaticos: [...estaticos].sort(), em: new Date().toISOString() });
+      gravarEstado(pasta, site.id, { render: RENDER_VERSION, base: baseHash, carros: hashes, entradas, links, titulos, vendidos, redirecionados, paginas: geradas, datas, estaticos: [...estaticos].sort(), em: new Date().toISOString() });
       registrarPendente(pasta, site.id, mud, !incremental);
     }
 

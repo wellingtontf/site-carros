@@ -563,7 +563,7 @@ test('padrão Shopify: tema e site com os nomes antigos dão erro claro; ferrame
   assert.deepEqual([migrado.tema, migrado.configuracoes, migrado.template, migrado.pagina404.secoes.length], ['velho', configuracoes, undefined, 1]);
   assert.ok(fs.existsSync(path.join(dir, 'config', 'settings_schema.json')) && fs.existsSync(path.join(dir, 'assets', 'css')) && !fs.existsSync(path.join(dir, 'paginas')));
   build({ completo: true });
-  const depois = saidaDe(); depois['config.json'] = depois['config.json'].replace('"template":"velho"', '"template":"teste"'); // só o nome do tema muda
+  const depois = saidaDe(); depois['config.json'] = depois['config.json'].replace('"tema":"velho"', '"tema":"teste"'); // só o nome do tema muda
   assert.deepEqual(Object.keys(depois).filter((k) => depois[k] !== referencia[k]).concat(Object.keys(referencia).filter((k) => !(k in depois))), [], 'depois de migrar, o site sai idêntico');
   assert.equal(A.silencioso(() => Migrar.migrarSite(ID)).r, false, 'rodar de novo não mexe em nada');
   fs.rmSync(dir, { recursive: true });
@@ -690,6 +690,18 @@ test('scripts (core/codigos.js): integrações + codigos/ do inquilino e do site
   // sem integração nem código: nenhum <template data-lgpd>
   build({ completo: true });
   assert.doesNotMatch(A.ler(ID, 'index.html'), /data-lgpd/);
+});
+
+test('data de publicação (dp no estoque.json, ordenação do motor v4): a do estoque ("publicado") ou o dia em que o carro apareceu; mantida nos próximos builds', () => {
+  A.criarSite(ID, { carros: [A.carro({ id: 'P1', publicado: '2026-10-20T08:15:00-03:00' }), A.carro({ id: 'P2' })], site: { motor: 'v4' } });
+  A.silencioso(() => construir({ sites: [ID], hoje: '2026-11-01', completo: true }));
+  const dp = () => Object.fromEntries(A.lerJSON(ID, 'estoque.json').map((c) => [c.i, c.dp]));
+  assert.deepEqual(dp(), { P1: '2026-10-20T08:15', P2: '2026-11-01' });
+  // dias depois: P2 continua com o dia em que apareceu (mesmo num build "completo"); P3 é novo
+  A.gravarEstoque(ID, [A.carro({ id: 'P1', publicado: '2026-10-20T08:15:00-03:00' }), A.carro({ id: 'P2' }), A.carro({ id: 'P3' })]);
+  A.silencioso(() => construir({ sites: [ID], hoje: '2026-11-07', completo: true }));
+  assert.deepEqual(dp(), { P1: '2026-10-20T08:15', P2: '2026-11-01', P3: '2026-11-07' });
+  assert.equal(A.lerJSON(ID, 'config.json').tema, 'teste', 'config.json com "tema" (era "template")');
 });
 
 // ---------- páginas livres dos web designers (core/paginas-livres.js) ----------

@@ -58,13 +58,22 @@
     carroceria: { k: 'carroceria', rotulo: 'Carroceria' },
   };
   const PADRAO = ['estado', 'cidade', 'loja', 'marca', 'modelo', 'carroceria', 'ano', 'preco', 'km', 'cambio', 'combustivel', 'cor'];
-  // a primeira ordem da lista do site é a padrão. "destaque" = a ordem em que os carros vêm no estoque (campo "ordem")
+  // a primeira ordem da lista do site é a padrão. "destaque" = a ordem em que os carros vêm no estoque (campo "ordem").
+  // v4: menor/maior ano, A-Z / Z-A (marca, modelo, versão) e data de publicação (a mais nova primeiro; campo "dp" do
+  // estoque.json: a data que veio no estoque ou o dia em que o carro apareceu pela primeira vez no site)
+  const nome = (c) => `${c.marca} ${c.modelo} ${c.versao}`;
+  const alfa = (a, b) => nome(a).localeCompare(nome(b), 'pt-BR', { sensitivity: 'base' }) || a.ano - b.ano;
   const ORDENS = {
     destaque: ['Destaques', (a, b) => a.ordem - b.ordem],
     recentes: ['Mais novos', (a, b) => b.ano - a.ano || a.preco - b.preco],
     menor: ['Menor preço', (a, b) => a.preco - b.preco],
     maior: ['Maior preço', (a, b) => b.preco - a.preco],
     km: ['Menor km', (a, b) => a.km - b.km],
+    anoMenor: ['Menor ano', (a, b) => a.ano - b.ano || a.preco - b.preco],
+    anoMaior: ['Maior ano', (a, b) => b.ano - a.ano || a.preco - b.preco],
+    az: ['A-Z', alfa],
+    za: ['Z-A', (a, b) => alfa(b, a)],
+    publicacao: ['Data de publicação', (a, b) => (a.publicado < b.publicado) - (a.publicado > b.publicado) || a.ordem - b.ordem],
   };
 
   async function criar(opts) {
@@ -78,7 +87,7 @@
     const palavras = (s) => norm(s).split(/[^a-z0-9.]+/).filter(Boolean);
     const dados = brutos.map((d, i) => {
       const c = { id: d.i, marca: d.m, modelo: d.o, versao: d.v, ano: d.a, preco: d.p, km: d.k, cor: d.c, cambio: d.b, combustivel: d.f, fotos: d.n, loja: d.u, cidade: d.cd, uf: d.uf,
-        carroceria: d.cr || '', ordem: typeof d.r === 'number' ? d.r : i };
+        carroceria: d.cr || '', ordem: typeof d.r === 'number' ? d.r : i, publicado: d.dp || '' };
       const texto = `${c.marca} ${c.modelo} ${c.versao} ${c.ano} ${c.cor} ${c.cambio} ${c.combustivel} ${c.carroceria} ${c.loja} ${c.cidade} ${c.uf}`;
       c._s = norm(texto);
       c._k = [...new Set(palavras(texto))];

@@ -8,8 +8,9 @@ tema). Cada componente é configurável por opções: cores, layout, textos e o 
 | `filtro` | busca e filtros do estoque (quais filtros aparecem vem do `"filtros"` do `site.json`); combos ou caixas de marcar |
 | `estoque` | a lista de carros (cards), com contagem, ordenação e "carregar mais" |
 | `filtros-ativos` | as etiquetas ("chips") dos filtros aplicados, com ✕ para tirar cada um e "Limpar busca" |
+| `barra-busca` | barra de busca rápida: marca e modelo em cascata, botão Pesquisar e, à direita, o combo de ordenação |
 
-Os 3 temas usam os três na `/multipla/`. Para ver as opções no terminal: `node core/cli.js componentes`.
+Os 3 temas usam `filtro`, `estoque` e `filtros-ativos` na `/multipla/`; o template-basico também a `barra-busca`. Para ver as opções no terminal: `node core/cli.js componentes`.
 
 ## Como usar
 
@@ -76,6 +77,27 @@ desmarca a caixa/zera o combo, e mexer no filtro atualiza as etiquetas e o ender
   `{ "componentes": { "filtros-ativos": { "mostrar": false } } }` no `web/multipla.json`. Para todos os sites de um tema:
   apagar a chamada do `multipla.html`, ou `{{componente filtros-ativos mostrar=false}}`.
 
+## Barra de busca
+
+A `barra-busca` fica acima dos filtros ativos e do estoque (no template-basico:
+`<section>{{componente barra-busca}}{{componente filtros-ativos}}{{componente estoque ... ordenacao=false}}</section>`):
+
+```
+[ Selecione a Marca ▾ ] [ Selecione o Modelo ▾ ] [Pesquisar]                    [ Ordenar por... ▾ ]
+```
+
+- **Marca e modelo em cascata:** escolher a marca aplica na hora e o modelo passa a mostrar só os daquela marca (outros
+  campos: opção `campos`, ex.: `campos="marca,modelo,ano"`). "Pesquisar" leva até a lista (no celular, a lista fica
+  embaixo).
+- **Ordenação à direita:** Menor preço, Maior preço, Menor ano, Maior ano, A-Z, Z-A e Data de publicação (opção `ordens`).
+  "Ordenar por..." volta à ordem padrão do site. As 5 últimas precisam do **motor v4** e de estarem na `"ordenacao"` do
+  `site.json` (ou o site sem `"ordenacao"`): o combo só mostra o que o motor do site oferece.
+- **Sincronizada** com o `filtro`, os filtros ativos e o endereço (`/multipla/marca/honda?ord=menor`).
+- No template-basico, o `estoque` saiu com `ordenacao=false` (senão seriam dois combos de ordenação). Um site que tirar a
+  barra (`{ "componentes": { "barra-busca": { "mostrar": false }, "estoque": { "ordenacao": true } } }` no
+  `web/multipla.json`) volta a ter a ordenação no estoque.
+- Em outro tema: uma linha no `templates/multipla.html` (`{{componente barra-busca}}`).
+
 ## Todas as opções
 
 ### `filtro`
@@ -135,6 +157,22 @@ desmarca a caixa/zera o combo, e mexer no filtro atualiza as etiquetas e o ender
 | `texto` | "" | cor | texto das etiquetas |
 | `raio` | (vazio) | numero (px) | arredondamento das etiquetas, em px (vazio = do tema) |
 
+
+### `barra-busca`
+
+| Opção | Padrão | O quê |
+|---|---|---|
+| `mostrar` | `true` | false tira o componente da página (ex.: web/multipla.json de um site que não quer) |
+| `campos` | `"marca,modelo"` | filtros que viram select na barra, na ordem (precisam estar nos filtros do site) (valores: estado, cidade, loja, marca, modelo, carroceria, ano, preco, km, cambio, combustivel, cor) |
+| `textoMarca` | `"Selecione a Marca"` | primeira opção do select de marca |
+| `textoModelo` | `"Selecione o Modelo"` | primeira opção do select de modelo (os outros campos usam o nome do filtro) |
+| `botao` | `"Pesquisar"` | texto do botão, que leva até a lista de carros ("" esconde) |
+| `ordenacao` | `true` | mostra o combo de ordenação à direita |
+| `textoOrdem` | `"Ordenar por..."` | primeira opção do combo de ordenação (volta para a ordem padrão do site) |
+| `ordens` | `"menor,maior,anoMenor,anoMaior,az,za,publicacao"` | ordenações do combo, na ordem (precisam estar na "ordenacao" do site, ou o site sem "ordenacao"). anoMenor, anoMaior, az, za e publicacao precisam do motor v4 (valores: destaque, recentes, menor, maior, km, anoMenor, anoMaior, az, za, publicacao) |
+| `cor` | (vazio) | cor do botão (padrão: a cor do site) |
+| `fundo` | (vazio) | fundo da barra (padrão: cinza claro) |
+| `borda` | (vazio) | cor da borda da barra (padrão: a cor do site, como na Servopa; "transparent" tira) |
 
 ## Criar um componente
 

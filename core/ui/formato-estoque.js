@@ -13,8 +13,9 @@
   else raiz.FormatoEstoque = fabrica();
 })(typeof self !== 'undefined' ? self : this, function () {
   var FORMATO = 'colunas-1';
-  // campos de texto que se repetem muito entre os carros (marca, modelo, versão, cor, câmbio, combustível, loja, cidade, UF, carroceria)
-  var DICIONARIO = ['m', 'o', 'v', 'c', 'b', 'f', 'u', 'cd', 'uf', 'cr'];
+  // campos de texto que se repetem muito entre os carros (marca, modelo, versão, cor, câmbio, combustível, loja, cidade, UF,
+  // carroceria, data de publicação)
+  var DICIONARIO = ['m', 'o', 'v', 'c', 'b', 'f', 'u', 'cd', 'uf', 'cr', 'dp'];
 
   function compactar(lista) {
     var campos = [], vistos = {};

@@ -81,8 +81,14 @@ O visual (combos ou caixas de marcar) vem do componente `filtro` ([componentes.m
 
 ## Ordenação
 
-`destaque` (a ordem do estoque: campo `ordem` ou a posição no arquivo), `recentes`, `menor`, `maior`, `km`. A primeira da
-lista `ordenacao` do site é a padrão.
+`destaque` (a ordem do estoque: campo `ordem` ou a posição no arquivo), `recentes`, `menor`, `maior`, `km` e, a partir do
+**motor v4**: `anoMenor` (Menor ano), `anoMaior` (Maior ano), `az` (A-Z: marca, modelo, versão), `za` (Z-A) e
+`publicacao` (Data de publicação, a mais nova primeiro). A primeira da lista `ordenacao` do site é a padrão; no endereço,
+`?ord=menor`.
+
+**Data de publicação:** a que vem no estoque (campo `publicado` do carro, `AAAA-MM-DD` ou com hora) ou, sem ela, o dia em
+que o carro apareceu no site pela primeira vez (o build guarda no estado; vale mesmo num build completo). Sai no
+`estoque.json` gerado como `dp`.
 
 ## Vendedor
 
@@ -92,7 +98,7 @@ e fica lembrado enquanto a pessoa navega.
 ## O arquivo `estoque.json` (o gerado)
 
 - Chaves curtas (`i` id, `m` marca, `o` modelo, `v` versão, `a` ano, `p` preço, `k` km, `c` cor, `b` câmbio, `f`
-  combustível, `n` fotos, `u` loja, `cd` cidade, `uf`, `r` ordem, `cr` carroceria, `l` link), já na ordem do site.
+  combustível, `n` fotos, `u` loja, `cd` cidade, `uf`, `r` ordem, `cr` carroceria, `l` link, `dp` data de publicação), já na ordem do site.
 - `"formatoEstoque": "compacto"` no `site.json`: dicionário + colunas (`core/ui/formato-estoque.js`). Lojateste com 1500
   carros: 326 KB → 80 KB (gzip 33 → 24 KB). O navegador desempacota para a mesma lista antes de entregar ao motor: busca
   e filtros iguais, com qualquer versão do motor.
@@ -108,6 +114,7 @@ em `"motor"` no `site.json`; mudar o motor não afeta nenhum site até ele ser a
 | `v1` | busca com tolerância a erro, filtros em cascata, estado na URL, WhatsApp |
 | `v2` | ordenação `destaque` (ordem do estoque) e filtro de carroceria |
 | `v3` | **vários valores por filtro**, ano exato (lista), valor do link sem carro = "nenhum carro", trocar um filtro limpa só os dependentes |
+| `v4` | ordenações Menor ano, Maior ano, A-Z, Z-A e Data de publicação (`dp`) |
 
 Fluxo para mudar o motor:
 ```

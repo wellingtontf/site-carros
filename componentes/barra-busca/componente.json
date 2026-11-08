@@ -1,0 +1,66 @@
+{
+  "nome": "barra-busca",
+  "descricao": "Barra de busca rápida (fica acima dos filtros ativos e do estoque): selects de marca e modelo em cascata (o modelo mostra só os da marca escolhida), botão Pesquisar e, à direita, o combo de ordenação. Tudo sincronizado com o componente filtro, os filtros ativos e o endereço da página.",
+  "scripts": [
+    "motor/engine.js",
+    "motor/ui-util.js",
+    "motor/link-carro.js",
+    "motor/ui-lista.js"
+  ],
+  "opcoes": {
+    "mostrar": {
+      "padrao": true,
+      "descricao": "false tira o componente da página (ex.: web/multipla.json de um site que não quer)"
+    },
+    "campos": {
+      "tipo": "lista",
+      "padrao": "marca,modelo",
+      "valores": ["estado", "cidade", "loja", "marca", "modelo", "carroceria", "ano", "preco", "km", "cambio", "combustivel", "cor"],
+      "descricao": "filtros que viram select na barra, na ordem (precisam estar nos filtros do site)"
+    },
+    "textoMarca": {
+      "padrao": "Selecione a Marca",
+      "descricao": "primeira opção do select de marca"
+    },
+    "textoModelo": {
+      "padrao": "Selecione o Modelo",
+      "descricao": "primeira opção do select de modelo (os outros campos usam o nome do filtro)"
+    },
+    "botao": {
+      "padrao": "Pesquisar",
+      "descricao": "texto do botão, que leva até a lista de carros (\"\" esconde)"
+    },
+    "ordenacao": {
+      "padrao": true,
+      "descricao": "mostra o combo de ordenação à direita"
+    },
+    "textoOrdem": {
+      "padrao": "Ordenar por...",
+      "descricao": "primeira opção do combo de ordenação (volta para a ordem padrão do site)"
+    },
+    "ordens": {
+      "tipo": "lista",
+      "padrao": "menor,maior,anoMenor,anoMaior,az,za,publicacao",
+      "valores": ["destaque", "recentes", "menor", "maior", "km", "anoMenor", "anoMaior", "az", "za", "publicacao"],
+      "descricao": "ordenações do combo, na ordem (precisam estar na \"ordenacao\" do site, ou o site sem \"ordenacao\"). anoMenor, anoMaior, az, za e publicacao precisam do motor v4"
+    },
+    "cor": {
+      "tipo": "cor",
+      "padrao": "",
+      "css": "--c-busca-cor",
+      "descricao": "cor do botão (padrão: a cor do site)"
+    },
+    "fundo": {
+      "tipo": "cor",
+      "padrao": "",
+      "css": "--c-busca-fundo",
+      "descricao": "fundo da barra (padrão: cinza claro)"
+    },
+    "borda": {
+      "tipo": "cor",
+      "padrao": "",
+      "css": "--c-busca-borda",
+      "descricao": "cor da borda da barra (padrão: a cor do site, como na Servopa; \"transparent\" tira)"
+    }
+  }
+}
