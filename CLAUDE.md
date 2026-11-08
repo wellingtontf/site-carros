@@ -36,7 +36,7 @@ Plataforma com ~2500 sites estáticos de revendas de carros, cada um em um domí
 
 ## Pastas (decisão do Wellington, 2026-11-08)
 - `sites-config/<dominio>/` = a FONTE de cada site (site.json, estoque.json, paginas/, assets/), gravada pela API. Era `sites/`.
-- `sites-public/<dominio>/` = a SAÍDA gerada pelo build (o que vai para o ar). Era `dist/`. O nome mora em `C.PUBLICO` (core/caminhos.js); funções recebem `pasta = C.PUBLICO`.
+- `sites-public/<dominio>/` = a SAÍDA gerada pelo build (o que vai para o ar). Era `dist/`. **`sites-config` é a base de tudo que é gerado** (decisão do Wellington): pasta em sites-public sem site em sites-config é sobra; o build avisa e `node core/cli.js limpar-public [--aplicar]` apaga (`sobrasNaSaida` no build). O nome mora em `C.PUBLICO` (core/caminhos.js); funções recebem `pasta = C.PUBLICO`.
 - As rotas da API continuam `/v1/sites/...` (endereço público da API, não é pasta).
 - `core/sitemap.js`: `gerarSitemap(dominio)` reconstrói o sitemap.xml a partir do estado do build (páginas + carros no ar); o build usa `montarSitemap` ao reconstruir o site; `node core/cli.js sitemap [dominios]`.
 

@@ -905,6 +905,8 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
   }
 
   atualizarIndice(pasta);
+  // sites-config é a base: pasta na saída sem site na fonte é sobra (cópia manual, site antigo) e não deve ir para o ar
+  if (!sites) for (const o of sobrasNaSaida(pasta)) console.warn(`  aviso: ${pasta}/${o}/ não tem site em sites-config/ (sobra). Para apagar: node core/cli.js limpar-public --aplicar`);
   return { pasta, feitos };
 }
 
@@ -924,7 +926,15 @@ function atualizarIndice(pasta = C.PUBLICO) {
   fs.renameSync(tmp, arq);
 }
 
-module.exports = { atualizarIndice, construir, render, resolverLinks, problemasProducao, registrarPendente, VERSAO_HTML };
+// pastas da saída que não correspondem a nenhum site de sites-config (sites-config é a base de tudo que é gerado)
+function sobrasNaSaida(pasta = C.PUBLICO) {
+  const DIST = C.saida(pasta);
+  if (!fs.existsSync(DIST)) return [];
+  const sitesFonte = new Set(Sites.listar());
+  return fs.readdirSync(DIST, { withFileTypes: true }).filter((e) => e.isDirectory() && !sitesFonte.has(e.name)).map((e) => e.name).sort();
+}
+
+module.exports = { sobrasNaSaida, atualizarIndice, construir, render, resolverLinks, problemasProducao, registrarPendente, VERSAO_HTML };
 
 if (require.main === module) {
   const a = process.argv.slice(2);

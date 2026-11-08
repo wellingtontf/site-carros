@@ -70,3 +70,17 @@ test('cada parte de sites-config/<dominio>/ aparece em sites-public/<dominio>/ (
   build();
   assert.equal(A.pendente(ID), undefined, 'fonte igual → nada para publicar');
 });
+
+test('pasta na saída sem site em sites-config é sobra: o build avisa e limpar-public só apaga com --aplicar', () => {
+  A.criarSite(ID, { carros: [A.carro()] });
+  A.silencioso(() => construir({}));
+  fs.cpSync(A.saida(ID), A.saida('copia.teste.com.br'), { recursive: true });
+  const { saidas } = A.silencioso(() => construir({}));
+  assert.ok(saidas.some((s) => /sites-public\/copia\.teste\.com\.br\/ não tem site em sites-config/.test(s)), saidas.join('\n'));
+  const cli = (...a) => require('child_process').spawnSync(process.execPath, [path.join(A.PROJETO, 'core', 'cli.js'), 'limpar-public', ...a], { env: { ...process.env, SITE_CARROS_RAIZ: A.raiz() }, encoding: 'utf8' });
+  assert.match(cli().stdout, /sobra: sites-public\/copia\.teste\.com\.br\/[\s\S]*Nada foi apagado/);
+  assert.ok(A.existe('copia.teste.com.br', 'index.html'), 'sem --aplicar não apaga');
+  assert.match(cli('--aplicar').stdout, /apagada: sites-public\/copia\.teste\.com\.br\//);
+  assert.ok(!A.existe('copia.teste.com.br', ''));
+  assert.ok(A.existe(ID, 'index.html'), 'o site de verdade continua');
+});

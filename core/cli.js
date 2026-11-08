@@ -9,6 +9,7 @@
 //   node core/cli.js historico
 //   node core/cli.js atualizar [a.com.br,b.com.br] [--publicar]   busca o estoque em config/fontes.json e refaz só o que mudou
 //   node core/cli.js publicar                           publica só o que mudou e ainda não foi publicado (config/publicacao.json)
+//   node core/cli.js limpar-public [--aplicar]          pastas de sites-public sem site em sites-config (apaga com --aplicar)
 //   node core/cli.js componentes [nome]                 lista os componentes e todas as opções
 //   node core/cli.js sitemap [a.com.br,b.com.br]        reconstrói o sitemap.xml (páginas + carros no ar; core/sitemap.js)
 //   node core/cli.js fotos [a.com.br,b.com.br]          baixa e converte as fotos por URL pendentes e refaz os sites (config/fotos.json)
@@ -23,7 +24,7 @@ const C = require('./caminhos');
 const LinkCarro = require('./ui/link-carro.js');
 
 const ROOT = C.ROOT;
-const BOOL = new Set(['todos', 'dry', 'forcar', 'sem-teste', 'completo', 'publicar']);
+const BOOL = new Set(['todos', 'dry', 'forcar', 'sem-teste', 'completo', 'publicar', 'aplicar']);
 const HIST = C.config('historico.json');
 
 const parse = (av) => {
@@ -261,6 +262,16 @@ function mostrarHistorico() {
       const r = await publicarPendentes({});
       process.exit(r.falhas.length ? 2 : 0);
       break;
+    }
+    case 'limpar-public': {
+      // node core/cli.js limpar-public [--aplicar]   pastas de sites-public sem site em sites-config (só apaga com --aplicar)
+      const { sobrasNaSaida } = require('./build.js');
+      const sobras = sobrasNaSaida();
+      if (!sobras.length) return console.log(`${C.PUBLICO}/: nenhuma sobra (toda pasta tem site em sites-config/)`);
+      for (const o of sobras) console.log(`${args.aplicar ? 'apagada' : 'sobra'}: ${C.PUBLICO}/${o}/`);
+      if (args.aplicar) { for (const o of sobras) fs.rmSync(path.join(C.saida(C.PUBLICO), o), { recursive: true, force: true }); require('./build.js').atualizarIndice(); }
+      else console.log('\nNada foi apagado. Para apagar: node core/cli.js limpar-public --aplicar');
+      return;
     }
     case 'componentes': {
       // node core/cli.js componentes [nome]   lista os componentes e todas as opções (do componente.json)
