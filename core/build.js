@@ -37,14 +37,14 @@ const C = require('./caminhos');
 const LinkCarro = require('./ui/link-carro.js'); // regra do link da página do carro (a mesma usada no navegador)
 const PL = require('./paginas-livres'); // páginas livres dos web designers (HTML normal)
 const Fotos = require('./fotos'); // fotos por URL: quantas já estão prontas
-const Robots = require('./robots'); // modelo do robots.txt (um para todos os sites; o site pode ter o seu)
+const Robots = require('./robots');
+const Sites = require('./sites'); // repositório de sites: o único que lê a pasta sites/ // modelo do robots.txt (um para todos os sites; o site pode ter o seu)
 
 const ROOT = C.ROOT;
 const ESTADO = C.ESTADO;
 const CAMPOS_FILTRO = ['estado', 'cidade', 'loja', 'marca', 'modelo', 'carroceria', 'ano', 'preco', 'km', 'cambio', 'combustivel', 'cor'];
 const TEXTOS_PADRAO = { botaoWhatsapp: 'Tenho interesse (WhatsApp)', busca: 'Buscar: marca, modelo, cidade, cor...', voltar: 'Voltar ao estoque', rodape: '' };
 const TEMA_PADRAO = { cor: '#0b5fff', fundo: '#f5f6f8', texto: '#1b2430', raio: 12, colunas: 250, fonte: 'system-ui,-apple-system,"Segoe UI",Roboto,sans-serif' };
-const ID_SITE = /^(?=.{3,253}$)([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/; // o id do site é o domínio (nome da pasta)
 const PAGINAS = ['index.html', 'carro.html', 'vendido.html', 'pagina.html'];
 // blocos que todo template precisa ter: home padrão (banner, vitrine) e páginas padrão (titulo, texto, formulario, lojas)
 const BLOCOS_OBRIGATORIOS = ['banner', 'vitrine', 'titulo', 'texto', 'formulario', 'lojas'];
@@ -112,9 +112,6 @@ const RENDER_VERSION = `html-${VERSAO_HTML}`;
 const lerJSON = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 const lerJSONSeExiste = (p, padrao) => { try { return lerJSON(p); } catch (e) { return padrao; } };
 // sites/<dominio>/site.json → o id é sempre o nome da pasta
-const idsSites = () => (fs.existsSync(C.SITES) ? fs.readdirSync(C.SITES, { withFileTypes: true }).filter((e) => e.isDirectory() && fs.existsSync(C.siteJson(e.name))).map((e) => e.name).sort() : []);
-const carregarSite = (id) => ({ ...lerJSON(C.siteJson(id)), id });
-const listarSites = () => idsSites().map(carregarSite);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const brl = (n) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 const foto = (base, id, n, w) => `${base}carros/${id}/${n}-${w}.webp`;
@@ -242,9 +239,10 @@ function passa(c, loja, r) {
 function juntar(site) {
   const lojas = site.lojas || {};
   const ids = Object.keys(lojas);
-  if (!ids.length) throw new Error(`Site "${site.id}" sem lojas em sites/${site.id}/site.json`);
-  const estoque = lerJSONSeExiste(C.estoque(site.id), null);
-  if (!estoque) { console.warn(`  aviso: site "${site.id}" sem sites/${site.id}/estoque.json`); return []; }
+  if (!fs.existsSync(C.estoque(site.id))) console.warn(`  aviso: site "${site.id}" sem sites/${site.id}/estoque.json`);
+  const estoque = Sites.estoque(site.id);
+  // site recém-criado ainda sem lojas: sobe sem estoque (carro só entra depois que a loja dele existir)
+  if (!ids.length) { if ((estoque.carros || []).length) throw new Error(`Site "${site.id}" tem carros mas nenhuma loja em sites/${site.id}/site.json`); return []; }
   // ordem de exibição: campo "ordem" (menor primeiro); sem ele, a posição no arquivo. Empate: posição no arquivo.
   const lista = (estoque.carros || []).map((c, i) => ({ c, i }))
     .sort((a, b) => (typeof a.c.ordem === 'number' ? a.c.ordem : Infinity) - (typeof b.c.ordem === 'number' ? b.c.ordem : Infinity) || a.i - b.i)
@@ -279,7 +277,7 @@ const preencherTextos = (o, ctx) => (typeof o === 'string' ? render(o, ctx) : Ar
 function construir({ sites = null, motor = null, saida = null, completo = false, efemero = false, hoje: hojeParam = null } = {}) {
   const pasta = saida || (motor ? 'dist-preview' : 'dist');
   const DIST = C.saida(pasta);
-  const todos = listarSites();
+  const todos = Sites.carregarTodos();
   const alvo = sites
     ? sites.map((id) => todos.find((s) => s.id === id) || (() => { throw new Error(`Site inexistente: "${id}"`); })())
     : todos;
@@ -294,7 +292,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
   if (provisorias.length) console.warn(`  aviso: páginas padrão com TEXTO PROVISÓRIO (falta o texto do jurídico): ${provisorias.map((n) => `paginas-padrao/${n}.json`).join(', ')}`);
 
   for (const site of alvo) {
-    if (!ID_SITE.test(String(site.id))) throw new Error(`Pasta de site inválida: "sites/${site.id}" (o nome da pasta é o domínio, ex.: sites/minhaloja.com.br)`);
+    if (!Sites.ID_SITE.test(String(site.id))) throw new Error(`Pasta de site inválida: "sites/${site.id}" (o nome da pasta é o domínio, ex.: sites/minhaloja.com.br)`);
     const versao = motor || site.motor;
     if (!versao) throw new Error(`Site "${site.id}" sem "motor" (ex.: "motor": "v1") em sites/${site.id}/site.json`);
     const arqMotor = path.join(C.motor(versao), 'engine.js');
@@ -359,7 +357,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
 
     for (const x of problemasProducao(site)) console.warn(`  aviso: site "${site.id}": ${x} (a publicação vai recusar este site)`);
     const carros = juntar(site);
-    const lojas = site.lojas;
+    const lojas = site.lojas || {};
     const out = path.join(DIST, site.id);
     const base = site.fotosBase || '';
     const tema = temaDoSite(site);
@@ -815,7 +813,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
   return { pasta, feitos };
 }
 
-module.exports = { construir, listarSites, carregarSite, idsSites, ID_SITE, render, resolverLinks, problemasProducao, registrarPendente, VERSAO_HTML };
+module.exports = { construir, render, resolverLinks, problemasProducao, registrarPendente, VERSAO_HTML };
 
 if (require.main === module) {
   const a = process.argv.slice(2);

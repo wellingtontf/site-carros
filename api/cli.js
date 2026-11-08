@@ -4,7 +4,7 @@
 //   node api/cli.js cliente listar
 //   node api/cli.js cliente remover <nome>                              o token deixa de valer na hora
 const CL = require('./clientes');
-const { idsSites } = require('../core/build');
+const Sites = require('../core/sites');
 
 const falha = (m) => { console.error(`Erro: ${m}`); process.exit(1); };
 const av = process.argv.slice(2);
@@ -15,7 +15,7 @@ if (grupo !== 'cliente') falha('uso: node api/cli.js cliente criar <nome> --site
 if (acao === 'criar') {
   if (!nome) falha('informe o nome: cliente criar <nome> --sites a.com.br,b.com.br');
   const sites = String(opc('sites') || '').split(',').map((x) => x.trim()).filter(Boolean);
-  const existentes = idsSites();
+  const existentes = Sites.listar();
   for (const x of sites) if (x !== '*' && !existentes.includes(x)) console.warn(`  aviso: site "${x}" ainda não existe em sites/ (o token vai valer quando existir)`);
   let token;
   try { token = CL.criarCliente(nome, sites); } catch (e) { falha(e.message); }

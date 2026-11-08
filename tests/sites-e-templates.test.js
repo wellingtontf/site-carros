@@ -9,9 +9,10 @@ fs.rmSync(path.join(raiz, 'sites'), { recursive: true });
 fs.symlinkSync(path.join(A.PROJETO, 'sites'), path.join(raiz, 'sites'));
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { construir, idsSites } = require('../core/build.js');
+const { construir } = require('../core/build.js');
+const Sites = require('../core/sites');
 
-const reais = idsSites();
+const reais = Sites.listar();
 const { r: gerado } = A.silencioso(() => construir({ saida: 'dist-teste', completo: true, efemero: true }));
 
 test('há sites reais para testar', () => assert.ok(reais.length >= 1));

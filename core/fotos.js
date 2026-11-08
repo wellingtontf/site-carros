@@ -26,6 +26,7 @@ const net = require('net');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
 const C = require('./caminhos');
+const Sites = require('./sites');
 
 const LARGURAS = [400, 800, 1600];
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -62,7 +63,7 @@ function contarFotos(c, estado) {
 }
 // carros do estoque com fotos (lista de URLs) ainda não processadas
 function pendentes(site) {
-  const est = lerJSON(C.estoque(site), { carros: [] });
+  const est = Sites.estoque(site);
   const e = lerEstado(site);
   return (est.carros || []).filter((c) => Array.isArray(c.fotos) && (!e[c.id] || e[c.id].hash !== hashUrls(c.fotos)));
 }
@@ -157,7 +158,7 @@ async function processarSite(site, { log = console.log, cfg = lerConfig() } = {}
   const lista = pendentes(site);
   if (!lista.length) {
     const e = lerEstado(site);
-    const ids = new Set((lerJSON(C.estoque(site), { carros: [] }).carros || []).map((c) => c.id));
+    const ids = new Set((Sites.estoque(site).carros || []).map((c) => c.id));
     if (Object.keys(e).some((id) => !ids.has(id))) { await limparSaidos(site, e, ids, cfg, log); gravarEstado(site, e); }
     return { processados: [], erros: 0, falhas: [] };
   }
@@ -173,7 +174,7 @@ async function processarSite(site, { log = console.log, cfg = lerConfig() } = {}
     }
   }));
   // relê o estado na hora de gravar (outro processamento pode ter gravado no meio)
-  const ids = new Set((lerJSON(C.estoque(site), { carros: [] }).carros || []).map((c) => c.id));
+  const ids = new Set((Sites.estoque(site).carros || []).map((c) => c.id));
   const e = { ...lerEstado(site), ...feitos };
   await limparSaidos(site, e, ids, cfg, log);
   gravarEstado(site, e);
@@ -185,7 +186,7 @@ async function processarSite(site, { log = console.log, cfg = lerConfig() } = {}
 // algo a fazer neste site? (fotos pendentes ou carros que saíram com fotos guardadas)
 function temTrabalho(site) {
   if (pendentes(site).length) return true;
-  const ids = new Set((lerJSON(C.estoque(site), { carros: [] }).carros || []).map((c) => c.id));
+  const ids = new Set((Sites.estoque(site).carros || []).map((c) => c.id));
   return Object.keys(lerEstado(site)).some((id) => !ids.has(id));
 }
 

@@ -34,13 +34,18 @@ core/                         SÓ CÓDIGO (isolado)
   atualizar.js                valida, grava sites/<dominio>/estoque.json e reconstrói só aquele site; publicarPendentes()
   robots.js                   modelo do robots.txt (config/robots.txt; site.json "robots" vale mais), validação com trava
                               contra Disallow: / ; atualizar.reescreverRobots() reescreve só o robots.txt de todos os sites
-  sites.js                    validarSite / gravarSite (cadastro de site; usado pela API para criar/atualizar sites)
+  sites.js                    REPOSITÓRIO DE SITES: o único que lê sites/ (listar, existe, carregar, carregarTodos, lojas, estoque,
+                              resumo, resumos, validarSite, cadastroNovo, gravarSite, criarArquivos, renomearArquivos). Nada mais
+                              lista sites por conta própria (um teste cobra)
+  operacoes.js                criarSite (estrutura + build + infra "criar") e renomearSite (tudo do site + build + infra "renomear",
+                              com volta atrás); config/infra.json liga à hospedagem; config/site-modelo.json = padrão de site novo
+  trava.js, versoes.js        trava de execução (.estado/atualizar.lock) e versões congeladas do motor
   fotos.js                    fotos por URL: baixa (anti-SSRF), converte (converter-foto.py/Pillow ou comando de config/fotos.json),
                               "enviar" sobe para a S3 a partir de pasta temporária (nada fica no servidor), "apagar" tira as de
                               carro que saiu; sem "enviar" grava em "pasta" (teste local). Estado em .estado/fotos/<dominio>.json
 api/                          API de integração (contrato: api/README.md). Depende do core; o core nunca depende dela
   servidor.js                 liga tudo: token, HTTP, fila, trabalhador de fotos
-  rotas.js                    /v1: PUT site (cria se não existe), POST estoques (1..N sites), PUT estoque, PUT/DELETE carro,
+  rotas.js                    /v1: POST sites (site novo só com domínio), POST sites/<d>/dominio (troca domínio), PUT site (cria se não existe), POST estoques (1..N sites), PUT estoque, PUT/DELETE carro,
                               POST build (lista ou todos), PUT/DELETE robots (todos os sites), POST atualizar (fontes), GET pedidos
   fila.js                     pedidos em disco (.estado/api/): aplica na ordem, valida um a um, 1 build por site por lote
   clientes.js, cli.js         tokens por sistema externo (config/clientes.json, só sha256): node api/cli.js cliente criar <nome> --sites a,b|*

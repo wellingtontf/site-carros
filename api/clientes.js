@@ -57,6 +57,13 @@ function removerCliente(nome) {
   delete todos[nome];
   gravarClientes(todos);
 }
+// domínio trocado (POST /v1/sites/<d>/dominio): os tokens que tinham o antigo passam a ter o novo
+function renomearSiteNosClientes(antigo, novo) {
+  const todos = lerClientes();
+  let mudou = false;
+  for (const c of Object.values(todos)) if (Array.isArray(c.sites) && c.sites.includes(antigo)) { c.sites = c.sites.map((s) => (s === antigo ? novo : s)); mudou = true; }
+  if (mudou) gravarClientes(todos);
+}
 const listarClientes = () => Object.entries(lerClientes()).map(([nome, c]) => ({ nome, sites: c.sites || [], ativo: c.ativo !== false, criado: c.criado || '' }));
 
-module.exports = { autenticar, pode, criarCliente, removerCliente, listarClientes, lerClientes, sha256 };
+module.exports = { autenticar, pode, criarCliente, removerCliente, renomearSiteNosClientes, listarClientes, lerClientes, sha256 };

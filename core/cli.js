@@ -14,7 +14,9 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { construir, idsSites } = require('./build.js');
+const { construir } = require('./build.js');
+const Sites = require('./sites');
+const { versoesMotor } = require('./versoes');
 const C = require('./caminhos');
 const LinkCarro = require('./ui/link-carro.js');
 
@@ -34,7 +36,7 @@ const falha = (msg) => { console.error('Erro: ' + msg); process.exit(1); };
 const lerJSON = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 
 function sitesInfo() {
-  return idsSites().map((id) => {
+  return Sites.listar().map((id) => {
     const arquivo = C.siteJson(id);
     const texto = fs.readFileSync(arquivo, 'utf8');
     return { id, arquivo, texto, obj: JSON.parse(texto) };
@@ -46,11 +48,7 @@ function escolherSites(args) {
   if (!args.sites) falha('informe --sites a,b ou --todos');
   return args.sites.split(',').map((s) => s.trim()).filter(Boolean).map((id) => todos.find((s) => s.id === id) || falha(`site inexistente: "${id}"`));
 }
-const versoes = () => {
-  const dir = C.MOTOR;
-  return fs.readdirSync(dir).filter((v) => v !== 'rascunho' && fs.existsSync(path.join(dir, v, 'engine.js')))
-    .sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }));
-};
+const versoes = versoesMotor;
 const infoVersao = (v) => { const p = path.join(C.motor(v), 'versao.json'); return fs.existsSync(p) ? lerJSON(p) : {}; };
 const hash = (v) => crypto.createHash('md5').update(fs.readFileSync(path.join(C.motor(v), 'engine.js'))).digest('hex');
 const historico = () => (fs.existsSync(HIST) ? lerJSON(HIST) : []);
@@ -260,7 +258,7 @@ function mostrarHistorico() {
     }
     case 'fotos': {
       const Fotos = require('./fotos.js');
-      const alvo = args._[0] ? args._[0].split(',').map((s) => s.trim()) : idsSites();
+      const alvo = args._[0] ? args._[0].split(',').map((s) => s.trim()) : Sites.listar();
       const feitos = [];
       for (const s of alvo) if ((await Fotos.processarSite(s)).processados.length) feitos.push(s);
       if (feitos.length) construir({ sites: feitos });

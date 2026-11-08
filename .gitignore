@@ -12,6 +12,7 @@ config/publicacao.json
 config/clientes.json
 config/fotos.json
 config/robots.txt
+config/infra.json
 
 # configuração pessoal do Claude Code
 .claude/settings.local.json

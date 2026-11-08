@@ -18,7 +18,7 @@
 // TOKEN_ATUALIZAR (opcional: token de administrador, todos os sites; 16+ caracteres).
 // As rotas antigas sem /v1 (/status, /atualizar, PUT /sites/<d>/estoque) continuam funcionando.
 const http = require('http');
-const { idsSites } = require('../core/build');
+const Sites = require('../core/sites');
 const CL = require('./clientes');
 const { criarFila } = require('./fila');
 const { criarTrabalhador } = require('./trabalhador-fotos');
@@ -39,8 +39,9 @@ if (!ADMIN && !clientesIniciais.length) {
 // fotos por URL em segundo plano; quando um site fica com fotos prontas, entra um pedido de build para ele
 let fila = null;
 const fotos = criarTrabalhador({ log: (m) => console.log(m), aoTerminar: (site) => fila.adicionar({ tipo: 'build', site, cliente: 'fotos' }) });
-fila = criarFila({ atraso: +process.env.ATRASO_MS || 3000, publicar: /^(1|true|sim)$/i.test(process.env.PUBLICAR || ''), log: (m) => console.log(m), aoProcessarSite: (s) => fotos.agendar(s) });
-for (const s of idsSites()) fotos.agendar(s); // o que ficou pendente (servidor caiu no meio das fotos)
+fila = criarFila({ atraso: +process.env.ATRASO_MS || 3000, publicar: /^(1|true|sim)$/i.test(process.env.PUBLICAR || ''), log: (m) => console.log(m), aoProcessarSite: (s) => fotos.agendar(s),
+  aoRenomear: (antigo, novo) => CL.renomearSiteNosClientes(antigo, novo) });
+for (const s of Sites.listar()) fotos.agendar(s); // o que ficou pendente (servidor caiu no meio das fotos)
 const rotear = criarRotas({ fila });
 
 const servidor = http.createServer(async (req, res) => {

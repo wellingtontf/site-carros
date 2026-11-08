@@ -7,13 +7,14 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
-const { construir, carregarSite, idsSites, problemasProducao, registrarPendente } = require('./build');
+const { construir, problemasProducao, registrarPendente } = require('./build');
+const Sites = require('./sites');
+const { travar, destravar } = require('./trava');
 const Robots = require('./robots');
 const C = require('./caminhos');
 
 const ROOT = C.ROOT;
 const ESTADO = C.ESTADO;
-const LOCK = path.join(ESTADO, 'atualizar.lock');
 const ID_OK = /^[A-Za-z0-9._-]+$/;
 const sha = (s) => crypto.createHash('sha1').update(s).digest('hex');
 const lerJSON = (p, padrao) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (e) { if (padrao !== undefined) return padrao; throw e; } };
@@ -56,7 +57,8 @@ function validarEstoque(obj, lojas = []) {
       else if (links.has(l)) e(`link repetido (igual ao do carro ${links.get(l)})`);
       else links.set(l, c.id);
     }
-    if (c.loja != null ? !lojas.includes(c.loja) : lojas.length !== 1) e(c.loja != null ? `loja "${c.loja}" não existe no site (${lojas.join(', ')})` : `"loja" ausente (o site tem ${lojas.length} lojas: ${lojas.join(', ')})`);
+    if (!lojas.length) e('o site ainda não tem lojas: cadastre as lojas (PUT /v1/sites/<dominio>) antes do estoque');
+    else if (c.loja != null ? !lojas.includes(c.loja) : lojas.length !== 1) e(c.loja != null ? `loja "${c.loja}" não existe no site (${lojas.join(', ')})` : `"loja" ausente (o site tem ${lojas.length} lojas: ${lojas.join(', ')})`);
   });
   return erros;
 }
@@ -66,8 +68,8 @@ const hashCarros = (o) => sha(JSON.stringify(o.carros));
 
 // grava só se mudou; guarda cópia do anterior; recusa queda brusca (proteção contra API devolvendo lista vazia)
 function gravarEstoque(id, obj, { forcar = false } = {}) {
-  if (!idsSites().includes(id)) return { id, status: 'invalido', erros: [`site "${id}" não existe (sites/${id}/site.json)`] };
-  const erros = validarEstoque(obj, Object.keys(carregarSite(id).lojas || {}));
+  if (!Sites.existe(id)) return { id, status: 'invalido', erros: [`site "${id}" não existe (sites/${id}/site.json)`] };
+  const erros = validarEstoque(obj, Sites.lojas(id));
   if (erros.length) return { id, status: 'invalido', erros };
   const antigo = lerJSON(arqEstoque(id), null);
   if (antigo && hashCarros(antigo) === hashCarros(obj)) return { id, status: 'igual', total: obj.carros.length };
@@ -103,15 +105,7 @@ async function buscar(id, fonte) {
   return Array.isArray(j) ? { carros: j } : j;
 }
 
-function travar() {
-  fs.mkdirSync(ESTADO, { recursive: true });
-  try {
-    const idade = Date.now() - fs.statSync(LOCK).mtimeMs;
-    if (idade > 30 * 60 * 1000) fs.rmSync(LOCK, { force: true });
-  } catch (e) { /* sem lock */ }
-  try { fs.writeFileSync(LOCK, String(process.pid), { flag: 'wx' }); return true; } catch (e) { return false; }
-}
-const destravar = () => fs.rmSync(LOCK, { force: true });
+
 
 // ---------- publicação: roda um comando por site, só com o que mudou ----------
 function rodar(cmd) {
@@ -135,7 +129,7 @@ async function publicarPendentes({ pasta = 'dist', log = console.log } = {}) {
       const p = pend[site];
       // nunca publica site que quebraria no ar (fotos em localhost, http...): fica pendente até corrigir o site.json
       let prob;
-      try { prob = idsSites().includes(site) ? problemasProducao(carregarSite(site)) : []; } catch (e) { prob = [`site.json ilegível: ${e.message}`]; }
+      try { prob = Sites.existe(site) ? problemasProducao(Sites.carregar(site)) : []; } catch (e) { prob = [`site.json ilegível: ${e.message}`]; }
       if (prob.length) { falhas.push(site); log(`RECUSADO ${site}: ${prob.join('; ')}`); continue; }
       const lista = p.completo ? '' : p.escritos.join('\n');
       const cmd = cfg.comandoSite
@@ -193,8 +187,8 @@ function reescreverRobots({ sites = null, pasta = 'dist' } = {}) {
   if (!travar()) return { status: 'ocupado' };
   try {
     const alterados = [], iguais = [], proprio = [], semUrl = [];
-    for (const id of sites || idsSites()) {
-      const site = carregarSite(id);
+    for (const id of sites || Sites.listar()) {
+      const site = Sites.carregar(id);
       if (!site.url) { semUrl.push(id); continue; }
       if (typeof site.robots === 'string') proprio.push(id); // o site tem o dele: o modelo não vale para ele
       const arq = path.join(C.saida(pasta), id, 'robots.txt');

@@ -6,7 +6,9 @@ core/                      O CORE (só código, isolado do resto)
   motor/<v1, v2...>/         versões congeladas do motor (imutáveis)
   ui/                        liga o motor à página (listagem, página do carro, utilidades)
   caminhos.js                todos os caminhos do projeto num lugar só
-  build.js  cli.js  atualizar.js  sites.js  fotos.js
+  sites.js                   repositório de sites: o ÚNICO que lê sites/ (listar, existe, carregar, resumo, validar, criar, renomear)
+  operacoes.js               criar site / trocar domínio de ponta a ponta (trava + build + infra)
+  build.js  cli.js  atualizar.js  fotos.js  robots.js  trava.js  versoes.js
 api/                       API de integração (porta de entrada HTTP; depende do core, nunca o contrário):
             servidor.js  rotas.js  fila.js  clientes.js  trabalhador-fotos.js  cli.js  README.md (contrato)
 sites/<dominio>/           UM SITE POR DOMÍNIO (o nome da pasta é o domínio e o id do site)
@@ -260,7 +262,9 @@ node core/cli.js atualizar trokey.com.br --publicar # e já publica o que mudou
 ```
 node api/cli.js cliente criar revenda-mais --sites "*"    # token do sistema (aparece uma vez; só o hash fica salvo)
 PUBLICAR=1 node api/servidor.js                           # API em :8787
+POST   /v1/sites                          site novo com toda a estrutura: {"dominio": "..."} (resto do config/site-modelo.json) + infra
 PUT    /v1/sites/<dominio>                cria o site (se não existir) ou atualiza o cadastro, e gera
+POST   /v1/sites/<dominio>/dominio        troca o domínio e leva tudo junto (histórico de SEO, fotos, tokens) + infra (301)
 POST   /v1/estoques                       estoque de 1 ou N sites numa chamada: {"sites": {"a.com.br": {...}, ...}}
 PUT    /v1/sites/<dominio>/estoque        estoque inteiro de um site    (422 se inválido, nada gravado)
 PUT    /v1/sites/<dominio>/carros/<id>    inclui/altera um carro
@@ -271,6 +275,8 @@ GET    /v1/pedidos/<id>                   andamento    (?esperar=30 nas rotas ac
 A plataforma é agnóstica: não conhece o sistema de origem, cada um converte para o mesmo formato. Cada token só mexe nos sites dele (criar site novo e refazer todos exigem `*`). Chamadas em sequência viram um build só (`ATRASO_MS`, padrão 3 s), na ordem em que chegaram; a fila fica em disco (`.estado/api/`) e sobrevive a reinício. Fotos por URL são baixadas, convertidas e enviadas para a S3 em segundo plano (`config/fotos.json`; em produção nada fica no servidor).
 
 **Saídas de compatibilidade:** cada site publica `estoque.xml`, o estoque em XML (mesma ordem do site; link, fotos e loja com endereço completo) para portais, catálogos e integrações que só leem XML. `"feedXml": { "caminho": "xml/estoque.xml" }` muda o endereço e `"feedXml": false` desliga. O `robots.txt` vem de um modelo único (`config/robots.txt`, trocado por `PUT /v1/robots`), com `"robots"` no site.json para o site que precisar de um próprio.
+
+**Infraestrutura:** `config/infra.json` (veja `config/infra.exemplo.json`) tem os comandos `criar` ({site} {pasta}) e `renomear` ({antigo} {novo} {pasta}) que ligam a plataforma à hospedagem (CDN, certificado, DNS, 301 do domínio antigo), sem amarrar a nenhuma.
 
 **Arquitetura:** `core/` é o domínio (build, estoque, cadastro de site, fotos) e não sabe que a API existe; `api/` só traduz HTTP ↔ core (portas e adaptadores). Um teste garante que nada em `core/` importa de `api/`.
 

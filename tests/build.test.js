@@ -262,7 +262,7 @@ test('erros de configuração dão mensagem clara (e não geram site pela metade
     [{ template: 'nao-existe' }, /template "nao-existe" não existe/],
     [{ motor: 'v99' }, /motor "v99" não existe/],
     [{ motor: undefined }, /sem "motor"/],
-    [{ lojas: {} }, /sem lojas/],
+    [{ lojas: {} }, /tem carros mas nenhuma loja/], // site sem lojas só pode existir sem estoque (site recém-criado)
     [{ paginas: [{ caminho: 'multipla', blocos: [] }] }, /reservado/],
     [{ paginas: [{ caminho: 'carros', blocos: [] }] }, /reservado/],
     [{ paginas: [{ caminho: 'Maiuscula', blocos: [] }] }, /caminho inválido/],

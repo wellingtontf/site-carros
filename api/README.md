@@ -32,7 +32,10 @@ O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da
 |---|---|---|
 | GET | `/v1/saude` | sem token: diz se a API está de pé |
 | GET | `/v1/sites` | sites que o token pode alterar, com o total de carros e a data da última atualização |
+| POST | `/v1/sites` | **cria um site novo com toda a estrutura**: `{"dominio": "novaloja.com.br"}` (ver "Site novo") |
 | PUT | `/v1/sites/{dominio}` | **cria o site, se não existir, ou atualiza o cadastro** (ver "Cadastro do site") e gera o site |
+| POST | `/v1/sites/{dominio}/dominio` | **troca o domínio do site** e leva tudo junto: `{"novo": "outro.com.br"}` (ver "Trocar o domínio") |
+| POST | `/v1/sites/{dominio}/infra` | refaz o passo de hospedagem: `{"acao": "criar"}` ou `{"acao": "renomear", "antigo": "..."}` |
 | GET | `/v1/sites/{dominio}` | resumo: cadastro, total de carros, fotos pendentes/com erro, últimos pedidos |
 | POST | `/v1/estoques` | **estoque de 1 ou N sites numa chamada** (ver "Vários sites numa chamada") |
 | POST | `/v1/build` | **reconstrói sites** sem mudar estoque: `{"sites":["a.com.br","b.com.br"]}`; vazio = **todos** (token com `*`) |
@@ -54,6 +57,24 @@ Parâmetros das rotas que alteram dados:
 - `?esperar=30`: segura a resposta até o pedido terminar (máximo de 120 s). Sem ele, a resposta é imediata (202) e você acompanha o pedido.
 - `?forcar=1`: libera a trava de queda de estoque (ver abaixo).
 
+## Site novo
+
+`POST /v1/sites` com `{"dominio": "novaloja.com.br"}` cria **toda a estrutura** de um site: a pasta com cadastro, o estoque vazio, `assets/` e `paginas/`. Em seguida gera o site (home, estoque, páginas padrão, sitemap, robots.txt, estoque.xml) e roda o comando `criar` da infraestrutura (hospedagem, certificado, DNS). Exige token com acesso a todos os sites (`*`).
+
+- **Só o domínio é obrigatório.** O resto vem do modelo da casa (`config/site-modelo.json`): nome = domínio, url = `https://<domínio>`, motor = a última versão. Para já mandar mais coisa, use `{"dominio": "...", "cadastro": {"nome": "...", "template": "servopa", "lojas": {...}}}` (o mesmo formato de "Cadastro do site"); isso vale mais que o modelo.
+- O site pode nascer **sem lojas**. Nesse caso, ele sobe sem estoque, e o estoque só é aceito depois que as lojas forem cadastradas (`PUT /v1/sites/{dominio}`).
+- Respostas: **202** aceito; com `?esperar`, **201** criado. **409** se o domínio já existe e **422** se o domínio ou o cadastro forem inválidos (nada é criado).
+- Se a infra falhar, o site fica pronto, mas o pedido termina como `erro` com o motivo. Corrija e chame `POST /v1/sites/{dominio}/infra`.
+
+## Trocar o domínio
+
+`POST /v1/sites/{dominio}/dominio` com `{"novo": "novodominio.com.br"}` muda o domínio e leva tudo junto: cadastro, estoque, páginas geradas e o **histórico de SEO** (páginas de vendidos e redirecionamentos dos carros, com os prazos), fotos, pendências de publicação, `config/fontes.json` e os tokens que tinham o domínio antigo. As menções ao domínio no cadastro também são trocadas (`url`, e-mails, links). Um domínio parecido (`loja.com.br` quando o antigo é `loja.com`) não é tocado.
+
+- O site é refeito com o domínio novo (canonical, sitemap, JSON-LD, links) e marcado para publicação completa.
+- Se algo falhar no meio, **tudo volta como estava**.
+- Depois roda o comando `renomear` da infraestrutura. É ali que entram a hospedagem do domínio novo e o **301 do domínio antigo inteiro para o novo**, para não perder o Google.
+- Exige token `*`. Responde **409** se o domínio novo já existe ou se o site tem pedidos na fila (espere terminarem) e **422** para domínio inválido.
+
 ## Cadastro do site
 
 `PUT /v1/sites/{dominio}`: o domínio vem no endereço e o corpo é o cadastro completo (ele substitui o anterior). Se o site não existe, ele é criado (resposta 201; exige token com acesso a todos, `*`). Se existe, o cadastro é atualizado (202). Nos dois casos, o site é gerado em seguida.
@@ -73,7 +94,7 @@ Parâmetros das rotas que alteram dados:
 }
 ```
 
-Obrigatórios: `nome`, `template`, `motor` e `lojas` (pelo menos uma, cada uma com `nome`, `cidade` e `uf`). Os opcionais (`cabecalho`, `rodape`, `paginas`, `filtros`, `tema`...) seguem o mesmo formato do `site.json` (README do projeto). A API recusa (422, nada gravado): template ou motor inexistente, bloco que o template não tem, `url` sem https e loja removida que ainda tem carros no estoque. O cadastro anterior fica guardado como cópia de segurança.
+Obrigatórios: `nome`, `template` e `motor`. As `lojas` são opcionais num site novo (cada uma com `nome`, `cidade` e `uf`); sem loja, o site não aceita estoque. Os opcionais (`cabecalho`, `rodape`, `paginas`, `filtros`, `tema`...) seguem o mesmo formato do `site.json` (README do projeto). A API recusa (422, nada gravado): template ou motor inexistente, bloco que o template não tem, `url` sem https e loja removida que ainda tem carros no estoque. O cadastro anterior fica guardado como cópia de segurança.
 
 ## Vários sites numa chamada
 

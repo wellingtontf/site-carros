@@ -1,8 +1,8 @@
 // Rotas da API v1: o que cada endereço faz. Só traduz HTTP ↔ core: a regra de negócio (validar estoque, validar
 // cadastro, gerar site, fotos) mora em core/. O contrato para quem integra está em api/README.md.
 const fs = require('fs');
-const { idsSites, ID_SITE } = require('../core/build');
 const AT = require('../core/atualizar');
+const Ops = require('../core/operacoes');
 const Sites = require('../core/sites');
 const Fotos = require('../core/fotos');
 const Robots = require('../core/robots');
@@ -14,8 +14,6 @@ const ID_CARRO = /^[A-Za-z0-9._-]{1,80}$/;
 const LIMITE = { estoque: 100e6, lote: 200e6, carro: 1e6, site: 2e6, outro: 100e3 };
 
 const lerJSON = (p, padrao) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (e) { return padrao; } };
-const lerEstoque = (d) => lerJSON(C.estoque(d), { carros: [] });
-const lojasDe = (d) => Object.keys(lerJSON(C.siteJson(d), {}).lojas || {});
 const comCarros = (b) => (Array.isArray(b) ? { carros: b } : b); // aceita a lista pura também
 
 const visao = (p) => p && ({
@@ -28,11 +26,12 @@ const segundos = (url) => Math.min(120, Math.max(0, Number(url.searchParams.get(
 
 function criarRotas({ fila }) {
   // um pedido: 202 (na fila) ou, com ?esperar=N, o resultado (200 concluído; 422 inválido; 409 recusado; 500 erro)
-  async function responderPedido(res, url, p, codigoAceito = 202) {
+  // codigoAceito/codigoConcluido: 201 quando o pedido cria um site
+  async function responderPedido(res, url, p, codigoAceito = 202, codigoConcluido = 200) {
     const seg = segundos(url);
     if (!seg) return enviar(res, codigoAceito, visao(p));
     const fim = await fila.aguardar(p.id, seg * 1000);
-    enviar(res, CODIGO_FINAL[fim.status] || 202, visao(fim));
+    enviar(res, fim.status === 'concluido' ? codigoConcluido : CODIGO_FINAL[fim.status] || 202, visao(fim));
   }
   // vários pedidos: 202; com ?esperar, 200 se todos concluíram, 207 se algum não
   async function responderVarios(res, url, ps, extra = {}) {
@@ -48,7 +47,7 @@ function criarRotas({ fila }) {
     const forcar = url.searchParams.get('forcar') === '1';
     // site existente e permitido para este token
     const site = (d) => {
-      if (!ID_SITE.test(d) || !idsSites().includes(d)) throw new Erro(404, `site "${d}" não existe`);
+      if (!Sites.existe(d)) throw new Erro(404, `site "${d}" não existe`);
       if (!CL.pode(cliente, d)) throw new Erro(403, `este token não tem acesso ao site "${d}"`);
       return d;
     };
@@ -57,7 +56,17 @@ function criarRotas({ fila }) {
     // ---------- gerais ----------
     if (m === 'GET' && p === '/v1/status') return enviar(res, 200, { ...fila.estado(), cliente: cliente.nome });
     if (m === 'GET' && p === '/v1/sites') {
-      return enviar(res, 200, { sites: idsSites().filter((d) => CL.pode(cliente, d)).map((d) => { const e = lerEstoque(d); return { site: d, carros: (e.carros || []).length, atualizado: e.atualizado || null }; }) });
+      return enviar(res, 200, { sites: Sites.resumos((d) => CL.pode(cliente, d)) });
+    }
+
+    // SITE NOVO com toda a estrutura (pasta, cadastro, estoque vazio, site gerado, infra). Só o domínio é obrigatório:
+    // o resto vem de config/site-modelo.json, e o que vier em "cadastro" vale mais. {"dominio": "...", "cadastro": {...}}
+    if (m === 'POST' && p === '/v1/sites') {
+      exigirTodos('criar um site novo');
+      const b = await corpoJSON(req, LIMITE.site);
+      const d = b && b.dominio;
+      if (typeof d !== 'string' || !Sites.ID_SITE.test(d)) throw new Erro(422, 'informe "dominio" válido (ex.: novaloja.com.br, só minúsculas, sem www nem https)');
+      return criar(d, b.cadastro || {});
     }
 
     // estoque de 1 ou N sites numa chamada: {"sites": {"a.com.br": {"carros":[...]}, "b.com.br": [...]}}
@@ -71,7 +80,7 @@ function criarRotas({ fila }) {
         try {
           site(d);
           const obj = comCarros(est);
-          const erros = AT.validarEstoque(obj, lojasDe(d));
+          const erros = AT.validarEstoque(obj, Sites.lojas(d));
           if (erros.length) throw new Erro(422, 'estoque inválido: nada foi gravado', { erros });
           aceitos.push([d, obj]);
         } catch (e) { if (!(e instanceof Erro)) throw e; recusados[d] = { codigo: e.code, erro: e.message, ...e.extra }; }
@@ -140,17 +149,25 @@ function criarRotas({ fila }) {
     }
 
     // ---------- um site ----------
+    async function criar(d, parcial) {
+      if (Sites.existe(d) || fila.pendentesDoSite(d).some((x) => x.tipo === 'criar')) throw new Erro(409, `site "${d}" já existe`);
+      if (parcial === null || typeof parcial !== 'object' || Array.isArray(parcial)) throw new Erro(422, '"cadastro" deve ser um objeto');
+      const erros = Sites.validarSite(Sites.cadastroNovo(d, parcial), d);
+      if (erros.length) throw new Erro(422, 'cadastro inválido: nada foi criado', { erros });
+      return responderPedido(res, url, fila.adicionar({ tipo: 'criar', site: d, corpo: { cadastro: parcial }, cliente: cliente.nome }), 202, 201);
+    }
     r = /^\/v1\/sites\/([^/]+)(\/.*)?$/.exec(p);
     if (!r) throw new Erro(404, 'rota inexistente (veja api/README.md)');
     const dominio = decodeURIComponent(r[1]);
     const resto = r[2] || '';
 
-    // cadastro do site: cria se não existe, atualiza se existe; depois refaz o site
+    // cadastro do site: cria se não existe (mesmo caminho do POST /v1/sites: estrutura + infra), atualiza se existe
     if (m === 'PUT' && resto === '') {
-      const existe = ID_SITE.test(dominio) && idsSites().includes(dominio);
+      const existe = Sites.existe(dominio);
       if (existe && !CL.pode(cliente, dominio)) throw new Erro(403, `este token não tem acesso ao site "${dominio}"`);
       if (!existe) exigirTodos('criar um site novo');
       const cad = await corpoJSON(req, LIMITE.site);
+      if (!existe) { if (!Sites.ID_SITE.test(dominio)) throw new Erro(422, 'cadastro inválido: nada foi criado', { erros: [`domínio inválido "${dominio}"`] }); return criar(dominio, cad); }
       const erros = Sites.validarSite(cad, dominio);
       if (erros.length) throw new Erro(422, 'cadastro inválido: nada foi gravado', { erros });
       const { criado } = Sites.gravarSite(dominio, cad);
@@ -159,13 +176,36 @@ function criarRotas({ fila }) {
 
     const d = site(dominio);
     if (m === 'GET' && resto === '') {
-      const e = lerEstoque(d);
-      return enviar(res, 200, { site: d, carros: (e.carros || []).length, atualizado: e.atualizado || null, cadastro: lerJSON(C.siteJson(d), null), fotos: Fotos.resumo(d), pedidos: fila.listar({ site: d, limite: 5 }).map(visao) });
+      return enviar(res, 200, { ...Sites.resumo(d), cadastro: Sites.carregar(d), fotos: Fotos.resumo(d), pedidos: fila.listar({ site: d, limite: 5 }).map(visao) });
     }
-    if (m === 'GET' && resto === '/estoque') return enviar(res, 200, lerEstoque(d));
+    if (m === 'GET' && resto === '/estoque') return enviar(res, 200, Sites.estoque(d));
+
+    // TROCAR O DOMÍNIO: {"novo": "novaloja.com.br"}. Leva tudo junto (cadastro, estoque, páginas, histórico de links e
+    // vendidos, fotos, tokens) e roda o "renomear" da infra (hospedagem nova + 301 do domínio antigo)
+    if (m === 'POST' && resto === '/dominio') {
+      exigirTodos('trocar o domínio de um site');
+      const b = await corpoJSON(req, LIMITE.outro);
+      const novo = b && b.novo;
+      if (typeof novo !== 'string' || !Sites.ID_SITE.test(novo)) throw new Erro(422, 'informe "novo" com um domínio válido (ex.: novaloja.com.br)');
+      if (novo === d) throw new Erro(422, 'o domínio novo é igual ao atual');
+      if (Sites.existe(novo) || fs.existsSync(C.site(novo))) throw new Erro(409, `já existe um site "${novo}"`);
+      const pend = fila.pendentesDoSite(d);
+      if (pend.length) throw new Erro(409, `o site tem ${pend.length} pedido(s) na fila; espere terminarem para trocar o domínio`, { pedidos: pend.map((x) => x.id) });
+      return responderPedido(res, url, fila.adicionar({ tipo: 'renomear', site: d, corpo: { novo }, cliente: cliente.nome }));
+    }
+    // refazer o passo de infra (se falhou): {"acao": "criar"} ou {"acao": "renomear", "antigo": "..."}
+    if (m === 'POST' && resto === '/infra') {
+      exigirTodos('mexer na infra');
+      const b = await corpoJSON(req, LIMITE.outro, {});
+      const acao = b.acao || 'criar';
+      if (!['criar', 'renomear'].includes(acao)) throw new Erro(422, '"acao" deve ser "criar" ou "renomear"');
+      if (acao === 'renomear' && !Sites.ID_SITE.test(String(b.antigo))) throw new Erro(422, 'informe "antigo" (o domínio anterior)');
+      const r = await Ops.rodarInfra(acao, acao === 'criar' ? { site: d, pasta: `dist/${d}` } : { antigo: b.antigo, novo: d, pasta: `dist/${d}` });
+      return enviar(res, r.status === 'falhou' ? 502 : 200, r);
+    }
     if (m === 'PUT' && resto === '/estoque') {
       const b = comCarros(await corpoJSON(req, LIMITE.estoque));
-      const erros = AT.validarEstoque(b, lojasDe(d));
+      const erros = AT.validarEstoque(b, Sites.lojas(d));
       if (erros.length) throw new Erro(422, 'estoque inválido: nada foi gravado', { erros });
       return responderPedido(res, url, fila.adicionar({ tipo: 'estoque', site: d, corpo: { carros: b.carros }, cliente: cliente.nome, forcar }));
     }
@@ -178,7 +218,7 @@ function criarRotas({ fila }) {
       const id = decodeURIComponent(r[1]);
       if (!ID_CARRO.test(id)) throw new Erro(400, 'id do carro inválido (só letras, números, ponto, hífen e _)');
       if (m === 'GET') {
-        const c = (lerEstoque(d).carros || []).find((x) => x.id === id);
+        const c = (Sites.estoque(d).carros || []).find((x) => x.id === id);
         if (!c) throw new Erro(404, `carro "${id}" não está no estoque`);
         return enviar(res, 200, c);
       }
@@ -187,12 +227,12 @@ function criarRotas({ fila }) {
         if (!c || typeof c !== 'object' || Array.isArray(c)) throw new Erro(400, 'o corpo deve ser um carro (objeto JSON)');
         if (c.id != null && c.id !== id) throw new Erro(400, `"id" do corpo (${c.id}) diferente do endereço (${id})`);
         const carro = { ...c, id };
-        const erros = AT.validarEstoque({ carros: [carro] }, lojasDe(d));
+        const erros = AT.validarEstoque({ carros: [carro] }, Sites.lojas(d));
         if (erros.length) throw new Erro(422, 'carro inválido: nada foi gravado', { erros });
         return responderPedido(res, url, fila.adicionar({ tipo: 'carro', site: d, carro: id, corpo: carro, cliente: cliente.nome, forcar }));
       }
       if (m === 'DELETE') {
-        if (!(lerEstoque(d).carros || []).some((x) => x.id === id) && !fila.carrosNaFila(d).has(id)) throw new Erro(404, `carro "${id}" não está no estoque`);
+        if (!(Sites.estoque(d).carros || []).some((x) => x.id === id) && !fila.carrosNaFila(d).has(id)) throw new Erro(404, `carro "${id}" não está no estoque`);
         return responderPedido(res, url, fila.adicionar({ tipo: 'remover', site: d, carro: id, cliente: cliente.nome, forcar }));
       }
     }
