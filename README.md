@@ -10,7 +10,7 @@ core/                      O CORE (só código, isolado do resto)
   operacoes.js               criar site / trocar domínio de ponta a ponta (trava + build + infra)
   build.js  cli.js  atualizar.js  fotos.js  robots.js  trava.js  versoes.js
 api/                       API de integração (porta de entrada HTTP; depende do core, nunca o contrário):
-            servidor.js  rotas.js  fila.js  clientes.js  trabalhador-fotos.js  cli.js  README.md (contrato)
+            servidor.js  rotas.js  fila.js  trabalhador.js  clientes.js  cli.js  http.js  README.md (contrato)
 sites/<dominio>/           UM SITE POR DOMÍNIO (o nome da pasta é o domínio e o id do site)
   site.json                  configuração: template, tema, textos, filtros, lojas, motor...
   estoque.json               o ÚNICO JSON de carros do site (vem do Revenda Mais)
@@ -306,7 +306,7 @@ O que acontece:
 - Carro que saiu: a página vira "Este veículo não está mais disponível" por `retencaoVendidosDias` (padrão 30, por site) e depois é apagada.
 - Carro que mudou de link: o endereço antigo vira um redirecionamento para o novo (`retencaoRedirecionamentoDias`, padrão 180).
 - Mudar motor ou filtros não refaz nenhuma página de carro. Mudar template/tema/textos refaz as páginas desse site. `--completo` força tudo.
-- O que mudou e ainda não foi publicado fica em `.estado/dist/pendente.json`. `node core/cli.js publicar` (ou `--publicar`) roda, por site, o comando de `config/publicacao.json` (placeholders `{site} {pasta} {lista} {removidos} {completo}`) e só limpa a pendência dos sites que deram certo.
+- O que mudou e ainda não foi publicado fica em `.estado/dist/pendentes/<dominio>.json` (um por site). `node core/cli.js publicar` (ou `--publicar`) roda, por site, o comando de `config/publicacao.json` (placeholders `{site} {pasta} {lista} {removidos} {completo}`) e só limpa a pendência dos sites que deram certo.
 
 ## Publicar
 Antes de publicar: `node ferramentas/auditar-dist.js` confere os problemas clássicos de site estático no ar (404, cache de css/js, localhost, conteúdo misto, charset, JSON-LD, sitemap...). A publicação **recusa** site com `url` sem https ou `fotosBase` em localhost/http.
