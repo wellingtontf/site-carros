@@ -54,7 +54,7 @@ test('template chama {{componente}}: HTML, cores só do que foi definido, css/sc
   assert.deepEqual(A.verificarSiteGerado(ID), []);
 });
 
-test('site.json "componentes" muda o componente no site inteiro; página com bloco "componente" vale mais', () => {
+test('sites-config/<d>/componentes/<nome>.json muda o componente no site inteiro; página com bloco "componente" vale mais', () => {
   const tpl = templateComComponentes('com-comp2', '{{componente filtro}}{{componente estoque porPagina=12}}');
   A.criarSite(ID, { carros: [A.carro(), A.carro()], site: { template: tpl, componentes: { estoque: { preco: '#0533ce', porPagina: 6 } },
     paginas: [{ caminho: '', titulo: 'Home', blocos: [{ tipo: 'componente', nome: 'estoque', opcoes: { titulo: 'Na home', porPagina: 2, ordenacao: false, botaoEstoque: 'Ver tudo' } }] }] } });
@@ -80,7 +80,10 @@ test('erros: opção inválida no template, no site.json e na página param o bu
   templateComComponentes('com-comp3', '{{componente nao-existe}}');
   assert.throws(() => build(), /componente "nao-existe" não existe/);
   // cadastro e página (o que a API usa): recusa antes de gravar
-  assert.match(Sites.validarSite({ nome: 'x', motor: 'v2', template: 'teste', componentes: { estoque: { cor: 'vermelho' } } }, ID).join(' '), /cor inválida "vermelho"/);
+  assert.match(Sites.validarSite({ nome: 'x', motor: 'v2', template: 'teste', componentes: { estoque: {} } }, ID).join(' '), /não vai no cadastro.*componentes\/<nome>\.json/);
+  // arquivo do site com opção inválida: o build para dizendo o arquivo
+  A.criarSite(ID, { carros: [A.carro()], site: { componentes: { estoque: { cor: 'vermelho' } } } });
+  assert.throws(() => build(), /sites-config\/comp\.teste\.com\.br\/componentes\/estoque\.json: .*cor inválida "vermelho"/);
   assert.match(Sites.validarPagina(ID, 'x', { blocos: [{ tipo: 'componente', nome: 'estoque', opcoes: { colunas: 'duas' } }] }).join(' '), /colunas: precisa ser número/);
   assert.deepEqual(Sites.validarPagina(ID, 'x', { blocos: [{ tipo: 'componente', nome: 'estoque', opcoes: { colunas: 320 } }] }), []);
 });

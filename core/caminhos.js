@@ -7,7 +7,8 @@
 //     site.json                  configuração do site (inclui as lojas)
 //     estoque.json               o único JSON de carros do site
 //     assets/                    imagens próprias do site (logo, banner...) → <site>/assets/
-//     paginas/                   páginas livres dos designers SÓ deste site (HTML normal; ver core/paginas-livres.js)
+//     paginas/                   páginas do site (index.json = home, <nome>.json de blocos, <nome>.html livre)
+//     componentes/               opções dos componentes no site inteiro (<nome>.json, ex.: estoque.json)
 //   componentes/<nome>/      componentes (filtro, estoque...) que todo template e toda página usam: {{componente nome}}
 //   templates/<nome>/         visual (o web designer só mexe aqui)
 //     template.json, paginas/{home,multipla,carro,vendido,pagina}.html, blocos/, parciais/, css/, js/, img/
@@ -48,6 +49,7 @@ module.exports = {
   estoque: (id) => path.join(SITES, id, 'estoque.json'),
   assets: (id) => path.join(SITES, id, 'assets'),
   paginasLivresSite: (id) => path.join(SITES, id, 'paginas'),
+  componentesSite: (id) => path.join(SITES, id, 'componentes'), // opções dos componentes no site inteiro: <nome>.json
   paginasLivresTemplate: (nome) => path.join(TEMPLATES, nome, 'paginas-extras'),
   template: (nome) => path.join(TEMPLATES, nome),
   pagina: (nome, arquivo) => path.join(TEMPLATES, nome, 'paginas', arquivo),

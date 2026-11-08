@@ -94,7 +94,7 @@ function registrarRascunho(d) {
 // AVISO: "whatsap" escrito errado gravaria sem efeito e o site ficaria sem WhatsApp sem ninguém perceber.
 const CAMPOS_SITE = new Set(['inquilino', 'nome', 'slogan', 'template', 'motor', 'url', 'whatsapp', 'fotosBase', 'cor', 'tema', 'textos',
   'cabecalho', 'rodape', 'lojas', 'empresa', 'vendedores', 'busca', 'filtros', 'ordenacao', 'restricoes', 'estoque', 'paginasFiltro',
-  'formatoUrls', 'avisoCookies', 'paginasPadrao', 'pagina404', 'retencaoVendidosDias', 'retencaoRedirecionamentoDias', 'robots', 'feedXml', 'rascunho', 'componentes']);
+  'formatoUrls', 'avisoCookies', 'paginasPadrao', 'pagina404', 'retencaoVendidosDias', 'retencaoRedirecionamentoDias', 'robots', 'feedXml', 'rascunho']);
 const avisosSite = (s) => (s && typeof s === 'object' ? Object.keys(s).filter((k) => !CAMPOS_SITE.has(k)).map((k) => `campo "${k}" não é usado pela plataforma (erro de digitação?)`) : []);
 
 // página de blocos de um site (sites-config/<dominio>/paginas/<caminho>.json): formato e blocos que o template do site tem
@@ -138,11 +138,8 @@ function validarSite(s, dominio) {
   for (const k of ['filtros', 'ordenacao']) if (s[k] != null && !Array.isArray(s[k])) e(`"${k}" deve ser lista`);
   if (s.paginas != null) e('"paginas" não vai no cadastro: cada página é um arquivo em sites-config/<dominio>/paginas/ (index.json = home, lojas.json...)');
   if (s.rascunho != null && typeof s.rascunho !== 'boolean') e('"rascunho" deve ser true ou false');
-  // "componentes": { "estoque": { "cor": "#c00" } } = opções dos componentes para o site inteiro
-  if (s.componentes != null) {
-    if (typeof s.componentes !== 'object' || Array.isArray(s.componentes)) e('"componentes" deve ser um objeto: { "estoque": { "cor": "#c00000" } }');
-    else for (const [n, op] of Object.entries(s.componentes)) require('./componentes').validar(n, op, `componentes.${n}`).forEach(e);
-  }
+  // opções de componente não ficam no cadastro: cada uma é um arquivo em sites-config/<dominio>/componentes/<nome>.json
+  if (s.componentes != null) e('"componentes" não vai no cadastro: as opções de cada componente ficam em sites-config/<dominio>/componentes/<nome>.json (ex.: estoque.json); pela API, PUT /v1/sites/<dominio>/componentes/<nome>');
   if (s.robots != null) { const r = require('./robots').validarRobots(s.robots); r.erros.forEach((x) => e(`robots: ${x}`)); }
   if (s.feedXml != null && s.feedXml !== false && !(typeof s.feedXml === 'object' && typeof s.feedXml.caminho === 'string' && /^[a-z0-9][a-z0-9_/-]*\.xml$/.test(s.feedXml.caminho))) e('"feedXml" deve ser false ou { "caminho": "estoque.xml" }');
   // lojas: opcionais num site novo (sem lojas, o site sobe sem estoque); se vierem, cada uma completa
@@ -198,11 +195,33 @@ function gravarSite(dominio, obj) {
   return { criado };
 }
 
-// estrutura de um site novo: sites-config/<dominio>/{site.json, estoque.json vazio, assets/, paginas/}
+// ---------- componentes do site: sites-config/<dominio>/componentes/<nome>.json = opções do componente no site inteiro ----------
+// (vale para todas as páginas do site; o que a página passar no bloco ainda vale mais)
+function componentesDoSite(d) {
+  const dir = C.componentesSite(d);
+  if (!fs.existsSync(dir)) return {};
+  const r = {};
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.json')).sort()) {
+    const nome = f.slice(0, -5);
+    try { r[nome] = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); }
+    catch (e) { throw new Error(`sites-config/${d}/componentes/${f}: JSON inválido (${e.message})`); }
+  }
+  return r;
+}
+function gravarComponenteSite(d, nome, opcoes) { gravarJSON(path.join(C.componentesSite(d), `${nome}.json`), opcoes); }
+function removerComponenteSite(d, nome) {
+  const arq = path.join(C.componentesSite(d), `${nome}.json`);
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(String(nome)) || !fs.existsSync(arq)) return false;
+  fs.rmSync(arq);
+  return true;
+}
+
+// estrutura de um site novo: sites-config/<dominio>/{site.json, estoque.json vazio, assets/, paginas/, componentes/}
 function criarArquivos(dominio, cadastro) {
   if (existe(dominio)) throw new Error(`site "${dominio}" já existe`);
   fs.mkdirSync(C.assets(dominio), { recursive: true });
   fs.mkdirSync(C.paginasLivresSite(dominio), { recursive: true });
+  fs.mkdirSync(C.componentesSite(dominio), { recursive: true });
   gravarSite(dominio, cadastro);
   registrarRascunho(dominio);
   if (!fs.existsSync(C.estoque(dominio))) gravarJSON(C.estoque(dominio), { carros: [] }, false);
@@ -256,4 +275,4 @@ function arquivarArquivos(dominio, { pasta = C.PUBLICO } = {}) {
   return { arquivo: path.relative(C.ROOT, destino) };
 }
 
-module.exports = { avisosSite, validarPagina, CAMPOS_SITE, mesclar, arquivarArquivos, proximoRascunho, ehDominioRascunho, inquilinoDoRascunho, padraoRascunho, ID_SITE, listar, existe, carregar, carregarTodos, lojas, estoque, resumo, resumos, validarSite, cadastroNovo, gravarSite, criarArquivos, renomearArquivos };
+module.exports = { componentesDoSite, gravarComponenteSite, removerComponenteSite, avisosSite, validarPagina, CAMPOS_SITE, mesclar, arquivarArquivos, proximoRascunho, ehDominioRascunho, inquilinoDoRascunho, padraoRascunho, ID_SITE, listar, existe, carregar, carregarTodos, lojas, estoque, resumo, resumos, validarSite, cadastroNovo, gravarSite, criarArquivos, renomearArquivos };

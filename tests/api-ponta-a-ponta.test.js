@@ -197,3 +197,22 @@ test('6) recusas claras: arquivo que não é o que diz, SVG com script, página 
   assert.ok(!fs.existsSync(path.join(A.raiz(), 'sites-config', D, 'paginas', 'promo.json')));
   assert.match(A.ler(D, 'paginas/promo/index.html'), /Promo HTML/);
 });
+
+test('7) componentes do site pela API: grava sites-config/<d>/componentes/<nome>.json e o site muda; inválido é 422', async () => {
+  const lista = await pedir('GET', `/v1/sites/${D}/componentes`);
+  assert.deepEqual(lista.j.componentes.map((c) => c.nome), ['estoque', 'filtro']);
+  const r = await pedir('PUT', `/v1/sites/${D}/componentes/estoque?esperar=30`, { preco: '#c00000', porPagina: 2, whatsapp: false });
+  assert.equal(r.status, 200, JSON.stringify(r.j));
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites-config', D, 'componentes', 'estoque.json'), 'utf8')), { preco: '#c00000', porPagina: 2, whatsapp: false });
+  const lista2 = A.ler(D, 'multipla/index.html');
+  assert.match(lista2, /--c-preco:#c00000/);
+  assert.match(lista2, /data-pagina="2"/);
+  assert.equal((await pedir('GET', `/v1/sites/${D}/componentes/estoque`)).j.opcoes.porPagina, 2);
+  const ruim = await pedir('PUT', `/v1/sites/${D}/componentes/estoque`, { cor: 'azul-piscina', colunass: 3 });
+  assert.equal(ruim.status, 422);
+  assert.ok(ruim.j.erros.some((e) => /cor inválida/.test(e)) && ruim.j.erros.some((e) => /não tem a opção "colunass"/.test(e)), JSON.stringify(ruim.j));
+  assert.equal((await pedir('PUT', `/v1/sites/${D}/componentes/nao-existe`, {})).status, 404);
+  assert.equal((await pedir('PATCH', `/v1/sites/${D}`, { componentes: { estoque: {} } })).status, 422, 'no cadastro não');
+  assert.equal((await pedir('DELETE', `/v1/sites/${D}/componentes/estoque?esperar=30`)).status, 200);
+  assert.doesNotMatch(A.ler(D, 'multipla/index.html'), /--c-preco:#c00000/, 'sem o arquivo, volta ao padrão');
+});

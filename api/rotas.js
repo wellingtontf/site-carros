@@ -281,6 +281,31 @@ function criarRotas({ fila }) {
       }
     }
 
+    // COMPONENTES do site (sites-config/<dominio>/componentes/<nome>.json): opções do componente no site inteiro
+    //   GET /v1/sites/<d>/componentes  ·  GET|PUT|DELETE /v1/sites/<d>/componentes/<nome>  (corpo do PUT = as opções)
+    if (resto === '/componentes' && m === 'GET') {
+      const Comp = require('../core/componentes');
+      return enviar(res, 200, { componentes: Comp.listar().map((n) => ({ nome: n, opcoes: Sites.componentesDoSite(d)[n] || {} })) });
+    }
+    rp = /^\/componentes\/([a-z0-9-]+)$/.exec(resto);
+    if (rp) {
+      const Comp = require('../core/componentes');
+      const nome = rp[1];
+      if (!Comp.existe(nome)) throw new Erro(404, `componente "${nome}" não existe (existem: ${Comp.listar().join(', ')})`);
+      if (m === 'GET') return enviar(res, 200, { nome, opcoes: Sites.componentesDoSite(d)[nome] || {}, disponiveis: Comp.carregar(nome).opcoes });
+      if (m === 'PUT') {
+        const op = await corpoJSON(req, LIMITE.outro);
+        const erros = Comp.validar(nome, op, `componentes/${nome}`);
+        if (erros.length) throw new Erro(422, 'opções inválidas: nada foi gravado', { erros });
+        Sites.gravarComponenteSite(d, nome, op);
+        return responderPedido(res, url, refazer());
+      }
+      if (m === 'DELETE') {
+        if (!Sites.removerComponenteSite(d, nome)) throw new Erro(404, `o site não tem opções para o componente "${nome}"`);
+        return responderPedido(res, url, refazer());
+      }
+    }
+
     // ARQUIVOS do site (sites-config/<dominio>/assets/: logo, favicon, banners, fontes). No site.json, use "assets/<nome>".
     //   GET /v1/sites/<d>/assets   ·   PUT /v1/sites/<d>/assets/<nome> (corpo = o arquivo)   ·   DELETE /v1/sites/<d>/assets/<nome>
     if (resto === '/assets' && m === 'GET') return enviar(res, 200, { arquivos: Arq.listarAssets(d) });

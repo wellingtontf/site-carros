@@ -420,7 +420,12 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     // nomes (não as contagens) de cidades/marcas/carrocerias entram: menus e rodapés podem listá-los em todas as páginas.
     // Contagens ("1052 veículos") mudam a toda hora: use-as só na listagem e nas páginas de conteúdo (sempre refeitas).
     const nomesEstoque = ['cidade', 'marca', 'carroceria', 'combustivel'].map((k) => [...new Set(carros.map((c) => c[k]))].sort().join('|'));
-    const baseHash = sha(JSON.stringify([RENDER_VERSION, tplHash(dirTpl), hashComponentes, site.componentes || null, site.nome, site.slogan, site.url, site.cor, site.tema, site.textos, site.fotosBase, site.cabecalho, site.rodape, site.lojas, nomesEstoque,
+    // opções dos componentes no site inteiro: sites-config/<dominio>/componentes/<nome>.json (conferidas aqui, mesmo as de
+    // componente que nenhuma página usa: erro de digitação não pode ficar escondido)
+    if (site.componentes != null) throw new Error(`Site "${site.id}": "componentes" não fica mais no site.json: cada componente é um arquivo em sites-config/${site.id}/componentes/<nome>.json (ex.: estoque.json). Para mover: node ferramentas/mover-paginas.js`);
+    const opcoesSite = Sites.componentesDoSite(site.id);
+    for (const [n, op] of Object.entries(opcoesSite)) { const er = Comp.validar(n, op, `sites-config/${site.id}/componentes/${n}.json`); if (er.length) throw new Error(er.join('; ')); }
+    const baseHash = sha(JSON.stringify([RENDER_VERSION, tplHash(dirTpl), hashComponentes, opcoesSite, site.nome, site.slogan, site.url, site.cor, site.tema, site.textos, site.fotosBase, site.cabecalho, site.rodape, site.lojas, nomesEstoque,
       paginasSite.filter((p) => p.rotulo).map((p) => [p.rotulo, p.caminho]), // links legais aparecem no rodapé das páginas de carro
       ...(site.rascunho ? ['rascunho'] : [])])); // só entra quando é rascunho: os sites definitivos não refazem nada por causa disso
     const estadoAnt = completo || efemero ? null : lerEstado(pasta, site.id);
@@ -612,11 +617,10 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       return d;
     };
     // usados: os componentes da página (para o build pôr o css/js deles); bloco "componente" chama um componente
-    const opcoesSite = site.componentes || {};
     const renderBlocos = (lista, r, usados = new Set(), onde = `Site "${site.id}"`) => (lista || []).map((b) => {
       if (b.tipo === 'componente') {
         usados.add(b.nome);
-        return Comp.renderizar(b.nome, [{ origem: 'site.json "componentes"', opcoes: opcoesSite[b.nome] }, { origem: `${onde}, bloco componente`, opcoes: b.opcoes }], ctx(r), render, onde);
+        return Comp.renderizar(b.nome, [{ origem: `sites-config/${site.id}/componentes/${b.nome}.json`, opcoes: opcoesSite[b.nome] }, { origem: `${onde}, bloco componente`, opcoes: b.opcoes }], ctx(r), render, onde);
       }
       const d = resolverLinks(enriquecer(b, r), r, paraPagina);
       return render(tplBloco(b.tipo), { ...ctx(r), ...d, bloco: d });

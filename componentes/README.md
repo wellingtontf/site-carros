@@ -29,13 +29,14 @@ Texto vai entre aspas e pode usar dados do site (`"{{site.nome}}"`). Número e `
 ] }
 ```
 
-**No site inteiro** (`site.json`, ou `PATCH /v1/sites/<d>` pela API):
+**No site inteiro**: um arquivo por componente em `sites-config/<dominio>/componentes/<nome>.json` (pela API: `PUT /v1/sites/<d>/componentes/<nome>`):
 
 ```json
-"componentes": { "estoque": { "preco": "#0533ce", "whatsapp": false } }
+// sites-config/lojateste.com.br/componentes/estoque.json
+{ "preco": "#0533ce", "whatsapp": false }
 ```
 
-**Quem vale mais:** padrão do componente < template < `site.json` < página. Exemplo: o template pede 24 carros por vez, o site
+**Quem vale mais:** padrão do componente < template < `sites-config/<dominio>/componentes/<nome>.json` < página. Exemplo: o template pede 24 carros por vez, o site
 pede 6 e a home pede 2 → a listagem mostra 6 e a home mostra 2.
 
 O build sozinho: põe o CSS do componente no `<head>`, põe os scripts que ele precisa (o motor do estoque) no fim do `<body>`

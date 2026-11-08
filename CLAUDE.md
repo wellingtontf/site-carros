@@ -43,7 +43,7 @@ Plataforma com ~2500 sites estáticos de revendas de carros, cada um em um domí
 ## Componentes (decisão do Wellington, 2026-11-08)
 - `componentes/<nome>/` (raiz, ao lado de `templates/`): UMA pasta, usada por todo template e toda página (não há componente por template). Hoje: `filtro` e `estoque` (os 4 templates usam os dois no `multipla.html`).
 - `componente.json` (opções com padrão, tipo, valores, `css` = variável CSS só do componente, `scripts` que ele precisa), `<nome>.html` (`{{op.*}}`, `{{{componente.estilo}}}`), `<nome>.css`/`.js` opcionais. `core/componentes.js` (mesclar/validar/renderizar/expandir).
-- Uso: template `{{componente estoque colunas=280 titulo="{{listagem.h1}}"}}`; página `{ "tipo": "componente", "nome": "estoque", "opcoes": {...} }`; site.json `"componentes": { "estoque": {...} }`. Camadas: componente < template < site.json < página. Opção/valor inválido = erro claro (build e API 422). O build injeta css no `<head>` e `scripts` no `<body>` sem repetir; id do motor repetido na página = erro. Componente "estoque" em página ganha os primeiros cards no HTML (comCards). `node core/cli.js componentes` lista as opções. `core/ui/ui-lista.js` tolera peças ausentes (só #grade e #tpl-card obrigatórios).
+- Uso: template `{{componente estoque colunas=280 titulo="{{listagem.h1}}"}}`; página `{ "tipo": "componente", "nome": "estoque", "opcoes": {...} }`; site inteiro `sites-config/<dominio>/componentes/<nome>.json` (decisão do Wellington: tudo do site é configurado em sites-config; o site.json recusa `"componentes"`; `ferramentas/mover-paginas.js` migra; API `GET/PUT/DELETE /v1/sites/<d>/componentes/<nome>`; `Sites.componentesDoSite`). Camadas: componente < template < site < página. Opção/valor inválido = erro claro (build e API 422). O build injeta css no `<head>` e `scripts` no `<body>` sem repetir; id do motor repetido na página = erro. Componente "estoque" em página ganha os primeiros cards no HTML (comCards). `node core/cli.js componentes` lista as opções. `core/ui/ui-lista.js` tolera peças ausentes (só #grade e #tpl-card obrigatórios).
 
 ## Estrutura de arquivos
 ```
@@ -79,7 +79,8 @@ api/                          API de integração (contrato: api/README.md). Dep
   http.js                     utilidades HTTP
   motor/rascunho, motor/vN    engine.js (vN imutável)
   ui/                         ui-util.js, ui-lista.js, ui-carro.js → vão para <site>/motor/ no build
-sites-config/<dominio>/              site.json, estoque.json, paginas/, assets/ (tudo gravável pela API; teste tests/api-ponta-a-ponta.test.js)
+sites-config/<dominio>/              site.json, estoque.json, paginas/, componentes/, assets/ (tudo gravável pela API; tests/api-ponta-a-ponta.test.js;
+                                     contrato fonte → saída em tests/sites-config-public.test.js)
 templates/<nome>/             template.json, paginas/, css/, js/, img/
 config/                       fontes.exemplo.json, publicacao.exemplo.json (copiar sem .exemplo; ignorados no git), historico.json
 ferramentas/                  gerar-exemplo.js, importar-trokey.py (teste de migração), auditar-sites.js (problemas de site estático no ar)

@@ -53,11 +53,13 @@ function gravarPaginas(id, paginas) {
 function criarSite(id, { site = {}, carros = [] } = {}) {
   const dir = path.join(RAIZ, 'sites-config', id);
   fs.mkdirSync(dir, { recursive: true });
-  const { paginas, ...resto } = site;
+  const { paginas, componentes, ...resto } = site;
   const cfg = { nome: `Site ${id}`, slogan: 'Seminovos de teste', motor: 'v2', template: 'teste', url: `https://${id}`, whatsapp: '5511999999999', fotosBase: 'https://fotos.teste/', lojas: LOJAS, ...resto };
   fs.writeFileSync(path.join(dir, 'site.json'), JSON.stringify(cfg, null, 2));
   fs.writeFileSync(path.join(dir, 'estoque.json'), JSON.stringify({ carros }));
   if (paginas) gravarPaginas(id, paginas);
+  // componentes: { estoque: {...} } → sites-config/<id>/componentes/estoque.json
+  for (const [n, op] of Object.entries(componentes || {})) { const d = path.join(dir, 'componentes'); fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, `${n}.json`), JSON.stringify(op)); }
   return cfg;
 }
 const lerSite = (id) => JSON.parse(fs.readFileSync(path.join(RAIZ, 'sites-config', id, 'site.json'), 'utf8'));

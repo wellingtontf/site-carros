@@ -38,6 +38,7 @@ O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da
 | PUT | `/v1/sites/{dominio}` | **grava o `site.json` inteiro**: cria o site, se não existir, ou substitui o cadastro (ver "Cadastro do site"), e gera o site |
 | PATCH | `/v1/sites/{dominio}` | **grava só os campos enviados** do `site.json`; o resto fica como está (ver "Cadastro do site") |
 | GET / PUT / DELETE | `/v1/sites/{dominio}/paginas/{nome}` | **páginas do site** (home, lojas, empresa, feirão...): blocos em JSON ou HTML (ver "Páginas e arquivos") |
+| GET / PUT / DELETE | `/v1/sites/{dominio}/componentes/{nome}` | **opções de um componente no site inteiro** (`filtro`, `estoque`): cores, layout, campos do card... |
 | GET / PUT / DELETE | `/v1/sites/{dominio}/assets/{arquivo}` | **arquivos do site** (logo, favicon, banners, fontes) (ver "Páginas e arquivos") |
 | POST | `/v1/sites/{dominio}/promover` | **rascunho → site definitivo**: `{"dominio": "lojafinal.com.br"}` (ver "Rascunho e promoção") |
 | POST | `/v1/sites/{dominio}/dominio` | site **já no ar** troca de domínio, levando tudo junto: `{"novo": "outro.com.br"}` (ver "Trocar o domínio") |
@@ -76,7 +77,7 @@ Parâmetros das rotas que alteram dados:
 
 ## Páginas e arquivos
 
-Tudo o que forma um site entra pela API. São quatro partes: cadastro (`site.json`), estoque, **páginas** e **arquivos**.
+Tudo o que forma um site entra pela API e fica em `sites-config/<dominio>/`. São cinco partes: cadastro (`site.json`), estoque, **páginas**, **componentes** e **arquivos**.
 
 **Páginas:** `PUT /v1/sites/{dominio}/paginas/{nome}` grava a página `{nome}`, que fica no ar em `/paginas/{nome}/`. O nome `index` é a home (`/`). Dois formatos:
 
@@ -88,7 +89,7 @@ PUT /v1/sites/loja1.com.br/paginas/feirao           content-type: text/html
 <h1>Feirão</h1><p>Veja as <a href="/lojas/">lojas</a>.</p>
 ```
 
-- **Componentes:** um bloco `{ "tipo": "componente", "nome": "estoque", "opcoes": { "porPagina": 8 } }` põe um componente (`filtro`, `estoque`) na página, com as opções que quiser. Para o site inteiro, use `"componentes": { "estoque": { "preco": "#0533ce" } }` no cadastro. Opção ou valor inválido volta 422. Lista de opções: `componentes/README.md` do projeto.
+- **Componentes:** um bloco `{ "tipo": "componente", "nome": "estoque", "opcoes": { "porPagina": 8 } }` põe um componente (`filtro`, `estoque`) na página, com as opções que quiser. Para o site inteiro, use `PUT /v1/sites/{dominio}/componentes/estoque` com as opções (`{ "preco": "#0533ce" }`); `GET .../componentes` lista e `DELETE` volta ao padrão. O cadastro (`site.json`) não aceita `"componentes"`. Opção ou valor inválido volta 422. Lista de opções: `componentes/README.md` do projeto.
 - **Blocos (JSON):** os tipos são os do template do site (`banner`, `vitrine`, `listagem`, `lojas`, `titulo`, `texto`, `formulario`...). Bloco que o template não tem volta 422. `rotulo` põe a página no rodapé.
 - **HTML:** conteúdo livre, que entra com o cabeçalho e o rodapé do site; um documento completo (`<html>`) vai sozinho. Links como `href="/lojas/"` são ajustados para a página certa.
 - Gravar no outro formato substitui a página (não fica duplicada). A home só aceita blocos.

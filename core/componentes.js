@@ -11,8 +11,8 @@
 // Como chamar:
 //   template:  {{componente estoque colunas=280 whatsapp=false titulo="{{listagem.h1}}"}}   (valor pode ter {{ }} do site)
 //   página:    { "tipo": "componente", "nome": "estoque", "opcoes": { "porPagina": 8 } }
-//   site.json: "componentes": { "estoque": { "cor": "#c00000" } }                   (vale para todas as páginas do site)
-// Camadas (cada uma vale mais que a anterior): padrão do componente < template < site.json < página.
+//   site:      sites-config/<dominio>/componentes/estoque.json  { "cor": "#c00000" }  (vale para todas as páginas do site)
+// Camadas (cada uma vale mais que a anterior): padrão do componente < template < site (componentes/<nome>.json) < página.
 //
 // Tipos de opção: "texto" (padrão), "numero", "booleano", "cor" (#rgb, #rrggbb, rgb(), hsl(), var(--x)), "lista" (texto
 // separado por vírgula, vira lista para {{#op.x}}). "valores": [...] restringe. "css": "--c-cor" põe o valor numa variável
@@ -114,7 +114,7 @@ function expandir(texto, ctx, render, { opcoesSite = {}, onde = 'template' } = {
   const saida = texto.replace(TAG, (_, nome, atributos) => {
     usados.add(nome);
     const doTemplate = lerAtributos(atributos, (t) => render(t, ctx));
-    return renderizar(nome, [{ origem: onde, opcoes: doTemplate }, { origem: 'site.json "componentes"', opcoes: opcoesSite[nome] }], ctx, render, onde);
+    return renderizar(nome, [{ origem: onde, opcoes: doTemplate }, { origem: `componentes/${nome}.json do site`, opcoes: opcoesSite[nome] }], ctx, render, onde);
   });
   return { texto: saida, usados };
 }
