@@ -1,4 +1,4 @@
 {
   "trokey.com.br": { "url": "https://api.revendamais.com.br/exportacao/123/carros", "headers": { "Authorization": "Bearer ${TOKEN_API_CARROS}" } },
-  "outletdocarro.exemplo.com.br": "https://api.revendamais.com.br/exportacao/456/carros"
+  "primeseminovos.exemplo.com.br": "https://api.revendamais.com.br/exportacao/456/carros"
 }
