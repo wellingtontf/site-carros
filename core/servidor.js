@@ -8,7 +8,7 @@
 //
 //   GET    /v1/saude                               sem token: para o balanceador/monitor saber se está de pé
 //   GET    /v1/sites                               sites que o token pode mexer (com total de carros e data)
-//   GET    /v1/sites/<dominio>                     resumo do site + últimos pedidos
+//   GET    /v1/sites/<dominio>                     resumo do site, fotos pendentes/com erro, últimos pedidos
 //   GET    /v1/sites/<dominio>/estoque             o estoque atual (para o outro sistema conferir/reconciliar)
 //   PUT    /v1/sites/<dominio>/estoque             troca o estoque inteiro  {"carros":[...]}
 //   PUT    /v1/sites/<dominio>/carros/<id>         inclui ou altera um carro {...}
@@ -30,6 +30,7 @@ const AT = require('./atualizar.js');
 const CL = require('./clientes.js');
 const C = require('./caminhos');
 const { criarFila } = require('./fila.js');
+const Fotos = require('./fotos.js');
 
 const PORT = +process.env.PORT || 8787;
 const ADMIN = process.env.TOKEN_ATUALIZAR || '';
@@ -44,7 +45,11 @@ if (!ADMIN && !clientesIniciais.length) {
   process.exit(1);
 }
 
-const fila = criarFila({ atraso: +process.env.ATRASO_MS || 3000, publicar: /^(1|true|sim)$/i.test(process.env.PUBLICAR || ''), log: (m) => console.log(m) });
+// fotos por URL: processadas em segundo plano; quando um site fica com fotos prontas, entra um pedido de build para ele
+let fila = null;
+const fotos = Fotos.criarTrabalhador({ log: (m) => console.log(m), aoTerminar: (site) => fila.adicionar({ tipo: 'build', site, cliente: 'fotos' }) });
+fila = criarFila({ atraso: +process.env.ATRASO_MS || 3000, publicar: /^(1|true|sim)$/i.test(process.env.PUBLICAR || ''), log: (m) => console.log(m), aoProcessarSite: (s) => fotos.agendar(s) });
+for (const s of idsSites()) fotos.agendar(s); // o que ficou pendente (servidor caiu no meio das fotos)
 
 // ---------- utilidades HTTP ----------
 class Erro extends Error { constructor(code, msg, extra = {}) { super(msg); this.code = code; this.extra = extra; } }
@@ -120,7 +125,7 @@ async function rotear(req, res, url, cliente) {
 
   if (m === 'GET' && resto === '') {
     const e = lerEstoque(d);
-    return enviar(res, 200, { site: d, carros: (e.carros || []).length, atualizado: e.atualizado || null, pedidos: fila.listar({ site: d, limite: 5 }).map(visao) });
+    return enviar(res, 200, { site: d, carros: (e.carros || []).length, atualizado: e.atualizado || null, fotos: Fotos.resumo(d), pedidos: fila.listar({ site: d, limite: 5 }).map(visao) });
   }
   if (m === 'GET' && resto === '/estoque') return enviar(res, 200, lerEstoque(d));
   if (m === 'PUT' && resto === '/estoque') {

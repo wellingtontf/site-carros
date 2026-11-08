@@ -1,0 +1,186 @@
+// Fotos vindas de qualquer sistema: o carro manda "fotos": ["https://.../a.jpg", ...] (ou só a quantidade, como antes,
+// quando as fotos já estão no armazenamento). A plataforma baixa, converte para webp (400/800/1600) e grava no padrão
+// que o site usa: <pasta>/carros/<id>/<n>-<largura>.webp  (n = 1..fotos, só as que deram certo, renumeradas).
+//
+// Roda à parte do build (as fotos de 1000 carros levam minutos): enquanto um carro não tem fotos prontas, o build usa
+// fotos = 0 (o site mostra o marcador, nunca imagem quebrada); quando ficam prontas, o site é refeito e só a página
+// daquele carro muda. Estado em .estado/fotos/<dominio>.json: { id: { hash das URLs, n, erros, em } }.
+// Mesmas URLs na mesma ordem = nada a fazer. Mudou qualquer URL do carro = refaz as fotos daquele carro.
+//
+// config/fotos.json (veja config/fotos.exemplo.json):
+//   pasta       onde gravar (padrão "s3-local", que o teste local serve em :8081); aceita {site}
+//   converter   comando por foto: {entrada} {saida} {larguras}   (padrão: python3 core/converter-foto.py, precisa do Pillow)
+//   enviar      comando por carro depois de converter: {dir} {destino} {site}  (ex.: aws s3 sync {dir} s3://bucket/{destino} --delete)
+//   paralelo    carros ao mesmo tempo (padrão 4)
+//   permitirRedeLocal  true (ou lista de IPs) só em teste: por padrão, URL que aponta para a rede interna é recusada (SSRF: numa máquina
+//                      da AWS, http://169.254.169.254 entrega as credenciais da máquina para quem pedir)
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const dns = require('dns').promises;
+const net = require('net');
+const crypto = require('crypto');
+const { execFile } = require('child_process');
+const C = require('./caminhos');
+
+const LARGURAS = [400, 800, 1600];
+const MAX_BYTES = 20 * 1024 * 1024;
+const TIMEOUT_MS = 30000;
+const hashUrls = (urls) => crypto.createHash('sha1').update(JSON.stringify(urls)).digest('hex').slice(0, 16);
+const lerJSON = (p, padrao) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (e) { return padrao; } };
+const aspas = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
+
+function lerConfig() {
+  const cfg = lerJSON(C.config('fotos.json'), null);
+  if (!cfg) return null;
+  return {
+    pasta: cfg.pasta || 's3-local',
+    converter: cfg.converter || `python3 ${aspas(path.join(C.CORE, 'converter-foto.py'))} {entrada} {saida} {larguras}`,
+    enviar: cfg.enviar || '',
+    paralelo: Math.max(1, cfg.paralelo || 4),
+    permitirRedeLocal: cfg.permitirRedeLocal === true || (Array.isArray(cfg.permitirRedeLocal) ? cfg.permitirRedeLocal : false), // true ou lista de IPs
+  };
+}
+const lerEstado = (site) => lerJSON(C.fotosEstado(site), {});
+function gravarEstado(site, e) {
+  const arq = C.fotosEstado(site);
+  fs.mkdirSync(path.dirname(arq), { recursive: true });
+  fs.writeFileSync(`${arq}.tmp`, JSON.stringify(e));
+  fs.renameSync(`${arq}.tmp`, arq);
+}
+
+// quantas fotos prontas o carro tem (usado pelo build): número = como veio; lista = o que já foi processado
+function contarFotos(c, estado) {
+  if (!Array.isArray(c.fotos)) return c.fotos;
+  const e = estado[c.id];
+  return e && e.hash === hashUrls(c.fotos) ? e.n : 0;
+}
+// carros do estoque com fotos (lista de URLs) ainda não processadas
+function pendentes(site) {
+  const est = lerJSON(C.estoque(site), { carros: [] });
+  const e = lerEstado(site);
+  return (est.carros || []).filter((c) => Array.isArray(c.fotos) && (!e[c.id] || e[c.id].hash !== hashUrls(c.fotos)));
+}
+function resumo(site) {
+  const e = lerEstado(site);
+  return { pendentes: pendentes(site).length, comErro: Object.entries(e).filter(([, v]) => v.erros && v.erros.length).map(([id, v]) => ({ id, fotos: v.n, erros: v.erros.slice(0, 5) })).slice(0, 50) };
+}
+
+// ---------- baixar com segurança ----------
+function ipInterno(ip) {
+  if (net.isIPv6(ip)) {
+    const m = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip);
+    if (m) return ipInterno(m[1]);
+    const x = ip.toLowerCase();
+    return x === '::1' || x === '::' || /^f[cd]/.test(x) || /^fe[89ab]/.test(x);
+  }
+  const [a, b] = ip.split('.').map(Number);
+  return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
+}
+async function conferirEndereco(u, cfg) {
+  if (!/^https?:$/.test(u.protocol)) throw new Error(`protocolo não aceito (${u.protocol})`);
+  if (cfg.permitirRedeLocal === true) return;
+  const liberados = Array.isArray(cfg.permitirRedeLocal) ? cfg.permitirRedeLocal : [];
+  const host = u.hostname.replace(/^\[|\]$/g, '');
+  const ips = net.isIP(host) ? [host] : (await dns.lookup(host, { all: true })).map((x) => x.address);
+  if (ips.some((ip) => ipInterno(ip) && !liberados.includes(ip))) throw new Error('endereço da rede interna recusado');
+}
+async function baixar(url, destino, cfg) {
+  let u = new URL(url);
+  for (let saltos = 0; ; saltos++) {
+    await conferirEndereco(u, cfg); // a cada redirecionamento também: um site externo pode redirecionar para a rede interna
+    const r = await fetch(u, { redirect: 'manual', signal: AbortSignal.timeout(TIMEOUT_MS), headers: { 'user-agent': 'site-carros-fotos/1' } });
+    if (r.status >= 300 && r.status < 400 && r.headers.get('location')) {
+      if (saltos >= 3) throw new Error('redirecionamentos demais');
+      u = new URL(r.headers.get('location'), u);
+      continue;
+    }
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const tipo = r.headers.get('content-type') || '';
+    if (tipo && !/^image\//i.test(tipo)) throw new Error(`não é imagem (${tipo.split(';')[0]})`);
+    if (Number(r.headers.get('content-length')) > MAX_BYTES) throw new Error('foto grande demais (máx. 20 MB)');
+    const partes = []; let n = 0;
+    for await (const p of r.body) { n += p.length; if (n > MAX_BYTES) throw new Error('foto grande demais (máx. 20 MB)'); partes.push(p); }
+    fs.writeFileSync(destino, Buffer.concat(partes));
+    return;
+  }
+}
+const rodar = (cmd) => new Promise((ok, erro) => execFile('/bin/sh', ['-c', cmd], { cwd: C.ROOT, timeout: 5 * 60 * 1000 }, (e, so, se) => (e ? erro(new Error(`${(se || so || e.message).trim().split('\n').pop().slice(0, 200)}`)) : ok())));
+
+// ---------- um carro ----------
+async function processarCarro(site, c, cfg) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fotos-'));
+  const erros = [];
+  const prontas = [];
+  try {
+    for (const [i, url] of c.fotos.entries()) {
+      const ent = path.join(tmp, `o${i}`);
+      const sai = path.join(tmp, `c${i}`);
+      try {
+        await baixar(url, ent, cfg);
+        await rodar(cfg.converter.replace(/\{entrada\}/g, aspas(ent)).replace(/\{saida\}/g, aspas(sai)).replace(/\{larguras\}/g, LARGURAS.join(',')));
+        if (!LARGURAS.every((w) => fs.existsSync(`${sai}-${w}.webp`))) throw new Error('o conversor não gerou os 3 tamanhos');
+        prontas.push(sai);
+      } catch (e) { erros.push(`foto ${i + 1}: ${e.message}`); }
+    }
+    const pasta = path.resolve(C.ROOT, cfg.pasta.replace(/\{site\}/g, site));
+    const destino = `carros/${c.id}`;
+    const dir = path.join(pasta, destino);
+    fs.rmSync(dir, { recursive: true, force: true }); // sobra de uma lista maior não pode aparecer como foto
+    fs.mkdirSync(dir, { recursive: true });
+    prontas.forEach((sai, k) => LARGURAS.forEach((w) => fs.renameSync(`${sai}-${w}.webp`, path.join(dir, `${k + 1}-${w}.webp`))));
+    if (cfg.enviar) await rodar(cfg.enviar.replace(/\{dir\}/g, aspas(dir)).replace(/\{destino\}/g, aspas(destino)).replace(/\{site\}/g, aspas(site)));
+    return { hash: hashUrls(c.fotos), n: prontas.length, erros, em: new Date().toISOString() };
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+}
+
+// processa as fotos pendentes de um site → { processados: [ids], erros: n }
+async function processarSite(site, { log = console.log, cfg = lerConfig() } = {}) {
+  if (!cfg) throw new Error('crie config/fotos.json (veja config/fotos.exemplo.json) para processar fotos por URL');
+  const lista = pendentes(site);
+  if (!lista.length) return { processados: [], erros: 0 };
+  log(`${site}: processando fotos de ${lista.length} carro(s)`);
+  const fila = [...lista];
+  const feitos = {};
+  const falhas = [];
+  await Promise.all(Array.from({ length: cfg.paralelo }, async () => {
+    while (fila.length) {
+      const c = fila.shift();
+      // falha do carro inteiro (envio para o armazenamento, disco...): NÃO marca como feito, fica pendente para a próxima vez
+      try { feitos[c.id] = await processarCarro(site, c, cfg); } catch (e) { falhas.push(`${c.id}: ${e.message}`); }
+    }
+  }));
+  // relê o estado na hora de gravar (outro processamento pode ter gravado no meio) e tira carros que saíram do estoque
+  const ids = new Set((lerJSON(C.estoque(site), { carros: [] }).carros || []).map((c) => c.id));
+  const e = Object.fromEntries(Object.entries({ ...lerEstado(site), ...feitos }).filter(([id]) => ids.has(id)));
+  gravarEstado(site, e);
+  const nErros = Object.values(feitos).filter((x) => x.erros.length).length;
+  log(`${site}: fotos prontas de ${Object.keys(feitos).length} carro(s)${nErros ? ` · ${nErros} com foto que falhou (GET /v1/sites/${site})` : ''}${falhas.length ? ` · ${falhas.length} carro(s) ficam pendentes: ${falhas.slice(0, 3).join('; ')}` : ''}`);
+  return { processados: Object.keys(feitos), erros: nErros, falhas };
+}
+
+// trabalhador em segundo plano (servidor): um site por vez; ao terminar um site, aoTerminar(site) pede o build dele
+function criarTrabalhador({ log = console.log, aoTerminar = () => {} } = {}) {
+  const fila = new Set();
+  let rodando = false, avisou = false;
+  async function girar() {
+    if (rodando) return;
+    rodando = true;
+    try {
+      while (fila.size) {
+        const site = fila.values().next().value;
+        fila.delete(site);
+        const cfg = lerConfig();
+        if (!cfg) { if (!avisou) log('aviso: há fotos por URL, mas falta config/fotos.json'); avisou = true; continue; }
+        try { const r = await processarSite(site, { log, cfg }); if (r.processados.length) aoTerminar(site); }
+        catch (e) { log(`${site}: erro nas fotos: ${e.message}`); }
+      }
+    } finally { rodando = false; }
+  }
+  return {
+    agendar: (site) => { if (pendentes(site).length) { fila.add(site); setImmediate(girar); } },
+    ocupado: () => rodando || fila.size > 0,
+  };
+}
+
+module.exports = { lerConfig, contarFotos, lerEstadoFotos: lerEstado, pendentes, resumo, processarSite, criarTrabalhador, hashUrls, ipInterno, LARGURAS };

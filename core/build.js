@@ -34,6 +34,7 @@ const crypto = require('crypto');
 const C = require('./caminhos');
 const LinkCarro = require('./ui/link-carro.js'); // regra do link da página do carro (a mesma usada no navegador)
 const PL = require('./paginas-livres'); // páginas livres dos web designers (HTML normal)
+const Fotos = require('./fotos'); // fotos por URL: quantas já estão prontas
 
 const ROOT = C.ROOT;
 const ESTADO = C.ESTADO;
@@ -242,12 +243,14 @@ function juntar(site) {
     .sort((a, b) => (typeof a.c.ordem === 'number' ? a.c.ordem : Infinity) - (typeof b.c.ordem === 'number' ? b.c.ordem : Infinity) || a.i - b.i)
     .map((x) => x.c);
   const carros = [];
+  const estFotos = Fotos.lerEstadoFotos(site.id);
   for (const c of lista) {
     const lid = c.loja || (ids.length === 1 ? ids[0] : null);
     const loja = lojas[lid];
     if (!loja) throw new Error(`Site "${site.id}": carro ${c.id} com loja ${lid ? `inexistente "${lid}"` : 'não informada'} (lojas: ${ids.join(', ')})`);
     if (!passa(c, loja, site.restricoes || {})) continue;
-    carros.push({ ...c, ...(c.link ? { link: normalizarLink(c.link) } : {}), opcionais: c.opcionais || [], descricao: c.descricao || '', carroceria: c.carroceria || '', destaque: !!c.destaque, lojaId: lid, loja: loja.nome, cidade: loja.cidade, uf: loja.uf });
+    // fotos em lista de URLs: só conta as já processadas (até lá, o site mostra o marcador, nunca imagem quebrada)
+    carros.push({ ...c, fotos: Fotos.contarFotos(c, estFotos), ...(c.link ? { link: normalizarLink(c.link) } : {}), opcionais: c.opcionais || [], descricao: c.descricao || '', carroceria: c.carroceria || '', destaque: !!c.destaque, lojaId: lid, loja: loja.nome, cidade: loja.cidade, uf: loja.uf });
   }
   return carros;
 }

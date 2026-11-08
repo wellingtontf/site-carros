@@ -45,5 +45,6 @@ module.exports = {
   clientes: () => path.join(CONFIG, 'clientes.json'),
   pedidos: () => path.join(ESTADO, 'api', 'pedidos'),
   entrada: () => path.join(ESTADO, 'api', 'entrada'),
+  fotosEstado: (id) => path.join(ESTADO, 'fotos', `${id}.json`), // fotos por URL já processadas (core/fotos.js)
   saida: (pasta) => path.join(ROOT, pasta),
 };

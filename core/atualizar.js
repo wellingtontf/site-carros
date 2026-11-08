@@ -39,7 +39,11 @@ function validarEstoque(obj, lojas = []) {
     if (!int(c.ano) || c.ano < 1950 || c.ano > anoMax) e('ano inválido');
     if (typeof c.preco !== 'number' || !(c.preco > 0)) e('preco inválido');
     if (typeof c.km !== 'number' || c.km < 0) e('km inválido');
-    if (!int(c.fotos) || c.fotos < 0 || c.fotos > 60) e('fotos deve ser inteiro de 0 a 60');
+    // fotos: a quantidade (as fotos já estão no armazenamento) ou a lista de URLs (a plataforma baixa e converte: core/fotos.js)
+    if (Array.isArray(c.fotos)) {
+      if (c.fotos.length > 60) e('fotos: no máximo 60');
+      else if (c.fotos.some((u) => typeof u !== 'string' || u.length > 2000 || !/^https?:\/\/[^\s]+$/i.test(u))) e('fotos: cada item precisa ser uma URL http(s) sem espaço');
+    } else if (!int(c.fotos) || c.fotos < 0 || c.fotos > 60) e('fotos deve ser inteiro de 0 a 60 ou lista de URLs');
     if (c.opcionais != null && !Array.isArray(c.opcionais)) e('opcionais deve ser lista');
     if (c.ordem != null && !(int(c.ordem) && c.ordem >= 0)) e('ordem deve ser inteiro >= 0 (posição de exibição; menor aparece primeiro)');
     if (c.destaque != null && typeof c.destaque !== 'boolean') e('destaque deve ser true ou false');

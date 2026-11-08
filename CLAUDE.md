@@ -20,7 +20,7 @@ Plataforma com ~2500 sites estáticos de revendas de carros, cada um em um domí
 3. **Motor versionado, com rollout:** `core/motor/rascunho` é o único lugar onde se edita. `congelar vN` copia o rascunho para `core/motor/vN`, que passa a ser imutável. `aplicar vN --sites a,b` ou `--todos` roda os testes antes. Existem `reverter` e `historico`. O site fixa a versão em `"motor": "v1"`.
 4. **Filtros configuráveis por site:** estado, cidade, loja, marca, modelo, ano, preço, km, câmbio, combustível e cor. Estado, cidade e loja funcionam em cascata, e marca filtra modelo. Dá para mudar rótulos, opções e ordem, e há `restricoes` (precoMin, precoMax, anoMin, marcas, estados, cidades).
 5. **Busca com tolerância a erro de digitação:** só tenta aproximar quando não há resultado exato. Palavras com 4 letras ou mais e não numéricas aceitam 1 erro (2 erros se tiver 7 letras ou mais). Ignora acento e maiúsculas, aceita pedaço de palavra e exige todas as palavras digitadas.
-6. **Fotos no AWS S3:** `carros/<id>/<n>-<400|800|1600>.webp`, via `fotosBase`. Se a foto falhar, aparece um placeholder.
+6. **Fotos no AWS S3:** `carros/<id>/<n>-<400|800|1600>.webp`, via `fotosBase`. Se a foto falhar, aparece um placeholder. O carro pode mandar `fotos` como número (já estão no armazenamento) ou como lista de URLs (`core/fotos.js` baixa e converte em segundo plano; o build conta só as fotos prontas, então o carro entra sem foto e a página dele é refeita quando elas ficam prontas). `node core/cli.js fotos [sites]` processa na mão.
 7. **Links:** `?estado=SP&cidade=...&marca=...&ord=menor` (estado da busca), `/carros/<Marca>/<Modelo>/<Versao>/<Marca>-<Modelo>-<Versao>-<ano>-<Cidade>-<Estado>-<id>.html` (página estática por carro, com preview de WhatsApp; regra ÚNICA em `core/ui/link-carro.js`, usada no build, no navegador e nos testes) e `?v=carlos` (roteia o WhatsApp para o vendedor). Link de carro que muda (dados do estoque mudaram) vira redirecionamento para o novo por 180 dias (`retencaoRedirecionamentoDias`); o estado guarda `links`, `vendidos {data, link}` e `redirecionados` por site.
 8. **Origem dos carros:** vêm de outro sistema (Revenda Mais). Ele terá UMA API que gera o JSON de carros de um estoque, e o Wellington chama quando achar melhor (gatilho manual, não é webhook obrigatório).
 
@@ -34,6 +34,8 @@ core/                         SÓ CÓDIGO (isolado)
   servidor.js                 API de integração /v1 (contrato em docs/api.md): PUT estoque, PUT/DELETE carro, POST build, GET pedidos
   fila.js                     pedidos da API (em disco, .estado/api/): aplica na ordem, valida um a um, 1 build por site por lote
   clientes.js                 tokens por sistema externo (config/clientes.json, só sha256), cada um limitado aos seus sites
+  fotos.js                    fotos por URL: baixa (anti-SSRF), converte (converter-foto.py/Pillow ou comando de config/fotos.json),
+                              grava carros/<id>/<n>-<w>.webp, comando "enviar" por carro; estado em .estado/fotos/<dominio>.json
   motor/rascunho, motor/vN    engine.js (vN imutável)
   ui/                         ui-util.js, ui-lista.js, ui-carro.js → vão para <site>/motor/ no build
 sites/<dominio>/              site.json, estoque.json, assets/

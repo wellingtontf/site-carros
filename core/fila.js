@@ -24,7 +24,8 @@ const FINAIS = new Set(['concluido', 'invalido', 'recusado', 'erro']);
 const lerJSON = (p, padrao) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (e) { return padrao; } };
 const gravarAtomico = (arq, txt) => { fs.mkdirSync(path.dirname(arq), { recursive: true }); fs.writeFileSync(`${arq}.tmp`, txt); fs.renameSync(`${arq}.tmp`, arq); };
 
-function criarFila({ atraso = 3000, publicar = false, log = console.log, atualizar = AT.atualizar, publicarPendentes = AT.publicarPendentes } = {}) {
+// aoProcessarSite(site): chamado depois que o estoque de um site foi processado (o servidor agenda as fotos dele)
+function criarFila({ atraso = 3000, publicar = false, log = console.log, atualizar = AT.atualizar, publicarPendentes = AT.publicarPendentes, aoProcessarSite = () => {} } = {}) {
   const pedidos = new Map();
   const esperando = new Map(); // id → [resolve] de quem chamou com ?esperar=
   let timer = null, rodando = false, seq = 0, ultimo = null;
@@ -127,6 +128,7 @@ function criarFila({ atraso = 3000, publicar = false, log = console.log, atualiz
             else terminar(p, est.status, est.erros || []);
           }
           for (const p of builds) terminar(p, 'concluido', [], { build: true, carros: carros.length });
+          if (aplicados.length) aoProcessarSite(site);
         } catch (e) {
           log(`${site}: erro ${e.message}`);
           ps.filter((p) => !FINAIS.has(p.status)).forEach((p) => terminar(p, 'erro', [e.message]));

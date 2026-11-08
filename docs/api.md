@@ -90,7 +90,7 @@ HTTP 422
   "marca": "Toyota", "modelo": "Corolla", "versao": "XEi 2.0 Flex Aut.",
   "ano": 2022, "preco": 129900, "km": 35000,
   "cor": "Prata", "cambio": "Automático", "combustivel": "Flex",
-  "fotos": 12,
+  "fotos": ["https://cdn.meusistema.com/abc123/1.jpg", "https://cdn.meusistema.com/abc123/2.jpg"],
   "loja": "matriz",
   "opcionais": ["Ar-condicionado", "Teto solar"],
   "descricao": "Único dono, revisões na concessionária.",
@@ -106,7 +106,7 @@ HTTP 422
 | `ano` | sim | inteiro de 1950 até o ano atual + 2 |
 | `preco` | sim | número maior que 0, em reais |
 | `km` | sim | número ≥ 0 |
-| `fotos` | sim | quantidade de fotos, de 0 a 60 (ver "Fotos") |
+| `fotos` | sim | lista de URLs das fotos, na ordem de exibição (até 60), **ou** a quantidade, se as fotos já estão no armazenamento da plataforma (ver "Fotos") |
 | `loja` | se o site tem mais de uma loja | id de uma loja do site (as lojas ficam no cadastro do site) |
 | `opcionais` | não | lista de textos |
 | `descricao` | não | texto |
@@ -117,13 +117,19 @@ HTTP 422
 
 ### Fotos
 
-A API recebe só a **quantidade** de fotos. Os arquivos ficam no armazenamento de fotos do site (`fotosBase`), neste padrão:
+**Lista de URLs (recomendado):** mande as URLs públicas (http/https) das fotos, na ordem em que devem aparecer. A plataforma baixa, converte para webp em 3 tamanhos e publica. Isso acontece em segundo plano:
+
+1. O pedido termina e o carro entra no site na hora, **sem foto** (aparece um marcador, nunca imagem quebrada).
+2. Em seguida, as fotos são baixadas e convertidas, e a página do carro é refeita com elas. Em geral leva segundos; uma carga inicial grande pode levar minutos.
+3. A mesma lista de URLs reenviada não baixa nada de novo. Se qualquer URL do carro mudar, as fotos dele são refeitas.
+
+Cada foto tem limite de 20 MB e 30 s para baixar, e precisa ser imagem (`content-type: image/*`). URLs que apontam para rede interna são recusadas. Foto que falhar é pulada (as outras são renumeradas), e o motivo aparece em `GET /v1/sites/{dominio}` → `fotos.comErro`. Ali também fica `fotos.pendentes`, a quantidade de carros com fotos ainda na fila.
+
+**Quantidade:** se o seu sistema já grava as fotos direto no armazenamento da plataforma, mande só o número. O padrão é:
 
 ```
 {fotosBase}carros/{id}/{n}-{400|800|1600}.webp      n = 1..fotos
 ```
-
-Foto que faltar vira um marcador cinza no site, sem quebrar a página.
 
 ## Travas de segurança
 

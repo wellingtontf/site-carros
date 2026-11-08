@@ -10,6 +10,7 @@ node_modules/
 config/fontes.json
 config/publicacao.json
 config/clientes.json
+config/fotos.json
 
 # configuração pessoal do Claude Code
 .claude/settings.local.json

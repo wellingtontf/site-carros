@@ -43,6 +43,7 @@ npm run test:rapido    # sem o navegador (Chrome)
 | `tests/build.test.js` | geração, incremental, vendidos e retenção, redirecionamentos, ordem, páginas, blocos, links relativos, segurança, erros de configuração |
 | `tests/atualizar.test.js` | fontes HTTP (`${VAR}`, erro 500, JSON quebrado), trava de queda, estoque vazio, trava de execução, publicação incremental, injeção no shell |
 | `tests/servidor.test.js` | API: token por cliente, 403 em site alheio, 422 com erros, estoque inteiro, carro avulso, rajada num build só, trava de queda (409), fila que sobrevive a reinício |
+| `tests/fotos.test.js` | fotos por URL: baixa, converte, renumera as que deram certo, não baixa de novo, SSRF (inclusive por redirecionamento), falha de envio fica pendente, conversor real, caminho completo pela API |
 | `tests/producao.test.js` | problemas de site estático no ar: 404, `?v=` nos css/js, canonical em página livre, publicação recusa fotos em localhost/http, auditoria |
 | `tests/motor.test.js` | busca, busca aproximada, filtros em cascata, link da busca, ordens, WhatsApp — em **todas** as versões; e que as congeladas não foram editadas (`sha256` em `versao.json`) |
 | `tests/sites-e-templates.test.js` | gera os sites reais e varre **todas** as páginas: link local quebrado, `{{marcador}}` sobrando, título/viewport, ids da listagem; todo template com o mínimo exigido |

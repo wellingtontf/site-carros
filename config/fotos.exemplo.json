@@ -1,0 +1,6 @@
+{
+  "pasta": "s3-local",
+  "paralelo": 4,
+  "enviar": "aws s3 sync {dir} s3://meu-bucket-de-fotos/{destino} --delete --cache-control 'public,max-age=31536000'",
+  "converter": "python3 core/converter-foto.py {entrada} {saida} {larguras}"
+}

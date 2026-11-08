@@ -11,6 +11,7 @@
 //   node core/cli.js publicar                           publica só o que mudou e ainda não foi publicado (config/publicacao.json)
 //   node core/cli.js cliente criar <nome> --sites a.com.br,b.com.br   (ou --sites "*")   token da API para um sistema externo
 //   node core/cli.js cliente listar | cliente remover <nome>
+//   node core/cli.js fotos [a.com.br,b.com.br]          baixa e converte as fotos por URL pendentes e refaz os sites (config/fotos.json)
 // Depois de aplicar, gere os sites: node core/build.js --sites a.com.br   e publique as pastas de dist/.
 const fs = require('fs');
 const path = require('path');
@@ -241,6 +242,14 @@ function mostrarHistorico() {
       const ids = args._[0] ? args._[0].split(',').map((s) => s.trim()).filter(Boolean) : null;
       const r = await atualizar({ sites: ids, forcar: !!args.forcar, completo: !!args.completo, publicar: !!args.publicar });
       if (r.status === 'ocupado') falha('já tem uma atualização rodando (.estado/atualizar.lock)');
+      // fotos por URL dos sites que mudaram: processa e refaz (só as páginas dos carros que ganharam fotos)
+      const Fotos = require('./fotos.js');
+      const comFotos = r.estoques.filter((e) => e.status === 'atualizado' && Fotos.pendentes(e.id).length).map((e) => e.id);
+      if (comFotos.length && Fotos.lerConfig()) {
+        const feitos = [];
+        for (const s of comFotos) if ((await Fotos.processarSite(s)).processados.length) feitos.push(s);
+        if (feitos.length) { construir({ sites: feitos }); if (args.publicar) await require('./atualizar.js').publicarPendentes({}); }
+      } else if (comFotos.length) console.warn('aviso: há fotos por URL, mas falta config/fotos.json (veja config/fotos.exemplo.json)');
       const ruim = r.estoques.some((e) => ['invalido', 'erro', 'recusado'].includes(e.status)) || (r.publicacao && r.publicacao.falhas.length);
       process.exit(ruim ? 2 : 0);
       break;
@@ -250,6 +259,15 @@ function mostrarHistorico() {
       const r = await publicarPendentes({});
       process.exit(r.falhas.length ? 2 : 0);
       break;
+    }
+    case 'fotos': {
+      const Fotos = require('./fotos.js');
+      const alvo = args._[0] ? args._[0].split(',').map((s) => s.trim()) : idsSites();
+      const feitos = [];
+      for (const s of alvo) if ((await Fotos.processarSite(s)).processados.length) feitos.push(s);
+      if (feitos.length) construir({ sites: feitos });
+      else console.log('nenhuma foto pendente');
+      return;
     }
     case 'cliente': {
       const CL = require('./clientes.js');
