@@ -1,7 +1,7 @@
 // Repositório de sites: o ÚNICO lugar que lê a pasta sites/. Todo o resto (build, atualização, CLI, API) lista,
 // confere e carrega sites por aqui, para que a regra "o que é um site" exista uma vez só.
 //
-//   listar()             → ['a.com.br', ...]  domínios com sites/<dominio>/site.json, em ordem
+//   listar({inquilino})  → ['a.com.br', ...]  domínios com sites/<dominio>/site.json, em ordem (do inquilino, se pedido)
 //   existe(dominio)      → true/false (sem varrer a pasta)
 //   carregar(dominio)    → cadastro (site.json) + id
 //   carregarTodos()      → [cadastro, ...]
@@ -16,11 +16,12 @@
 //   renomearArquivos(antigo, novo) → desfazer()  troca o domínio em tudo que é do site (com volta atrás)
 //
 // Rascunhos: endereços provisórios em sequência (config/rascunhos.json → "padrao": "site{n}.carro57.com.br")
-//   proximoRascunho({ reservar }) → 'site7.carro57.com.br'   ehDominioRascunho(dominio) → true/false
+//   proximoRascunho({ inquilino, reservar }) → 'site7.carro57.com.br'   ehDominioRascunho(d)   inquilinoDoRascunho(d)
 const fs = require('fs');
 const path = require('path');
 const C = require('./caminhos');
 const { ultimaVersao } = require('./versoes');
+const Inq = require('./inquilinos');
 
 const ID_SITE = /^(?=.{3,253}$)([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/; // o id do site é o domínio (nome da pasta)
 const ID_LOJA = /^[a-z0-9][a-z0-9-]{0,40}$/;
@@ -34,9 +35,13 @@ const gravarJSON = (arq, obj, bonito = true) => {
 
 // ---------- leitura ----------
 const existe = (d) => ID_SITE.test(String(d)) && fs.existsSync(C.siteJson(d));
-const listar = () => (fs.existsSync(C.SITES)
-  ? fs.readdirSync(C.SITES, { withFileTypes: true }).filter((e) => e.isDirectory() && fs.existsSync(C.siteJson(e.name))).map((e) => e.name).sort()
-  : []);
+// listar({ inquilino }) = só os sites daquele inquilino
+function listar({ inquilino = null } = {}) {
+  const todos = fs.existsSync(C.SITES)
+    ? fs.readdirSync(C.SITES, { withFileTypes: true }).filter((e) => e.isDirectory() && fs.existsSync(C.siteJson(e.name))).map((e) => e.name).sort()
+    : [];
+  return inquilino ? todos.filter((d) => Inq.doSite(d) === inquilino) : todos;
+}
 const carregar = (d) => ({ ...lerJSON(C.siteJson(d)), id: d });
 const carregarTodos = () => listar().map(carregar);
 const lojas = (d) => Object.keys(lerJSON(C.siteJson(d), {}).lojas || {});
@@ -44,38 +49,44 @@ const estoque = (d) => lerJSON(C.estoque(d), { carros: [] });
 function resumo(d) {
   const s = lerJSON(C.siteJson(d), {});
   const e = estoque(d);
-  return { site: d, nome: s.nome || '', rascunho: !!s.rascunho, template: s.template || '', motor: s.motor || '', url: s.url || '', carros: (e.carros || []).length, lojas: Object.keys(s.lojas || {}).length, atualizado: e.atualizado || null };
+  return { site: d, inquilino: s.inquilino || Inq.PADRAO, nome: s.nome || '', rascunho: !!s.rascunho, template: s.template || '', motor: s.motor || '', url: s.url || '', carros: (e.carros || []).length, lojas: Object.keys(s.lojas || {}).length, atualizado: e.atualizado || null };
 }
 const resumos = (filtro = () => true) => listar().filter(filtro).map(resumo);
 
-// ---------- rascunhos: site1.carro57.com.br, site2..., em sequência ----------
-// O número NUNCA volta: depois que o site3 é promovido, o próximo é o site4 (o endereço do 3 pode ter sido compartilhado
-// com o cliente; reaproveitar mostraria a loja errada). Contador em .estado/rascunhos.json + o maior número existente.
-const PADRAO_RASCUNHO = 'site{n}.carro57.com.br';
-function padraoRascunho() {
-  const p = lerJSON(C.config('rascunhos.json'), {}).padrao || PADRAO_RASCUNHO;
-  if (p.split('{n}').length !== 2 || !ID_SITE.test(p.replace('{n}', '1'))) throw new Error(`config/rascunhos.json: "padrao" precisa ter {n} uma vez e virar um domínio (ex.: ${PADRAO_RASCUNHO})`);
+// ---------- rascunhos: site1.carro57.com.br, site2..., em sequência, POR INQUILINO ----------
+// Cada inquilino tem o seu padrão (inquilino.json → "rascunhos": { "padrao": "site{n}.carro57.com.br" }; o "padrao" usa
+// config/rascunhos.json). O número NUNCA volta: depois que o site3 é promovido, o próximo é o site4 (o endereço do 3
+// pode ter sido compartilhado). Contador em .estado/rascunhos/<inquilino>.json + o maior número existente.
+const escRe = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function padraoRascunho(inquilino = Inq.PADRAO) {
+  const r = Inq.carregar(inquilino).rascunhos;
+  const p = r && r.padrao;
+  if (!p) throw new Error(`o inquilino "${inquilino}" não tem padrão de rascunho ("rascunhos": { "padrao": "site{n}.exemplo.com.br" } em ${inquilino === Inq.PADRAO ? 'config/rascunhos.json' : `inquilinos/${inquilino}/inquilino.json`})`);
+  if (p.split('{n}').length !== 2 || !ID_SITE.test(p.replace('{n}', '1'))) throw new Error(`padrão de rascunho inválido "${p}": precisa ter {n} uma vez e virar um domínio (ex.: site{n}.carro57.com.br)`);
   return p;
 }
-const reRascunho = () => { const [a, b] = padraoRascunho().split('{n}').map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')); return new RegExp(`^${a}([1-9]\\d*)${b}$`); };
-const ehDominioRascunho = (d) => reRascunho().test(String(d));
-function proximoRascunho({ reservar = false } = {}) {
-  const re = reRascunho();
-  const arq = path.join(C.ESTADO, 'rascunhos.json');
+const reDoPadrao = (p) => { const [a, b] = p.split('{n}').map(escRe); return new RegExp(`^${a}([1-9]\\d*)${b}$`); };
+// [inquilino, padrão] de todos os inquilinos que têm rascunho
+const padroesRascunho = () => [Inq.PADRAO, ...Inq.listar()].map((id) => { try { return [id, padraoRascunho(id)]; } catch (e) { return null; } }).filter(Boolean);
+// inquilino dono de um endereço de rascunho (ou null: não é endereço de rascunho)
+function inquilinoDoRascunho(d) { const x = padroesRascunho().find(([, p]) => reDoPadrao(p).test(String(d))); return x ? x[0] : null; }
+const ehDominioRascunho = (d) => inquilinoDoRascunho(d) !== null;
+const arqContador = (inq) => path.join(C.ESTADO, 'rascunhos', `${inq}.json`);
+function proximoRascunho({ inquilino = Inq.PADRAO, reservar = false } = {}) {
+  const p = padraoRascunho(inquilino);
+  const re = reDoPadrao(p);
   const usados = listar().map((d) => re.exec(d)).filter(Boolean).map((m) => Number(m[1]));
-  let n = Math.max(lerJSON(arq, {}).ultimo || 0, ...usados, 0) + 1;
-  const dom = (k) => padraoRascunho().replace('{n}', k);
-  while (fs.existsSync(C.site(dom(n)))) n++;
-  if (reservar) gravarJSON(arq, { ultimo: n, em: new Date().toISOString() }, false);
-  return dom(n);
+  let n = Math.max(lerJSON(arqContador(inquilino), {}).ultimo || 0, ...usados, 0) + 1;
+  while (fs.existsSync(C.site(p.replace('{n}', n)))) n++;
+  if (reservar) gravarJSON(arqContador(inquilino), { ultimo: n, em: new Date().toISOString() }, false);
+  return p.replace('{n}', n);
 }
-// site criado num endereço de rascunho por qualquer caminho (inclusive com domínio explícito): o contador sobe junto,
-// para o número não ser usado de novo depois que esse site for promovido
+// site criado num endereço de rascunho por qualquer caminho: o contador do inquilino sobe junto
 function registrarRascunho(d) {
-  const m = reRascunho().exec(String(d));
-  if (!m) return;
-  const arq = path.join(C.ESTADO, 'rascunhos.json');
-  if (Number(m[1]) > (lerJSON(arq, {}).ultimo || 0)) gravarJSON(arq, { ultimo: Number(m[1]), em: new Date().toISOString() }, false);
+  const inq = inquilinoDoRascunho(d);
+  if (!inq) return;
+  const n = Number(reDoPadrao(padraoRascunho(inq)).exec(d)[1]);
+  if (n > (lerJSON(arqContador(inq), {}).ultimo || 0)) gravarJSON(arqContador(inq), { ultimo: n, em: new Date().toISOString() }, false);
 }
 
 // ---------- cadastro ----------
@@ -86,7 +97,12 @@ function validarSite(s, dominio) {
   if (!s || typeof s !== 'object' || Array.isArray(s)) return [...erros, 'o cadastro precisa ser um objeto JSON'];
   if ('id' in s) e('"id" não vai no cadastro: o id do site é o domínio (o endereço da chamada)');
   if (!txt(s.nome)) e('"nome" vazio ou ausente');
+  if (s.inquilino != null && (s.inquilino === Inq.PADRAO || !Inq.existe(s.inquilino))) e(`inquilino "${s.inquilino}" não existe`);
+  const inq = s.inquilino && Inq.existe(s.inquilino) ? s.inquilino : Inq.PADRAO;
+  const donoRascunho = inquilinoDoRascunho(dominio);
+  if (donoRascunho && donoRascunho !== inq) e(`"${dominio}" é endereço de rascunho de outro inquilino`);
   if (!txt(s.template)) e('"template" vazio ou ausente');
+  else if (!Inq.templatePermitido(inq, s.template)) e(`o template "${s.template}" não está liberado para o inquilino "${inq}"`);
   else if (!/^[a-z0-9-]+$/.test(s.template) || !fs.existsSync(path.join(C.template(s.template), 'template.json'))) e(`template "${s.template}" não existe`);
   if (!txt(s.motor)) e('"motor" vazio ou ausente (ex.: "v2")');
   else if (!/^[a-z0-9]+$/.test(s.motor) || !fs.existsSync(path.join(C.motor(s.motor), 'engine.js'))) e(`motor "${s.motor}" não existe`);
@@ -119,13 +135,13 @@ function validarSite(s, dominio) {
   return erros;
 }
 
-// cadastro de um site novo: config/site-modelo.json (o "padrão da casa") + o que veio na chamada.
+// cadastro de um site novo: site-modelo.json do inquilino (o "padrão da casa"; sem ele, config/site-modelo.json) + o que veio na chamada.
 // Só com o domínio já dá um site válido: nome = domínio, url = https://<domínio>, motor = a última versão congelada.
 // Endereço de rascunho (siteN.carro57.com.br) é sempre rascunho, mesmo que venha "rascunho": false.
-function cadastroNovo(dominio, parcial = {}) {
-  const modelo = lerJSON(C.config('site-modelo.json'), {});
+function cadastroNovo(dominio, parcial = {}, inquilino = Inq.PADRAO) {
+  const modelo = Inq.lerConfig(inquilino, 'site-modelo.json', {});
   const limpo = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith('_'))); // "_comentario" no modelo
-  return { ...limpo(modelo), ...parcial, ...(ehDominioRascunho(dominio) ? { rascunho: true } : {}), nome: parcial.nome || dominio, url: parcial.url || `https://${dominio}`, motor: parcial.motor || modelo.motor || ultimaVersao(), template: parcial.template || modelo.template || 'barra-topo' };
+  return { ...limpo(modelo), ...parcial, ...(inquilino !== Inq.PADRAO ? { inquilino } : {}), ...(ehDominioRascunho(dominio) ? { rascunho: true } : {}), nome: parcial.nome || dominio, url: parcial.url || `https://${dominio}`, motor: parcial.motor || modelo.motor || ultimaVersao(), template: parcial.template || modelo.template || 'barra-topo' };
 }
 
 function gravarSite(dominio, obj) {
@@ -172,12 +188,12 @@ function renomearArquivos(antigo, novo, { pasta = 'dist' } = {}) {
     mover(C.fotosEstado(antigo), C.fotosEstado(novo));
     for (const d of ['estoques-anteriores', 'sites-anteriores']) mover(path.join(C.ESTADO, d, `${antigo}.json`), path.join(C.ESTADO, d, `${novo}.json`));
     // pendências: o domínio novo precisa ser publicado inteiro; o antigo sai da lista (quem cuida dele é a infra: 301)
-    const arqPend = path.join(C.ESTADO, pasta, 'pendente.json');
-    if (!fs.existsSync(arqPend)) { gravarJSON(arqPend, {}, false); feitos.push(() => fs.rmSync(arqPend, { force: true })); }
-    reescrever(arqPend, (t) => { const p = JSON.parse(t); delete p[antigo]; p[novo] = { escritos: [], removidos: [], completo: true }; return JSON.stringify(p); });
+    const Pendentes = require('./pendentes');
+    const pendAntes = Pendentes.mover(pasta, antigo, novo);
+    feitos.push(() => { Pendentes.remover(pasta, novo); if (pendAntes) Pendentes.registrar(pasta, antigo, pendAntes, pendAntes.completo); });
     reescrever(C.config('fontes.json'), (t) => { const f = JSON.parse(t); if (!(antigo in f)) return t; f[novo] = f[antigo]; delete f[antigo]; return JSON.stringify(f, null, 2) + '\n'; });
   } catch (e) { desfazer(); throw e; }
   return { trocas, desfazer };
 }
 
-module.exports = { proximoRascunho, ehDominioRascunho, padraoRascunho, ID_SITE, listar, existe, carregar, carregarTodos, lojas, estoque, resumo, resumos, validarSite, cadastroNovo, gravarSite, criarArquivos, renomearArquivos };
+module.exports = { proximoRascunho, ehDominioRascunho, inquilinoDoRascunho, padraoRascunho, ID_SITE, listar, existe, carregar, carregarTodos, lojas, estoque, resumo, resumos, validarSite, cadastroNovo, gravarSite, criarArquivos, renomearArquivos };

@@ -25,6 +25,12 @@ Plataforma com ~2500 sites estáticos de revendas de carros, cada um em um domí
 7. **Links:** `?estado=SP&cidade=...&marca=...&ord=menor` (estado da busca), `/carros/<Marca>/<Modelo>/<Versao>/<Marca>-<Modelo>-<Versao>-<ano>-<Cidade>-<Estado>-<id>.html` (página estática por carro, com preview de WhatsApp; regra ÚNICA em `core/ui/link-carro.js`, usada no build, no navegador e nos testes) e `?v=carlos` (roteia o WhatsApp para o vendedor). Link de carro que muda (dados do estoque mudaram) vira redirecionamento para o novo por 180 dias (`retencaoRedirecionamentoDias`); o estado guarda `links`, `vendidos {data, link}` e `redirecionados` por site.
 8. **Origem dos carros:** vêm de outro sistema (Revenda Mais). Ele terá UMA API que gera o JSON de carros de um estoque, e o Wellington chama quando achar melhor (gatilho manual, não é webhook obrigatório).
 
+## Multi-tenant e Kubernetes (decisão do Wellington: escalar para 2500+ sites, EKS na AWS, vários inquilinos)
+- **Inquilinos:** `inquilinos/<id>/inquilino.json` (nome, templates liberados, `rascunhos.padrao`) + `inquilinos/<id>/config/` (fotos, infra, publicacao, robots.txt, site-modelo). Site diz `"inquilino"` no site.json; sem ele = `padrao` (usa `config/` global). `core/inquilinos.js` resolve config do inquilino → global. Os 5 sites atuais são `revenda-mais` (rascunho `site{n}.carro57.com.br`).
+- **Tokens por inquilino** (`api/clientes.js`): `"*"` = todos os sites DO inquilino; só `TOKEN_ATUALIZAR` (admin) atravessa. Domínio único na plataforma.
+- **Escala:** `PAPEL=api|trabalhador|tudo` (api/servidor.js). Fila em arquivos no volume compartilhado (`api/fila.js`: pedidos, marcas por site, lotes); `api/trabalhador.js` reserva um site por vez (trava `fila-<canal>-<site>`), N pods em paralelo; canal `fotos` separado. Travas por site em `core/trava.js` (`.estado/travas/`, expiram em 30 min). Pendências de publicação por site (`core/pendentes.js`, reserva atômica). "Todos" = lote com um pedido por site.
+- **Infra:** `infra/docker/Dockerfile` (código na imagem; dados em /dados = EFS; `SITE_CARROS_TEMPLATES`/`SITE_CARROS_PAGINAS_PADRAO`), `infra/k8s/` (kustomize: EFS RWX, api + HPA, trabalhador + KEDA pela métrica `site_carros_fila_pedidos`, ALB, IRSA), `infra/cloudfront/roteador.js` (função de borda: index.html, barra final, `//`). `/v1/pronto` e `/metrics` para o Kubernetes. Nada aplicado numa conta AWS ainda.
+
 ## Estrutura de arquivos
 ```
 core/                         SÓ CÓDIGO (isolado)

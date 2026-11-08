@@ -1,0 +1,27 @@
+# Volume compartilhado entre TODOS os pods (API e trabalhadores): sites, inquilinos, config, fila, estado e saída.
+# EFS (ReadWriteMany) pelo driver aws-efs-csi-driver. O access point garante uid/gid 1000 (o usuário "node" da imagem).
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: efs-site-carros
+provisioner: efs.csi.aws.com
+parameters:
+  provisioningMode: efs-ap
+  fileSystemId: fs-0123456789abcdef0   # troque pelo EFS da conta
+  directoryPerms: "750"
+  uid: "1000"
+  gid: "1000"
+  basePath: /site-carros
+reclaimPolicy: Retain                   # apagar o PVC nunca apaga os dados
+volumeBindingMode: Immediate
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dados
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: efs-site-carros
+  resources:
+    requests:
+      storage: 100Gi                     # EFS é elástico; o número é só formalidade

@@ -12,7 +12,8 @@
 //     template.json, paginas/{index,carro,vendido,pagina}.html, blocos/, parciais/, css/, js/, img/
 //     paginas-extras/            páginas livres de TODOS os sites do template
 //   paginas-padrao/           páginas que TODO site ganha (contato, privacidade, cookies, LGPD), com {{site.nome}}...
-//   config/                   fontes.json, publicacao.json, historico.json, clientes.json (tokens da API)
+//   inquilinos/<id>/          multi-tenant: inquilino.json + config/ própria (fotos, infra, publicação, robots, modelo de site)
+//   config/                   configuração global (e a do inquilino "padrao"): fontes.json, publicacao.json, historico.json, clientes.json
 //   .estado/                  estado do build incremental, travas, cópias de segurança
 //     api/pedidos/, api/entrada/  pedidos recebidos pela API e o corpo deles enquanto estão na fila
 //   dist/                     saída (uma pasta por domínio)
@@ -23,13 +24,19 @@ const path = require('path');
 const ROOT = process.env.SITE_CARROS_RAIZ ? path.resolve(process.env.SITE_CARROS_RAIZ) : path.resolve(__dirname, '..');
 const CORE = __dirname;
 const SITES = path.join(ROOT, 'sites');
-const TEMPLATES = path.join(ROOT, 'templates');
+// templates e páginas padrão são CÓDIGO versionado: na imagem Docker eles vêm junto (SITE_CARROS_TEMPLATES /
+// SITE_CARROS_PAGINAS_PADRAO apontam para dentro da imagem); os DADOS (sites, estado, saída) ficam no volume (EFS)
+const TEMPLATES = process.env.SITE_CARROS_TEMPLATES ? path.resolve(process.env.SITE_CARROS_TEMPLATES) : path.join(ROOT, 'templates');
 const CONFIG = path.join(ROOT, 'config');
-const PAGINAS_PADRAO = path.join(ROOT, 'paginas-padrao');
+const PAGINAS_PADRAO = process.env.SITE_CARROS_PAGINAS_PADRAO ? path.resolve(process.env.SITE_CARROS_PAGINAS_PADRAO) : path.join(ROOT, 'paginas-padrao');
 const ESTADO = path.join(ROOT, '.estado');
+const INQUILINOS = path.join(ROOT, 'inquilinos'); // multi-tenant: inquilinos/<id>/{inquilino.json, config/}
 
 module.exports = {
-  ROOT, CORE, SITES, TEMPLATES, CONFIG, ESTADO, PAGINAS_PADRAO,
+  ROOT, CORE, SITES, TEMPLATES, CONFIG, ESTADO, PAGINAS_PADRAO, INQUILINOS,
+  inquilino: (id) => path.join(INQUILINOS, id),
+  inquilinoJson: (id) => path.join(INQUILINOS, id, 'inquilino.json'),
+  inquilinoConfig: (id, arquivo) => path.join(INQUILINOS, id, 'config', arquivo),
   MOTOR: path.join(CORE, 'motor'),
   UI: path.join(CORE, 'ui'),
   motor: (versao) => path.join(CORE, 'motor', versao),

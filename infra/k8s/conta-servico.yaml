@@ -1,0 +1,9 @@
+# IRSA: os pods assumem um papel IAM (sem chave de acesso no cluster) com permissão de:
+#   s3:PutObject/DeleteObject/ListBucket nos buckets de sites e fotos (por inquilino: um prefixo ou bucket cada),
+#   cloudfront:CreateInvalidation e, para a infra de sites novos, cloudfront:*DistributionTenant* + acm:RequestCertificate.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: site-carros
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/site-carros-pods

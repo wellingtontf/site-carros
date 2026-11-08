@@ -34,7 +34,7 @@ test('estoque.xml: caminho configurável; desligar apaga o arquivo e despublica'
   A.criarSite(ID, { carros: [A.carro()], site: { feedXml: { caminho: 'xml/estoque.xml' } } });
   build();
   assert.ok(A.existe(ID, 'xml/estoque.xml') && !A.existe(ID, 'estoque.xml'));
-  fs.rmSync(path.join(A.raiz(), '.estado', 'dist', 'pendente.json'));
+  A.limparPendentes();
   const cfg = A.lerSite(ID); cfg.feedXml = false; A.gravarSite(ID, cfg);
   build();
   assert.ok(!A.existe(ID, 'xml/estoque.xml'));
@@ -42,23 +42,23 @@ test('estoque.xml: caminho configurável; desligar apaga o arquivo e despublica'
   // build de novo sem mudar nada: o feed não pode ser apagado e recriado (o build passa "sem mudanças")
   const cfg2 = A.lerSite(ID); delete cfg2.feedXml; A.gravarSite(ID, cfg2);
   build();
-  fs.rmSync(path.join(A.raiz(), '.estado', 'dist', 'pendente.json'));
+  A.limparPendentes();
   build();
   assert.equal(A.pendente(ID), undefined, 'segundo build sem mudanças');
   assert.ok(A.existe(ID, 'estoque.xml'));
 });
 
-test('robots.txt: padrão, modelo de todos, robots próprio do site', () => {
+test('robots.txt: padrão, modelo de todos, robots próprio do site', async () => {
   A.criarSite(ID, { carros: [A.carro()] });
   build();
   assert.equal(A.ler(ID, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: https://${ID}/sitemap.xml\n`);
-  fs.rmSync(path.join(A.raiz(), '.estado', 'dist', 'pendente.json')); // finge que publicou (o 1º build pede publicação completa)
+  A.limparPendentes(); // finge que publicou (o 1º build pede publicação completa)
   Robots.gravarModelo('User-agent: *\nDisallow: /busca-interna/\nSitemap: {{sitemap}}\n# {{dominio}} {{url}}');
-  const r = reescreverRobots();
+  const r = await reescreverRobots();
   assert.deepEqual(r.alterados, [ID]);
   assert.equal(A.ler(ID, 'robots.txt'), `User-agent: *\nDisallow: /busca-interna/\nSitemap: https://${ID}/sitemap.xml\n# ${ID} https://${ID}\n`);
   assert.ok(A.pendente(ID).escritos.includes(`${ID}/robots.txt`), 'entra na publicação');
-  assert.equal(reescreverRobots().alterados.length, 0, 'de novo: nada muda');
+  assert.equal((await reescreverRobots()).alterados.length, 0, 'de novo: nada muda');
   // o build usa o mesmo modelo (não volta o antigo)
   build();
   assert.match(A.ler(ID, 'robots.txt'), /busca-interna/);
@@ -66,7 +66,7 @@ test('robots.txt: padrão, modelo de todos, robots próprio do site', () => {
   const cfg = A.lerSite(ID); cfg.robots = 'User-agent: *\nAllow: /\n'; A.gravarSite(ID, cfg);
   build();
   assert.equal(A.ler(ID, 'robots.txt'), 'User-agent: *\nAllow: /\n');
-  assert.deepEqual(reescreverRobots().comRobotsProprio, [ID]);
+  assert.deepEqual((await reescreverRobots()).comRobotsProprio, [ID]);
   Robots.gravarModelo(null);
 });
 

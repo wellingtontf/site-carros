@@ -273,7 +273,9 @@ test('POST /v1/build: lista de sites, ou todos (só com token "*")', async () =>
   for (const s of idsDist()) fs.rmSync(A.saida(s, '404.html'), { force: true });
   const todos = await reqJ('POST', '/v1/build?esperar=30', { corpo: {}, token: tokTodos });
   assert.equal(todos.status, 200, JSON.stringify(todos.j));
-  assert.equal(todos.j.resultado.sites, idsDist().length);
+  assert.equal(todos.j.total, idsDist().length, 'um pedido por site, num lote');
+  assert.equal(todos.j.contagem.concluido, todos.j.total);
+  assert.equal((await reqJ('GET', todos.j.link, { token: tokTodos })).j.concluido, true);
   assert.ok(idsDist().every((s) => A.existe(s, '404.html')), 'todos refeitos');
 });
 const idsDist = () => fs.readdirSync(path.join(A.raiz(), 'sites'));
@@ -296,7 +298,7 @@ test('PUT /v1/robots: robots.txt de TODOS os sites (só token "*"), com trava co
   const novo = 'User-agent: *\nDisallow: /multipla/?*\nSitemap: {{sitemap}}\n';
   const r = await reqJ('PUT', '/v1/robots?esperar=20', { corpo: novo, token: tokTodos });
   assert.equal(r.status, 200, JSON.stringify(r.j));
-  assert.ok(r.j.resultado.alterados >= 2);
+  assert.ok(r.j.concluido && r.j.contagem.concluido >= 2, JSON.stringify(r.j));
   for (const d of [ID, OUTRO]) assert.equal(robots(d), `User-agent: *\nDisallow: /multipla/?*\nSitemap: https://${d}/sitemap.xml\n`);
   // também em JSON
   const j = await reqJ('PUT', '/v1/robots?esperar=20', { corpo: { conteudo: 'User-agent: *\nAllow: /\nSitemap: {{sitemap}}\n# v2' }, token: tokTodos });
@@ -408,6 +410,7 @@ test('POST /v1/sites/<d>/promover: rascunho vira o site definitivo; token acompa
 });
 
 test('POST /v1/sites sem domínio: cria o próximo rascunho da sequência (siteN.carro57.com.br)', async () => {
+  fs.writeFileSync(path.join(A.raiz(), 'config', 'rascunhos.json'), JSON.stringify({ padrao: 'site{n}.carro57.com.br' }));
   const a = await reqJ('POST', '/v1/sites?esperar=20', { corpo: { cadastro: { template: 'teste', nome: 'Loja do João' } }, token: tokTodos });
   assert.equal(a.status, 201, JSON.stringify(a.j));
   assert.match(a.j.site, /^site(\d+)\.carro57\.com\.br$/);

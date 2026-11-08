@@ -115,10 +115,9 @@ function carregarMotor(dirSite) {
 }
 
 // pendências de publicação de um site
-const pendente = (id, pasta = 'dist') => {
-  const arq = path.join(RAIZ, '.estado', pasta, 'pendente.json');
-  return fs.existsSync(arq) ? JSON.parse(fs.readFileSync(arq, 'utf8'))[id] : undefined;
-};
+const pendente = (id, pasta = 'dist') => require('../core/pendentes').ler(pasta, id);
+// "finge que já publicou": apaga as pendências de todos os sites
+const limparPendentes = (pasta = 'dist') => fs.rmSync(path.join(RAIZ, '.estado', pasta, 'pendentes'), { recursive: true, force: true });
 
 // silencia console.log/warn do build durante o teste e devolve o que foi impresso
 function silencioso(fn) {
@@ -139,5 +138,5 @@ async function silenciosoAsync(fn) {
 module.exports = {
   PROJETO, prepararRaiz, raiz, limpar, carro, LOJAS, criarSite, lerSite, gravarSite, gravarEstoque,
   saida, existe, ler, lerJSON, listar, marcadoresSobrando, linksQuebrados, verificarSiteGerado, carregarMotor,
-  pendente, silencioso, silenciosoAsync,
+  pendente, limparPendentes, silencioso, silenciosoAsync,
 };

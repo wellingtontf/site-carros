@@ -56,7 +56,7 @@ test('preço muda: refaz só a página daquele carro + carros.json', () => {
   const carros = [A.carro(), A.carro(), A.carro()];
   A.criarSite(ID, { carros });
   build();
-  fs.rmSync(path.join(A.raiz(), '.estado', 'dist', 'pendente.json')); // finge que já publicou
+  A.limparPendentes(); // finge que já publicou
   carros[1].preco += 1000;
   A.gravarEstoque(ID, carros);
   const f = build();

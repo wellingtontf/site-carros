@@ -6,6 +6,7 @@ const Ops = require('../core/operacoes');
 const Sites = require('../core/sites');
 const Fotos = require('../core/fotos');
 const Robots = require('../core/robots');
+const Inq = require('../core/inquilinos');
 const C = require('../core/caminhos');
 const CL = require('./clientes');
 const { Erro, corpo, corpoJSON, enviar } = require('./http');
@@ -33,6 +34,15 @@ function criarRotas({ fila }) {
     const fim = await fila.aguardar(p.id, seg * 1000);
     enviar(res, fim.status === 'concluido' ? codigoConcluido : CODIGO_FINAL[fim.status] || 202, visao(fim));
   }
+  // operação em muitos sites (todos do inquilino): um pedido por site, agrupados num LOTE (os trabalhadores dividem o
+  // serviço). Resposta = resumo do lote; com ?esperar, 200 se todos concluíram, 207 se algum não, 202 se não deu tempo.
+  async function responderLote(res, url, ps, descricao) {
+    if (!ps.length) return enviar(res, 200, { lote: null, total: 0, concluido: true, contagem: {}, problemas: [] });
+    const id = fila.criarLote(ps, descricao);
+    const seg = segundos(url);
+    const l = seg ? await fila.aguardarLote(id, seg * 1000) : fila.lote(id);
+    enviar(res, !seg || !l.concluido ? 202 : l.contagem.concluido === l.total ? 200 : 207, l);
+  }
   // vários pedidos: 202; com ?esperar, 200 se todos concluíram, 207 se algum não
   async function responderVarios(res, url, ps, extra = {}) {
     const seg = segundos(url);
@@ -52,9 +62,21 @@ function criarRotas({ fila }) {
       return d;
     };
     const exigirTodos = (oque) => { if (!cliente.sites.includes('*')) throw new Erro(403, `${oque} exige um token com acesso a todos os sites ("*")`); };
+    // inquilino em que a operação acontece: o do token; o admin escolhe (?inquilino= ou "inquilino" no corpo; sem isso, "padrao")
+    const inquilinoAlvo = (pedido) => {
+      if (!cliente.admin) { if (pedido && pedido !== cliente.inquilino) throw new Erro(403, `este token é do inquilino "${cliente.inquilino}"`); return cliente.inquilino; }
+      const i = pedido || Inq.PADRAO;
+      if (!Inq.existe(i)) throw new Erro(422, `inquilino "${i}" não existe`);
+      return i;
+    };
 
     // ---------- gerais ----------
-    if (m === 'GET' && p === '/v1/status') return enviar(res, 200, { ...fila.estado(), cliente: cliente.nome });
+    if (m === 'GET' && p === '/v1/status') return enviar(res, 200, { ...fila.estado(), cliente: cliente.nome, inquilino: cliente.inquilino });
+    let lr = /^\/v1\/lotes\/([a-z0-9]+)$/.exec(p);
+    if (m === 'GET' && lr) { const l = fila.lote(lr[1]); if (!l) throw new Erro(404, 'lote não encontrado'); return enviar(res, 200, l); }
+    // sites que a operação "todos" alcança: os do inquilino do token (o admin escolhe com ?inquilino=, ou a plataforma toda)
+    const sitesDoAlcance = () => (cliente.admin ? (url.searchParams.get('inquilino') ? Sites.listar({ inquilino: inquilinoAlvo(url.searchParams.get('inquilino')) }) : Sites.listar())
+      : Sites.listar({ inquilino: cliente.inquilino }).filter((d) => CL.pode(cliente, d)));
     if (m === 'GET' && p === '/v1/sites') {
       return enviar(res, 200, { sites: Sites.resumos((d) => CL.pode(cliente, d)) });
     }
@@ -65,10 +87,15 @@ function criarRotas({ fila }) {
     if (m === 'POST' && p === '/v1/sites') {
       exigirTodos('criar um site novo');
       const b = await corpoJSON(req, LIMITE.site, {});
-      if (b.dominio == null) return criar(Sites.proximoRascunho(), b.cadastro || {}, true);
+      const inq = inquilinoAlvo(b.inquilino || url.searchParams.get('inquilino'));
+      if (b.dominio == null) {
+        let d;
+        try { d = Sites.proximoRascunho({ inquilino: inq }); } catch (e) { throw new Erro(422, e.message); }
+        return criar(d, b.cadastro || {}, inq, true);
+      }
       const d = b.dominio;
       if (typeof d !== 'string' || !Sites.ID_SITE.test(d)) throw new Erro(422, 'informe "dominio" válido (ex.: novaloja.com.br, só minúsculas, sem www nem https), ou nenhum para criar o próximo rascunho');
-      return criar(d, b.cadastro || {});
+      return criar(d, b.cadastro || {}, inq);
     }
 
     // estoque de 1 ou N sites numa chamada: {"sites": {"a.com.br": {"carros":[...]}, "b.com.br": [...]}}
@@ -101,15 +128,17 @@ function criarRotas({ fila }) {
         return responderVarios(res, url, lista.map((d) => fila.adicionar({ tipo: 'build', site: d, cliente: cliente.nome })));
       }
       exigirTodos('refazer todos os sites');
-      return responderPedido(res, url, fila.adicionar({ tipo: 'build', site: null, cliente: cliente.nome }));
+      return responderLote(res, url, sitesDoAlcance().map((d) => fila.adicionar({ tipo: 'build', site: d, cliente: cliente.nome })), 'refazer todos os sites');
     }
 
     // robots.txt de TODOS os sites: um modelo com {{sitemap}} {{url}} {{dominio}}. Corpo em texto puro ou {"conteudo": "..."}.
     // Site com "robots" próprio no cadastro mantém o dele. Tirar os sites do Google (Disallow: /) exige ?forcar=1.
+    // Multi-tenant: o modelo é DO INQUILINO do token (o admin escolhe com ?inquilino=) e vale para os sites dele.
     if (p === '/v1/robots') {
+      const inq = inquilinoAlvo(url.searchParams.get('inquilino'));
       if (m === 'GET') {
-        const modelo = Robots.lerModelo();
-        return enviar(res, 200, { modelo: modelo ?? Robots.PADRAO, padrao: modelo == null, marcadores: ['{{sitemap}}', '{{url}}', '{{dominio}}'] });
+        const modelo = Robots.lerModelo(inq);
+        return enviar(res, 200, { inquilino: inq, modelo: modelo ?? Robots.PADRAO, padrao: modelo == null, marcadores: ['{{sitemap}}', '{{url}}', '{{dominio}}'] });
       }
       if (m === 'PUT' || m === 'DELETE') {
         exigirTodos('mudar o robots.txt de todos os sites');
@@ -123,8 +152,9 @@ function criarRotas({ fila }) {
           if (erros.length) throw new Erro(422, 'robots.txt inválido: nada foi gravado', { erros });
           if (perigos.length && !forcar) throw new Erro(409, 'robots.txt perigoso: confirme com ?forcar=1 se é isso mesmo (vale para TODOS os sites)', { perigos });
         }
-        Robots.gravarModelo(texto); // DELETE: volta ao padrão
-        return responderPedido(res, url, fila.adicionar({ tipo: 'robots', site: null, cliente: cliente.nome }));
+        Robots.gravarModelo(inq, texto); // DELETE: volta ao padrão
+        const alvo = Sites.listar({ inquilino: inq }).filter((d) => cliente.admin || CL.pode(cliente, d));
+        return responderLote(res, url, alvo.map((d) => fila.adicionar({ tipo: 'robots', site: d, cliente: cliente.nome })), `robots.txt do inquilino ${inq}`);
       }
     }
 
@@ -132,10 +162,13 @@ function criarRotas({ fila }) {
     if (m === 'POST' && p === '/v1/atualizar') {
       const b = await corpoJSON(req, LIMITE.outro, {});
       if (b.sites != null && !(Array.isArray(b.sites) && b.sites.every((x) => typeof x === 'string'))) throw new Erro(400, '"sites" deve ser uma lista de domínios');
-      const lista = b.sites && b.sites.length && !b.todos ? b.sites.map(site) : null;
-      if (!lista) exigirTodos('atualizar todos os sites');
-      const ps = (lista || [null]).map((d) => fila.adicionar({ tipo: 'buscar', site: d, cliente: cliente.nome, forcar }));
-      return ps.length === 1 ? responderPedido(res, url, ps[0]) : responderVarios(res, url, ps);
+      if (b.sites && b.sites.length && !b.todos) {
+        const ps = b.sites.map(site).map((d) => fila.adicionar({ tipo: 'buscar', site: d, cliente: cliente.nome, forcar }));
+        return ps.length === 1 ? responderPedido(res, url, ps[0]) : responderVarios(res, url, ps);
+      }
+      exigirTodos('atualizar todos os sites');
+      const fontes = Object.keys(lerJSON(C.config('fontes.json'), {}));
+      return responderLote(res, url, sitesDoAlcance().filter((d) => fontes.includes(d)).map((d) => fila.adicionar({ tipo: 'buscar', site: d, cliente: cliente.nome, forcar })), 'buscar o estoque nas fontes');
     }
 
     if (m === 'GET' && p === '/v1/pedidos') {
@@ -152,13 +185,15 @@ function criarRotas({ fila }) {
 
     // ---------- um site ----------
     // reservar = rascunho da sequência: o número só é gasto depois que o cadastro passou na validação
-    async function criar(d, parcial, reservar = false) {
-      if (Sites.existe(d) || fila.pendentesDoSite(d).some((x) => x.tipo === 'criar')) throw new Erro(409, `site "${d}" já existe`);
+    async function criar(d, parcial, inq, reservar = false) {
+      // o domínio é único na plataforma: "em uso" sem dizer de qual inquilino
+      if (Sites.existe(d) || fila.pendentesDoSite(d).some((x) => x.tipo === 'criar')) throw new Erro(409, `o domínio "${d}" já está em uso`);
       if (parcial === null || typeof parcial !== 'object' || Array.isArray(parcial)) throw new Erro(422, '"cadastro" deve ser um objeto');
-      const erros = Sites.validarSite(Sites.cadastroNovo(d, parcial), d);
+      if (parcial.inquilino != null && parcial.inquilino !== inq) throw new Erro(422, '"inquilino" do cadastro diferente do inquilino da chamada');
+      const erros = Sites.validarSite(Sites.cadastroNovo(d, parcial, inq), d);
       if (erros.length) throw new Erro(422, 'cadastro inválido: nada foi criado', { erros });
-      if (reservar && Sites.proximoRascunho({ reservar: true }) !== d) throw new Erro(409, 'outro rascunho foi criado ao mesmo tempo; tente de novo');
-      return responderPedido(res, url, fila.adicionar({ tipo: 'criar', site: d, corpo: { cadastro: parcial }, cliente: cliente.nome }), 202, 201);
+      if (reservar && Sites.proximoRascunho({ inquilino: inq, reservar: true }) !== d) throw new Erro(409, 'outro rascunho foi criado ao mesmo tempo; tente de novo');
+      return responderPedido(res, url, fila.adicionar({ tipo: 'criar', site: d, corpo: { cadastro: parcial, inquilino: inq }, cliente: cliente.nome }), 202, 201);
     }
     r = /^\/v1\/sites\/([^/]+)(\/.*)?$/.exec(p);
     if (!r) throw new Erro(404, 'rota inexistente (veja api/README.md)');
@@ -171,7 +206,11 @@ function criarRotas({ fila }) {
       if (existe && !CL.pode(cliente, dominio)) throw new Erro(403, `este token não tem acesso ao site "${dominio}"`);
       if (!existe) exigirTodos('criar um site novo');
       const cad = await corpoJSON(req, LIMITE.site);
-      if (!existe) { if (!Sites.ID_SITE.test(dominio)) throw new Erro(422, 'cadastro inválido: nada foi criado', { erros: [`domínio inválido "${dominio}"`] }); return criar(dominio, cad); }
+      if (!existe) { if (!Sites.ID_SITE.test(dominio)) throw new Erro(422, 'cadastro inválido: nada foi criado', { erros: [`domínio inválido "${dominio}"`] }); return criar(dominio, cad, inquilinoAlvo((cad && cad.inquilino) || url.searchParams.get('inquilino'))); }
+      // o site continua no inquilino dele: o cadastro novo não muda isso (e quem omite o campo não "perde" o inquilino)
+      const atual = Inq.doSite(dominio);
+      if (cad && cad.inquilino != null && cad.inquilino !== atual) throw new Erro(422, 'não dá para mudar o inquilino de um site pelo cadastro');
+      if (cad && typeof cad === 'object' && atual !== Inq.PADRAO) cad.inquilino = atual;
       const erros = Sites.validarSite(cad, dominio);
       if (erros.length) throw new Erro(422, 'cadastro inválido: nada foi gravado', { erros });
       const { criado } = Sites.gravarSite(dominio, cad);

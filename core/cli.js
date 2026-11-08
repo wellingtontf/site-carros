@@ -241,7 +241,7 @@ function mostrarHistorico() {
       // fotos por URL dos sites que mudaram: processa e refaz (só as páginas dos carros que ganharam fotos)
       const Fotos = require('./fotos.js');
       const comFotos = r.estoques.filter((e) => e.status === 'atualizado' && Fotos.pendentes(e.id).length).map((e) => e.id);
-      if (comFotos.length && Fotos.lerConfig()) {
+      if (comFotos.length && comFotos.every((s) => Fotos.lerConfig(require('./inquilinos').doSite(s)))) {
         const feitos = [];
         for (const s of comFotos) if ((await Fotos.processarSite(s)).processados.length) feitos.push(s);
         if (feitos.length) { construir({ sites: feitos }); if (args.publicar) await require('./atualizar.js').publicarPendentes({}); }

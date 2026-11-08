@@ -281,6 +281,8 @@ A plataforma é agnóstica: não conhece o sistema de origem, cada um converte p
 
 **Infraestrutura:** `config/infra.json` (veja `config/infra.exemplo.json`) tem os comandos `criar` ({site} {pasta}), `promover` ({rascunho} {site} {pasta}) e `renomear` ({antigo} {novo} {pasta}) que ligam a plataforma à hospedagem (CDN, certificado, DNS, 301 do domínio antigo), sem amarrar a nenhuma.
 
+**Multi-tenant e escala:** cada site pertence a um inquilino (`inquilinos/<id>/`, com configuração própria), e cada token é de um inquilino. Em produção, roda no Kubernetes da AWS com pods de API e de trabalhador separados sobre um volume EFS, com travas por site e trabalhadores em paralelo. Veja [infra/README.md](infra/README.md).
+
 **Arquitetura:** `core/` é o domínio (build, estoque, cadastro de site, fotos) e não sabe que a API existe; `api/` só traduz HTTP ↔ core (portas e adaptadores). Um teste garante que nada em `core/` importa de `api/`.
 
 O que acontece:

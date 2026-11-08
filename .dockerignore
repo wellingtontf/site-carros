@@ -1,0 +1,11 @@
+.git
+node_modules
+dist*
+.estado
+s3-local
+sites
+inquilinos
+config/*.json
+!config/*.exemplo.json
+tests
+.claude

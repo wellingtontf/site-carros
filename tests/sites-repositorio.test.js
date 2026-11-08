@@ -76,7 +76,7 @@ test('renomearSite: troca o domínio no fontes.json e não mexe em domínio pare
 // ---------- rascunho → definitivo ----------
 const todasPaginas = (d) => A.listar(A.saida(d)).filter((f) => f.endsWith('.html')).map((f) => [path.relative(A.saida(d), f), fs.readFileSync(f, 'utf8')]);
 
-test('rascunho: toda página com noindex e robots.txt fechado (inclusive ao reescrever o robots de todos)', () => {
+test('rascunho: toda página com noindex e robots.txt fechado (inclusive ao reescrever o robots de todos)', async () => {
   A.criarSite('rascunho.teste.com.br', { carros: [A.carro(), A.carro()], site: { rascunho: true } });
   A.criarSite('definitivo.teste.com.br', { carros: [A.carro()] });
   A.silencioso(() => construir({}));
@@ -85,7 +85,7 @@ test('rascunho: toda página com noindex e robots.txt fechado (inclusive ao rees
   assert.equal(A.ler('rascunho.teste.com.br', 'robots.txt'), 'User-agent: *\nDisallow: /\n');
   assert.ok(todasPaginas('definitivo.teste.com.br').some(([, h]) => !/noindex/.test(h)), 'site definitivo continua indexável');
   require('../core/robots.js').gravarModelo('User-agent: *\nAllow: /\nSitemap: {{sitemap}}\n# modelo');
-  require('../core/atualizar.js').reescreverRobots();
+  await require('../core/atualizar.js').reescreverRobots();
   assert.equal(A.ler('rascunho.teste.com.br', 'robots.txt'), 'User-agent: *\nDisallow: /\n', 'o modelo não abre o rascunho');
   assert.match(A.ler('definitivo.teste.com.br', 'robots.txt'), /# modelo/);
   require('../core/robots.js').gravarModelo(null);
@@ -136,7 +136,10 @@ test('promover no próprio domínio; recusas: já definitivo, foto em localhost 
 });
 
 // ---------- rascunhos em sequência: site1.carro57.com.br, site2... ----------
+const configRascunho = () => fs.writeFileSync(path.join(A.raiz(), 'config', 'rascunhos.json'), JSON.stringify({ padrao: 'site{n}.carro57.com.br' }));
 test('proximoRascunho: segue a sequência, pula o que existe e nunca reutiliza número', () => {
+  assert.throws(() => Sites.proximoRascunho(), /não tem padrão de rascunho/, 'sem padrão configurado, não inventa endereço');
+  configRascunho();
   assert.equal(Sites.proximoRascunho(), 'site1.carro57.com.br');
   assert.equal(Sites.proximoRascunho(), 'site1.carro57.com.br', 'sem reservar, não gasta o número');
   assert.equal(Sites.proximoRascunho({ reservar: true }), 'site1.carro57.com.br');

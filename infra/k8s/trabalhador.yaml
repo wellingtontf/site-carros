@@ -1,0 +1,74 @@
+# Trabalhadores: geram sites, processam fotos e publicam. Cada pod pega um site por vez (trava por site no volume);
+# mais pods = mais sites em paralelo. Escala pelo tamanho da fila (KEDA lendo a métrica site_carros_fila_pedidos).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trabalhador
+  labels: { app: site-carros, papel: trabalhador }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: site-carros, papel: trabalhador }
+  template:
+    metadata:
+      labels: { app: site-carros, papel: trabalhador }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8787"
+        prometheus.io/path: /metrics
+    spec:
+      serviceAccountName: site-carros
+      terminationGracePeriodSeconds: 600   # termina o site que está gerando antes de sair
+      containers:
+        - name: trabalhador
+          image: site-carros
+          env:
+            - { name: PAPEL, value: trabalhador }
+          envFrom:
+            - configMapRef: { name: site-carros }
+            - secretRef: { name: site-carros }
+          ports:
+            - { name: http, containerPort: 8787 }
+          livenessProbe:
+            httpGet: { path: /v1/saude, port: http }
+            periodSeconds: 30
+          readinessProbe:
+            httpGet: { path: /v1/pronto, port: http }
+            periodSeconds: 30
+          resources:
+            requests: { cpu: 500m, memory: 512Mi }
+            limits: { memory: 2Gi }
+          volumeMounts:
+            - { name: dados, mountPath: /dados }
+            - { name: tmp, mountPath: /tmp }   # fotos baixadas e convertidas (apagadas depois de enviar)
+      volumes:
+        - name: dados
+          persistentVolumeClaim: { claimName: dados }
+        - name: tmp
+          emptyDir: { sizeLimit: 5Gi }
+---
+# KEDA (keda.sh): de 2 a 20 trabalhadores conforme a fila (1 trabalhador a cada 20 pedidos esperando)
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: trabalhador
+spec:
+  scaleTargetRef: { name: trabalhador }
+  minReplicaCount: 2
+  maxReplicaCount: 20
+  cooldownPeriod: 300
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-server.monitoring.svc
+        query: max(site_carros_fila_pedidos{canal="principal"}) + max(site_carros_fila_pedidos{canal="fotos"})
+        threshold: "20"
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: trabalhador
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: { app: site-carros, papel: trabalhador }

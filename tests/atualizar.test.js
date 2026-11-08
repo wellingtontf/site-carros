@@ -122,19 +122,29 @@ test('sem fontes.json: erro claro', async () => {
   await assert.rejects(() => rodar({}), /config\/fontes\.json/);
 });
 
-test('trava de execução: outra atualização rodando → "ocupado"; trava velha (30 min) é ignorada', async () => {
-  const lock = path.join(A.raiz(), '.estado', 'atualizar.lock');
-  fs.writeFileSync(lock, '123');
-  assert.equal((await rodar({ recebidos: {} })).status, 'ocupado');
+test('trava POR SITE: site ocupado → "ocupado"; outro site segue; trava velha (30 min) é ignorada', async () => {
+  const T = require('../core/trava.js');
+  const lock = T.arquivo(T.chaveSite(ID));
+  fs.mkdirSync(path.dirname(lock), { recursive: true });
+  fs.writeFileSync(lock, 'outro-pod:123');
+  const c = estoqueDe(ID).carros; c[0].preco += 7;
+  assert.equal((await rodar({ recebidos: { [ID]: { carros: c } } })).status, 'ocupado');
+  // outro site não espera por este
+  const o = estoqueDe(OUTRO).carros; o[0].preco += 7;
+  const r = await rodar({ recebidos: { [ID]: { carros: c }, [OUTRO]: { carros: o } } });
+  assert.equal(r.status, 'ok');
+  assert.deepEqual([r.sites, r.ocupados], [[OUTRO], [ID]]);
   const velho = Date.now() / 1000 - 31 * 60;
   fs.utimesSync(lock, velho, velho);
-  assert.equal((await rodar({ recebidos: {} })).status, 'ok');
+  assert.equal((await rodar({ recebidos: { [ID]: { carros: c } } })).status, 'ok');
   assert.ok(!fs.existsSync(lock), 'libera a trava no fim');
 });
 
 test('trava é liberada mesmo se der erro no meio', async () => {
-  await assert.rejects(() => rodar({}));
-  assert.ok(!fs.existsSync(path.join(A.raiz(), '.estado', 'atualizar.lock')));
+  const T = require('../core/trava.js');
+  await assert.rejects(T.comTrava('teste-erro', () => { throw new Error('x'); }), /x/);
+  assert.ok(!fs.existsSync(T.arquivo('teste-erro')));
+  assert.equal((await T.comTrava(['b', 'a'], () => ({ status: 'ok' }))).status, 'ok');
 });
 
 test('publicar: roda o comando por site com {lista}; só limpa a pendência de quem deu certo', async () => {
@@ -145,12 +155,11 @@ test('publicar: roda o comando por site com {lista}; só limpa a pendência de q
   assert.deepEqual(r.publicados, [ID]);
   assert.deepEqual(r.falhas, [OUTRO]);
   assert.match(fs.readFileSync(log, 'utf8'), new RegExp(`^${ID.replace(/\./g, '\\.')}:1:`));
-  const pend = JSON.parse(fs.readFileSync(path.join(A.raiz(), '.estado', 'dist', 'pendente.json'), 'utf8'));
-  assert.deepEqual(Object.keys(pend), [OUTRO], 'quem falhou continua pendente');
+  assert.deepEqual(require('../core/pendentes').listar('dist'), [OUTRO], 'quem falhou continua pendente');
 });
 
 test('publicar: {lista} só com os arquivos que mudaram (publicação incremental)', async () => {
-  fs.writeFileSync(path.join(A.raiz(), '.estado', 'dist', 'pendente.json'), '{}');
+  A.limparPendentes();
   const c = estoqueDe(ID).carros;
   c[0].preco += 1;
   await rodar({ recebidos: { [ID]: { carros: c } } });
@@ -164,8 +173,8 @@ test('publicar: {lista} só com os arquivos que mudaram (publicação incrementa
 });
 
 test('publicar: nome de arquivo com aspas não injeta comando no shell', async () => {
-  const pend = { [ID]: { escritos: [`${ID}/x'; touch '${path.join(A.raiz(), 'HACK')}'; '.html`], removidos: [], completo: false } };
-  fs.writeFileSync(path.join(A.raiz(), '.estado', 'dist', 'pendente.json'), JSON.stringify(pend));
+  A.limparPendentes();
+  require('../core/pendentes').registrar('dist', ID, { escritos: [`${ID}/x'; touch '${path.join(A.raiz(), 'HACK')}'; '.html`], removidos: [] });
   config('publicacao.json', { comandoSite: 'echo {lista} > /dev/null' });
   await A.silenciosoAsync(() => publicarPendentes({ log: () => {} }));
   assert.ok(!fs.existsSync(path.join(A.raiz(), 'HACK')));

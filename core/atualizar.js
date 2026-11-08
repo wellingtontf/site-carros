@@ -7,9 +7,11 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
-const { construir, problemasProducao, registrarPendente } = require('./build');
+const { construir, problemasProducao } = require('./build');
+const Pendentes = require('./pendentes');
+const Inq = require('./inquilinos');
 const Sites = require('./sites');
-const { travar, destravar } = require('./trava');
+const { comTrava, chaveSite } = require('./trava');
 const Robots = require('./robots');
 const C = require('./caminhos');
 
@@ -113,95 +115,104 @@ function rodar(cmd) {
 }
 const aspas = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 
-async function publicarPendentes({ pasta = 'dist', log = console.log } = {}) {
-  const cfg = lerJSON(C.config('publicacao.json'), null);
-  if (!cfg || !cfg.comandoSite) throw new Error('crie config/publicacao.json (veja config/publicacao.exemplo.json)');
-  const arq = path.join(ESTADO, pasta, 'pendente.json');
-  const pend = lerJSON(arq, {});
-  const ids = Object.keys(pend);
+async function publicarPendentes({ pasta = 'dist', sites = null, log = console.log } = {}) {
+  // cada site publica com a configuração do INQUILINO dele (inquilinos/<id>/config/publicacao.json; sem ela, a global)
+  const cfgDe = (site) => Inq.lerConfig(Inq.doSite(site), 'publicacao.json', null);
+  const global = lerJSON(C.config('publicacao.json'), null);
+  if (!(global && global.comandoSite) && !Inq.listar().some((i) => (Inq.lerConfig(i, 'publicacao.json', null) || {}).comandoSite)) throw new Error('crie config/publicacao.json (veja config/publicacao.exemplo.json) ou a de cada inquilino');
+  const ids = Pendentes.listar(pasta).filter((s) => !sites || sites.includes(s));
   if (!ids.length) { log('nada a publicar'); return { publicados: [], falhas: [] }; }
   const publicados = [], falhas = [];
   const fila = [...ids];
-  const par = Math.max(1, cfg.paralelo || 4);
+  const par = Math.max(1, (global && global.paralelo) || 4);
   await Promise.all(Array.from({ length: par }, async () => {
     while (fila.length) {
       const site = fila.shift();
-      const p = pend[site];
       // nunca publica site que quebraria no ar (fotos em localhost, http...): fica pendente até corrigir o site.json
       let prob;
       try { prob = Sites.existe(site) ? problemasProducao(Sites.carregar(site)) : []; } catch (e) { prob = [`site.json ilegível: ${e.message}`]; }
       if (prob.length) { falhas.push(site); log(`RECUSADO ${site}: ${prob.join('; ')}`); continue; }
+      const cfg = cfgDe(site);
+      if (!cfg || !cfg.comandoSite) { falhas.push(site); log(`SEM PUBLICAÇÃO ${site}: o inquilino "${Inq.doSite(site)}" não tem publicacao.json`); continue; }
+      const res = Pendentes.reservar(pasta, site); // o que mudar durante a publicação fica para a próxima, sem se perder
+      if (!res) continue;
+      const p = res.pendencia;
       const lista = p.completo ? '' : p.escritos.join('\n');
       const cmd = cfg.comandoSite
-        .replace(/\{site\}/g, aspas(site)).replace(/\{pasta\}/g, aspas(path.join(pasta, site)))
+        .replace(/\{site\}/g, aspas(site)).replace(/\{pasta\}/g, aspas(path.join(pasta, site))).replace(/\{inquilino\}/g, aspas(Inq.doSite(site)))
         .replace(/\{completo\}/g, p.completo ? '1' : '0')
         .replace(/\{lista\}/g, aspas(p.escritos.map((x) => x.slice(site.length + 1)).join(',')))
         .replace(/\{removidos\}/g, aspas(p.removidos.map((x) => x.slice(site.length + 1)).join(',')));
       const r = await rodar(cmd);
-      if (r.ok) { publicados.push(site); log(`publicado ${site} (${p.completo ? 'completo' : p.escritos.length + ' arquivo(s)'})`); }
-      else { falhas.push(site); log(`FALHOU ${site}: ${r.saida.trim().slice(0, 300)}`); }
+      if (r.ok) { res.confirmar(); publicados.push(site); log(`publicado ${site} (${p.completo ? 'completo' : p.escritos.length + ' arquivo(s)'})`); }
+      else { res.devolver(); falhas.push(site); log(`FALHOU ${site}: ${r.saida.trim().slice(0, 300)}`); }
     }
   }));
-  // só limpa o que foi publicado com sucesso; o resto fica para a próxima
-  const atual = lerJSON(arq, {});
-  for (const s of publicados) delete atual[s];
-  fs.writeFileSync(arq, JSON.stringify(atual));
   return { publicados, falhas };
 }
 
 // Núcleo: recebe estoques (já em mãos, {dominio: json}) ou busca nas fontes; valida, grava e reconstrói só os sites que mudaram.
 // refazer = sites para reconstruir mesmo sem mudança de estoque (ex.: o site.json mudou; pedido "build" da API)
+// Cada site é tratado com a trava DELE: outro trabalhador pode estar gerando outro site ao mesmo tempo. Site ocupado
+// fica em "ocupados" (quem chamou tenta de novo); se TODOS estiverem ocupados, status = 'ocupado'.
 async function atualizar({ sites: ids = null, recebidos = null, refazer = [], forcar = false, completo = false, publicar = false, log = console.log } = {}) {
-  if (!travar()) return { status: 'ocupado' };
-  try {
-    const res = [];
-    if (recebidos) {
-      for (const [id, obj] of Object.entries(recebidos)) res.push(gravarEstoque(id, obj, { forcar }));
-    } else {
-      const fontes = lerJSON(C.config('fontes.json'), null);
-      if (!fontes) throw new Error('crie config/fontes.json (veja config/fontes.exemplo.json)');
-      for (const id of ids && ids.length ? ids : Object.keys(fontes)) {
-        if (!fontes[id]) { res.push({ id, status: 'invalido', erros: ['sem fonte em config/fontes.json'] }); continue; }
-        try { res.push(gravarEstoque(id, await buscar(id, fontes[id]), { forcar })); }
-        catch (e) { res.push({ id, status: 'erro', erros: [e.message] }); }
+  let alvos;
+  if (recebidos) alvos = Object.entries(recebidos).map(([id, obj]) => ({ id, obj }));
+  else if (ids === null && !completo && refazer.length && !fs.existsSync(C.config('fontes.json'))) alvos = [];
+  else {
+    const fontes = lerJSON(C.config('fontes.json'), null);
+    if (!fontes) throw new Error('crie config/fontes.json (veja config/fontes.exemplo.json)');
+    alvos = (ids && ids.length ? ids : Object.keys(fontes)).map((id) => ({ id, fonte: fontes[id] || null }));
+  }
+  const extras = [...new Set([...refazer, ...(completo ? Sites.listar() : [])])].filter((id) => !alvos.some((a) => a.id === id)).map((id) => ({ id, soRefazer: true }));
+  const res = [], feitos = [], ocupados = [];
+  for (const a of [...alvos, ...extras]) {
+    const r = await comTrava(chaveSite(a.id), async () => {
+      let est = null;
+      if (!a.soRefazer) {
+        if ('obj' in a) est = gravarEstoque(a.id, a.obj, { forcar });
+        else if (!a.fonte) est = { id: a.id, status: 'invalido', erros: ['sem fonte em config/fontes.json'] };
+        else { try { est = gravarEstoque(a.id, await buscar(a.id, a.fonte), { forcar }); } catch (e) { est = { id: a.id, status: 'erro', erros: [e.message] }; } }
+        res.push(est);
+        const d = est.status === 'atualizado' ? `${est.antes} → ${est.total} carros` : est.status === 'igual' ? `${est.total} carros, sem mudança` : (est.erros || []).slice(0, 5).join('; ');
+        log(`${a.id}: estoque ${est.status}${d ? ' · ' + d : ''}`);
       }
-    }
-    for (const r of res) {
-      const d = r.status === 'atualizado' ? `${r.antes} → ${r.total} carros` : r.status === 'igual' ? `${r.total} carros, sem mudança` : (r.erros || []).slice(0, 5).join('; ');
-      log(`${r.id}: estoque ${r.status}${d ? ' · ' + d : ''}`);
-    }
-    const mudou = res.filter((r) => r.status === 'atualizado').map((r) => r.id);
-    // cada estoque pertence a um site só: refaz exatamente os sites cujo estoque mudou
-    const sites = completo ? null : [...new Set([...mudou, ...refazer])];
-    if (completo || sites.length) construir({ sites, completo });
-    else log('nada mudou, nenhum site refeito');
-    let pub = null;
-    if (publicar) pub = await publicarPendentes({ log });
-    return { status: 'ok', estoques: res, sites: sites === null ? 'todos' : sites, publicacao: pub };
-  } finally { destravar(); }
+      // cada estoque pertence a um site só: refaz exatamente os sites cujo estoque mudou (ou pedidos para refazer)
+      if (a.soRefazer || completo || refazer.includes(a.id) || (est && est.status === 'atualizado')) { construir({ sites: [a.id], completo }); feitos.push(a.id); }
+      return { status: 'ok' };
+    });
+    if (r.status === 'ocupado') ocupados.push(a.id);
+  }
+  if (!feitos.length && !ocupados.length) log('nada mudou, nenhum site refeito');
+  const total = alvos.length + extras.length;
+  if (total && ocupados.length === total) return { status: 'ocupado', ocupados, estoques: res, sites: [] };
+  let pub = null;
+  if (publicar) pub = await publicarPendentes({ log });
+  return { status: 'ok', estoques: res, sites: feitos, ocupados, publicacao: pub };
 }
 
-// Reescreve SÓ o robots.txt dos sites já gerados (modelo novo em config/robots.txt): segundos para 2500 sites, sem
-// passar pelo build. O que mudou entra nas pendências de publicação. Usa a mesma trava do build.
-function reescreverRobots({ sites = null, pasta = 'dist' } = {}) {
-  if (!travar()) return { status: 'ocupado' };
-  try {
-    const alterados = [], iguais = [], proprio = [], semUrl = [];
-    for (const id of sites || Sites.listar()) {
+// Reescreve SÓ o robots.txt dos sites já gerados (modelo novo): segundos para milhares de sites, sem passar pelo build.
+// O que mudou entra nas pendências de publicação. Cada site com a trava dele; site ocupado vai em "ocupados".
+async function reescreverRobots({ sites = null, pasta = 'dist' } = {}) {
+  const alterados = [], iguais = [], proprio = [], semUrl = [], ocupados = [];
+  for (const id of sites || Sites.listar()) {
+    const r = await comTrava(chaveSite(id), () => {
       const site = Sites.carregar(id);
-      if (!site.url) { semUrl.push(id); continue; }
+      if (!site.url) { semUrl.push(id); return { status: 'ok' }; }
       if (typeof site.robots === 'string') proprio.push(id); // o site tem o dele: o modelo não vale para ele
       const arq = path.join(C.saida(pasta), id, 'robots.txt');
-      if (!fs.existsSync(path.dirname(arq))) continue; // nunca gerado: o build cria com o modelo novo
+      if (!fs.existsSync(path.dirname(arq))) return { status: 'ok' }; // nunca gerado: o build cria com o modelo novo
       const texto = Robots.textoRobots(site);
-      if (fs.existsSync(arq) && fs.readFileSync(arq, 'utf8') === texto) { iguais.push(id); continue; }
+      if (fs.existsSync(arq) && fs.readFileSync(arq, 'utf8') === texto) { iguais.push(id); return { status: 'ok' }; }
       fs.writeFileSync(`${arq}.tmp`, texto);
       fs.renameSync(`${arq}.tmp`, arq);
-      registrarPendente(pasta, id, { escritos: [`${id}/robots.txt`], removidos: [] }, false);
+      Pendentes.registrar(pasta, id, { escritos: [`${id}/robots.txt`], removidos: [] }, false);
       alterados.push(id);
-    }
-    return { status: 'ok', alterados, iguais: iguais.length, comRobotsProprio: proprio, semUrl };
-  } finally { destravar(); }
+      return { status: 'ok' };
+    });
+    if (r.status === 'ocupado') ocupados.push(id);
+  }
+  return { status: ocupados.length && !alterados.length && !iguais.length && !semUrl.length ? 'ocupado' : 'ok', alterados, iguais: iguais.length, comRobotsProprio: proprio, semUrl, ocupados };
 }
 
 module.exports = { reescreverRobots, atualizar, validarEstoque, gravarEstoque, publicarPendentes };

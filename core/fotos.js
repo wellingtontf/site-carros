@@ -27,6 +27,7 @@ const crypto = require('crypto');
 const { execFile } = require('child_process');
 const C = require('./caminhos');
 const Sites = require('./sites');
+const Inq = require('./inquilinos');
 
 const LARGURAS = [400, 800, 1600];
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -35,8 +36,9 @@ const hashUrls = (urls) => crypto.createHash('sha1').update(JSON.stringify(urls)
 const lerJSON = (p, padrao) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (e) { return padrao; } };
 const aspas = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 
-function lerConfig() {
-  const cfg = lerJSON(C.config('fotos.json'), null);
+// config de fotos do inquilino (inquilinos/<id>/config/fotos.json; sem ela, config/fotos.json)
+function lerConfig(inquilino = Inq.PADRAO) {
+  const cfg = Inq.lerConfig(inquilino, 'fotos.json', null);
   if (!cfg) return null;
   return {
     pasta: cfg.pasta || 's3-local',
@@ -153,7 +155,7 @@ async function limparSaidos(site, e, ids, cfg, log) {
 }
 
 // processa as fotos pendentes de um site → { processados: [ids], erros: n }
-async function processarSite(site, { log = console.log, cfg = lerConfig() } = {}) {
+async function processarSite(site, { log = console.log, cfg = lerConfig(Inq.doSite(site)) } = {}) {
   if (!cfg) throw new Error('crie config/fotos.json (veja config/fotos.exemplo.json) para processar fotos por URL');
   const lista = pendentes(site);
   if (!lista.length) {

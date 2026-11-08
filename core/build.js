@@ -7,7 +7,7 @@
 //   --completo                                                  ignora o que já foi gerado e refaz tudo
 //   --saida <pasta>                                             muda a pasta de saída
 // Entradas:  sites/<dominio>/  templates/<nome>/  core/motor/<versao>/engine.js  core/ui/
-// Saídas:    <saida>/<dominio>/...   e   .estado/<saida>/pendente.json (o que mudou e ainda não foi publicado)
+// Saídas:    <saida>/<dominio>/...   e   .estado/<saida>/pendentes/<dominio>.json (o que mudou e ainda não foi publicado)
 //
 // O que vai para cada site gerado:
 //   motor/engine.js + motor/ui-*.js      ← core (motor da versão do site + ui)
@@ -38,7 +38,8 @@ const LinkCarro = require('./ui/link-carro.js'); // regra do link da página do 
 const PL = require('./paginas-livres'); // páginas livres dos web designers (HTML normal)
 const Fotos = require('./fotos'); // fotos por URL: quantas já estão prontas
 const Robots = require('./robots');
-const Sites = require('./sites'); // repositório de sites: o único que lê a pasta sites/ // modelo do robots.txt (um para todos os sites; o site pode ter o seu)
+const Sites = require('./sites'); // repositório de sites: o único que lê a pasta sites/
+const Pendentes = require('./pendentes'); // o que falta publicar, um arquivo por site // modelo do robots.txt (um para todos os sites; o site pode ter o seu)
 
 const ROOT = C.ROOT;
 const ESTADO = C.ESTADO;
@@ -187,17 +188,7 @@ function gravarEstado(pasta, id, obj) {
   fs.mkdirSync(path.join(ESTADO, pasta), { recursive: true });
   fs.writeFileSync(arqEstado(pasta, id), JSON.stringify(obj));
 }
-function registrarPendente(pasta, id, mud, completo) {
-  const arq = path.join(ESTADO, pasta, 'pendente.json');
-  const p = lerJSONSeExiste(arq, {});
-  const s = p[id] || { escritos: [], removidos: [], completo: false };
-  s.completo = s.completo || completo;
-  s.removidos = [...new Set([...s.removidos, ...mud.removidos])];
-  s.escritos = s.completo ? [] : [...new Set([...s.escritos, ...mud.escritos])].filter((x) => !s.removidos.includes(x));
-  if (s.completo || s.escritos.length || s.removidos.length) p[id] = s;
-  fs.mkdirSync(path.dirname(arq), { recursive: true });
-  fs.writeFileSync(arq, JSON.stringify(p));
-}
+const registrarPendente = (pasta, id, mud, completo) => Pendentes.registrar(pasta, id, mud, completo); // core/pendentes.js
 
 const limpaCss = (v) => String(v).replace(/[<>{};]/g, '');
 function temaDoSite(site) {

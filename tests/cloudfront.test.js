@@ -1,0 +1,40 @@
+// Função de borda do CloudFront (infra/cloudfront/roteador.js): índice de pasta, barra final, "//" dos links antigos
+// do Revenda Mais e, no modo de distribuição única, a pasta do site pelo domínio.
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const R = require('../infra/cloudfront/roteador.js');
+
+const ev = (uri, { host = 'www.loja.com.br', qs = {} } = {}) => ({ request: { uri, querystring: qs, headers: { host: { value: host } } } });
+
+test('pasta → index.html; arquivo segue igual', () => {
+  assert.equal(R.handler(ev('/')).uri, '/index.html');
+  assert.equal(R.handler(ev('/multipla/')).uri, '/multipla/index.html');
+  assert.equal(R.handler(ev('/multipla/marca/caoa%20chery/')).uri, '/multipla/marca/caoa%20chery/index.html');
+  assert.equal(R.handler(ev('/carros/Toyota/Corolla/X/Toyota-Corolla-X-2024-Curitiba-Parana-1.html')).uri, '/carros/Toyota/Corolla/X/Toyota-Corolla-X-2024-Curitiba-Parana-1.html');
+  assert.equal(R.handler(ev('/css/style.css')).uri, '/css/style.css');
+});
+
+test('sem barra final → 301 com a barra, mantendo a busca', () => {
+  const r = R.handler(ev('/multipla', { qs: { marca: { value: 'Toyota' }, v: { value: 'carlos' } } }));
+  assert.equal(r.statusCode, 301);
+  assert.equal(r.headers.location.value, '/multipla/?marca=Toyota&v=carlos');
+});
+
+test('"//" dos links antigos do Revenda Mais → 301 para o caminho limpo', () => {
+  const r = R.handler(ev('/carros/Jeep/Compass//Jeep-Compass--2021-Curitiba-Parana-9.html'));
+  assert.equal(r.statusCode, 301);
+  assert.equal(r.headers.location.value, '/carros/Jeep/Compass/Jeep-Compass--2021-Curitiba-Parana-9.html');
+});
+
+test('".." é recusado', () => {
+  assert.equal(R.handler(ev('/a/../sites/b/index.html')).statusCode, 400);
+});
+
+test('distribuição única: pasta do site pelo domínio (com ou sem www)', () => {
+  R._definirPrefixo(true);
+  try {
+    assert.equal(R.handler(ev('/multipla/', { host: 'www.trokey.com.br' })).uri, '/trokey.com.br/multipla/index.html');
+    assert.equal(R.handler(ev('/', { host: 'site7.carro57.com.br' })).uri, '/site7.carro57.com.br/index.html');
+    assert.equal(R.handler(ev('/', { host: 'evil/../x' })).statusCode, 400);
+  } finally { R._definirPrefixo(false); }
+});

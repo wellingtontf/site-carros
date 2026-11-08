@@ -1,4 +1,0 @@
-{
-  "_comentario": "Endereços provisórios dos sites em rascunho, em sequência: POST /v1/sites sem domínio cria o próximo. {n} = número (nunca reutilizado).",
-  "padrao": "site{n}.carro57.com.br"
-}

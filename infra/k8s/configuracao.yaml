@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: site-carros
+data:
+  ATRASO_MS: "3000"      # junta chamadas seguidas do mesmo site num build só
+  PARALELO: "2"          # sites ao mesmo tempo por pod de trabalhador
+  PUBLICAR: "1"          # publica (S3) logo depois de gerar
+  LOG_JSON: "1"
+---
+# Token de administrador da plataforma (atravessa inquilinos). Os tokens dos inquilinos ficam em
+# /dados/config/clientes.json (só o hash), criados com: kubectl exec deploy/api -- node api/cli.js cliente criar ...
+# Em produção, prefira External Secrets + AWS Secrets Manager a este Secret em texto.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: site-carros
+type: Opaque
+stringData:
+  TOKEN_ATUALIZAR: "TROQUE-por-um-segredo-longo-e-aleatorio"

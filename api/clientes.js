@@ -2,7 +2,9 @@
 // nos sites que lhe pertencem. A plataforma não conhece nenhum desses sistemas: todos falam o mesmo contrato (api/README.md).
 //
 // config/clientes.json (fora do git):
-//   { "revenda-mais": { "token_sha256": "<sha256 do token>", "sites": ["*"], "criado": "2026-11-07" },
+// Multi-tenant: cada cliente pertence a UM inquilino ("inquilino"; ausente = "padrao") e só enxerga os sites dele.
+// "sites": ["*"] = todos os sites DO INQUILINO (e pode criar sites nele). Só o admin (TOKEN_ATUALIZAR) atravessa inquilinos.
+//   { "revenda-mais": { "token_sha256": "<sha256 do token>", "inquilino": "revenda-mais", "sites": ["*"], "criado": "2026-11-07" },
 //     "crm-x":        { "token_sha256": "...", "sites": ["trokey.com.br"], "ativo": false } }
 // Só o hash do token fica gravado: o token aparece uma vez, quando é criado (node api/cli.js cliente criar <nome>).
 // TOKEN_ATUALIZAR (variável de ambiente) continua valendo como cliente "admin", com acesso a todos os sites.
@@ -10,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const C = require('../core/caminhos');
+const Inq = require('../core/inquilinos');
 
 const NOME_OK = /^[a-z0-9][a-z0-9-]{1,40}$/;
 const sha256 = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
@@ -32,22 +35,24 @@ function gravarClientes(obj) {
 // token → { nome, sites, admin } ou null
 function autenticar(token, { tokenAdmin = process.env.TOKEN_ATUALIZAR || '' } = {}) {
   if (!token || token.length < 16) return null;
-  if (tokenAdmin.length >= 16 && iguais(token, tokenAdmin)) return { nome: 'admin', sites: ['*'], admin: true };
+  if (tokenAdmin.length >= 16 && iguais(token, tokenAdmin)) return { nome: 'admin', sites: ['*'], admin: true, inquilino: null };
   const h = sha256(token);
   for (const [nome, c] of Object.entries(lerClientes())) {
-    if (c && typeof c.token_sha256 === 'string' && iguais(h, c.token_sha256)) return c.ativo === false ? null : { nome, sites: c.sites || [], admin: false };
+    if (c && typeof c.token_sha256 === 'string' && iguais(h, c.token_sha256)) return c.ativo === false ? null : { nome, sites: c.sites || [], admin: false, inquilino: c.inquilino || Inq.PADRAO };
   }
   return null;
 }
-const pode = (cliente, site) => !!cliente && (cliente.sites.includes('*') || cliente.sites.includes(site));
+// o site é do inquilino do cliente E está na lista dele (ou a lista é "*")
+const pode = (cliente, site) => !!cliente && (cliente.admin || (Inq.doSite(site) === cliente.inquilino && (cliente.sites.includes('*') || cliente.sites.includes(site))));
 
-function criarCliente(nome, sites) {
+function criarCliente(nome, sites, inquilino = Inq.PADRAO) {
+  if (!Inq.existe(inquilino)) throw new Error(`inquilino "${inquilino}" não existe (crie com: node api/cli.js inquilino criar ${inquilino})`);
   if (!NOME_OK.test(nome)) throw new Error('nome do cliente: letras minúsculas, números e hífen (ex.: revenda-mais)');
   if (!Array.isArray(sites) || !sites.length) throw new Error('informe os sites do cliente (--sites a.com.br,b.com.br ou --sites "*")');
   const todos = lerClientes();
   if (todos[nome]) throw new Error(`cliente "${nome}" já existe (para trocar o token: cliente remover ${nome} e criar de novo)`);
   const token = `sc_${crypto.randomBytes(24).toString('base64url')}`;
-  todos[nome] = { token_sha256: sha256(token), sites, criado: new Date().toISOString().slice(0, 10) };
+  todos[nome] = { token_sha256: sha256(token), ...(inquilino !== Inq.PADRAO ? { inquilino } : {}), sites, criado: new Date().toISOString().slice(0, 10) };
   gravarClientes(todos);
   return token;
 }
@@ -64,6 +69,6 @@ function renomearSiteNosClientes(antigo, novo) {
   for (const c of Object.values(todos)) if (Array.isArray(c.sites) && c.sites.includes(antigo)) { c.sites = c.sites.map((s) => (s === antigo ? novo : s)); mudou = true; }
   if (mudou) gravarClientes(todos);
 }
-const listarClientes = () => Object.entries(lerClientes()).map(([nome, c]) => ({ nome, sites: c.sites || [], ativo: c.ativo !== false, criado: c.criado || '' }));
+const listarClientes = () => Object.entries(lerClientes()).map(([nome, c]) => ({ nome, inquilino: c.inquilino || Inq.PADRAO, sites: c.sites || [], ativo: c.ativo !== false, criado: c.criado || '' }));
 
 module.exports = { autenticar, pode, criarCliente, removerCliente, renomearSiteNosClientes, listarClientes, lerClientes, sha256 };

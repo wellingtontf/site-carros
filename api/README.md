@@ -4,10 +4,11 @@ Contrato para qualquer sistema que mande carros para os sites da plataforma: Rev
 
 ## Acesso
 
-Cada sistema recebe um **token próprio**, limitado aos sites dele. Quem administra a plataforma cria o token:
+A plataforma é **multi-tenant**: cada site pertence a um **inquilino** (Revenda Mais, Webmotors, um terceiro...), e cada sistema recebe um **token próprio, de um inquilino**. Ele só enxerga e altera os sites desse inquilino; `--sites "*"` significa todos os sites **do inquilino**. Quem administra a plataforma cria o token:
 
 ```
-node api/cli.js cliente criar crm-x --sites loja1.com.br,loja2.com.br   # ou --sites "*" para todos
+node api/cli.js inquilino criar webmotors --nome "Webmotors" --rascunho "loja{n}.previa.com.br"
+node api/cli.js cliente criar crm-x --inquilino webmotors --sites loja1.com.br,loja2.com.br   # ou --sites "*" 
 node api/cli.js cliente listar
 node api/cli.js cliente remover crm-x                                    # o token deixa de valer na hora
 ```
@@ -31,6 +32,7 @@ O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da
 | Método | Rota | O que faz |
 |---|---|---|
 | GET | `/v1/saude` | sem token: diz se a API está de pé |
+| GET | `/v1/lotes/{lote}` | andamento de uma operação em vários sites (contagem por status e problemas) |
 | GET | `/v1/sites` | sites que o token pode alterar, com o total de carros e a data da última atualização |
 | POST | `/v1/sites` | **cria um site novo com toda a estrutura**: sem domínio = próximo rascunho (`siteN.carro57.com.br`); ou `{"dominio": "novaloja.com.br"}` (ver "Site novo") |
 | PUT | `/v1/sites/{dominio}` | **cria o site, se não existir, ou atualiza o cadastro** (ver "Cadastro do site") e gera o site |
@@ -159,6 +161,18 @@ Sitemap: {{sitemap}}
 - O site que tem `"robots"` no próprio cadastro mantém o dele (aparece em `resultado.comRobotsProprio`).
 - `DELETE /v1/robots` volta ao padrão: `User-agent: *`, `Allow: /` e `Sitemap: {{sitemap}}`.
 
+## Operações em todos os sites (lotes)
+
+"Todos" sempre quer dizer **todos os sites do inquilino do token** (só o token admin da plataforma alcança tudo, ou um inquilino com `?inquilino=`). `POST /v1/build` vazio, `PUT /v1/robots` e `POST /v1/atualizar` vazio criam **um pedido por site**, processados em paralelo pelos trabalhadores, e respondem com o **lote**:
+
+```json
+{ "lote": "lmhc...", "total": 812, "terminados": 812, "concluido": true,
+  "contagem": { "concluido": 811, "erro": 1 }, "problemas": [ { "site": "x.com.br", "status": "erro", "erros": ["..."] } ],
+  "link": "/v1/lotes/lmhc..." }
+```
+
+Com `?esperar`: **200** quando todos concluíram, **207** quando terminou com algum problema e **202** quando o tempo acabou antes (acompanhe pelo `link`).
+
 ## Pedidos
 
 Toda alteração vira um **pedido** e responde na hora:
@@ -278,3 +292,5 @@ curl "$API/v1/pedidos/pmhb2k0a01f3e2" -H "$T"
 ```
 
 Limites: estoque inteiro de até 100 MB e carro avulso de até 1 MB.
+
+Infraestrutura (Kubernetes na AWS, escala, multi-tenant): `infra/README.md`.
