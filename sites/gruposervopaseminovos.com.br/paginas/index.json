@@ -1,0 +1,84 @@
+{
+  "titulo": "Grupo Servopa Seminovos | O maior estoque de seminovos do Sul",
+  "descricao": "Seminovos com 1 ano de garantia: carros, híbridos, elétricos, motos e premium em PR, RS e SP.",
+  "blocos": [
+    {
+      "tipo": "carrossel",
+      "slides": [
+        {
+          "imagem": "assets/banner-1.webp",
+          "alt": "Carta Certa: 100 carros selecionados com 1 ano de garantia",
+          "mensagem": "Olá! Vi a campanha Carta Certa no site e quero saber mais."
+        },
+        {
+          "imagem": "assets/banner-2.webp",
+          "alt": "O maior estoque do Sul do Brasil",
+          "link": "multipla/"
+        },
+        {
+          "imagem": "assets/banner-3.webp",
+          "alt": "Tecnologia e performance: encontre seu elétrico seminovo",
+          "link": "multipla/?combustivel=El%C3%A9trico"
+        },
+        {
+          "imagem": "assets/banner-4.webp",
+          "alt": "Troque de carro hoje mesmo, com 1 ano de garantia",
+          "mensagem": "Olá! Quero trocar de carro hoje mesmo."
+        },
+        {
+          "imagem": "assets/banner-5.webp",
+          "alt": "Luxo: veículos premium com 1 ano de garantia",
+          "link": "multipla/?ord=maior"
+        },
+        {
+          "imagem": "assets/banner-6.webp",
+          "alt": "Sua próxima aventura começa aqui: motos",
+          "link": "multipla/carroceria/moto/"
+        },
+        {
+          "imagem": "assets/banner-7.webp",
+          "alt": "Atenção: confira os canais oficiais dos bancos parceiros",
+          "link": "https://gruposervopa.com.br/aviso-de-fraude"
+        }
+      ]
+    },
+    {
+      "tipo": "carrocerias",
+      "titulo": "Busque pelo tipo de carroceria"
+    },
+    {
+      "tipo": "busca",
+      "titulo": "Filtre para encontrar o veículo dos seus sonhos.",
+      "botao": "Pesquisar",
+      "atalhos": [
+        {
+          "rotulo": "Motos",
+          "link": "multipla/carroceria/moto/"
+        },
+        {
+          "rotulo": "Premium",
+          "link": "multipla/?ord=maior"
+        },
+        {
+          "rotulo": "Elétricos",
+          "link": "multipla/?combustivel=El%C3%A9trico"
+        }
+      ]
+    },
+    {
+      "tipo": "listagem",
+      "titulo": "Veículos em estoque",
+      "subtitulo": "Confira alguns destaques",
+      "quantidade": 8,
+      "filtros": false,
+      "botao": "Ver estoque completo"
+    },
+    {
+      "tipo": "chamada",
+      "titulo": "Siga-nos no Instagram",
+      "texto": "@seminovosgruposervopa: novidades do estoque, ofertas e entregas.",
+      "botao": "Abrir o Instagram",
+      "link": "https://www.instagram.com/seminovosgruposervopa"
+    }
+  ]
+}

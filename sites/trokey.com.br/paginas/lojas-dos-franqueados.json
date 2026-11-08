@@ -1,0 +1,54 @@
+{
+  "titulo": "Lojas dos Franqueados | Trokey",
+  "descricao": "Conecte-se com um Auto Broker qualificado e tenha acesso aos melhores veículos do mercado com segurança, transparência e condições exclusivas.",
+  "blocos": [
+    {
+      "tipo": "banner",
+      "imagem": "assets/lojas-banner.webp",
+      "alt": "Lojas dos franqueados Trokey"
+    },
+    {
+      "tipo": "cartoes",
+      "titulo": "Encontre um Especialista Trokey na sua região",
+      "subtitulo": "Conecte-se com um Auto Broker qualificado e tenha acesso aos melhores veículos do mercado com segurança, transparência e condições exclusivas.",
+      "colunas": 5,
+      "itens": [
+        {
+          "titulo": "TROKEY MOTORS",
+          "texto": "Goiânia - GO",
+          "imagem": "assets/loja-trokey-motors.webp",
+          "link": "https://trokeymotors.trokey.com.br/",
+          "botao": "Acessar Loja"
+        },
+        {
+          "titulo": "FREDERICO SOUZA",
+          "texto": "Goiânia - GO",
+          "imagem": "assets/loja-frederico-souza.webp",
+          "link": "https://teves-autocar.trokey.com.br/",
+          "botao": "Acessar Loja"
+        },
+        {
+          "titulo": "JOÃO MARRA",
+          "texto": "Goiânia - GO",
+          "imagem": "assets/loja-joao-marra.webp",
+          "link": "https://marra.trokey.com.br/",
+          "botao": "Acessar Loja"
+        },
+        {
+          "titulo": "MAURICIO MOREIRA",
+          "texto": "Uberaba - MG",
+          "imagem": "assets/loja-mauricio-moreira.webp",
+          "link": "https://uberaba.trokey.com.br/",
+          "botao": "Acessar Loja"
+        },
+        {
+          "titulo": "LUCAS BARROS",
+          "texto": "Goiânia - GO",
+          "imagem": "assets/loja-lucas-barros.webp",
+          "link": "https://b7motors.trokey.com.br/",
+          "botao": "Acessar Loja"
+        }
+      ]
+    }
+  ]
+}

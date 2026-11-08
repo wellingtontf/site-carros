@@ -124,50 +124,5 @@
       "rotulo": "Contato",
       "link": "contato/"
     }
-  },
-  "paginas": [
-    {
-      "caminho": "",
-      "titulo": "Prime Seminovos | Seminovos premium em São Paulo e Rio",
-      "descricao": "A partir de R$ 90 mil, em São Paulo e Rio",
-      "blocos": [
-        {
-          "tipo": "banner",
-          "titulo": "Prime Seminovos",
-          "subtitulo": "A partir de R$ 90 mil, em São Paulo e Rio"
-        },
-        {
-          "tipo": "carrocerias",
-          "titulo": "Busque pelo tipo de carroceria"
-        },
-        {
-          "tipo": "busca",
-          "titulo": "Filtre para encontrar o seu próximo carro.",
-          "botao": "Pesquisar"
-        },
-        {
-          "tipo": "listagem",
-          "titulo": "Veículos em estoque",
-          "subtitulo": "Confira alguns destaques",
-          "quantidade": 8,
-          "filtros": false,
-          "botao": "Ver estoque completo"
-        }
-      ]
-    },
-    {
-      "caminho": "lojas",
-      "titulo": "Nossas lojas",
-      "blocos": [
-        {
-          "tipo": "titulo",
-          "titulo": "Nossas lojas",
-          "subtitulo": "São Paulo e Rio de Janeiro"
-        },
-        {
-          "tipo": "lojas"
-        }
-      ]
-    }
-  ]
+  }
 }

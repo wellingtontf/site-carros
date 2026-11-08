@@ -13,23 +13,24 @@
 //   motor/engine.js + motor/ui-*.js      ← core (motor da versão do site + ui)
 //   css/ js/ img/ ...                    ← templates/<nome>/ (tudo menos paginas/ e template.json)
 //   assets/                              ← sites/<dominio>/assets/
-//   index.html                           ← a HOME institucional: página "" de "paginas" no site.json (sem ela, o core gera uma padrão)
+//   index.html                           ← a HOME institucional: sites/<dominio>/paginas/index.json (sem ela, o core gera uma padrão)
 //   multipla/index.html                  ← templates/<nome>/paginas/index.html (a listagem do estoque; sempre em /multipla)
 //   carros/<Marca>/<Modelo>/<Versao>/<...>-<id>.html ← templates/<nome>/paginas/carro.html (e vendido.html); regra em core/ui/link-carro.js
-//   <caminho>/index.html                 ← templates/<nome>/paginas/pagina.html + blocos/<tipo>.html ("paginas" no site.json)
+//   <caminho>/index.html                 ← templates/<nome>/paginas/pagina.html + blocos/<tipo>.html (sites/<dominio>/paginas/<caminho>.json)
 //   multipla/<campo>/<valor>/index.html  ← páginas fixas de filtro (marca, cidade, carroceria): a listagem já filtrada,
 //                                          com título próprio e os carros no HTML (SEO). "paginasFiltro" no site.json
 //   carros.json, config.json, sitemap.xml (com <lastmod> = quando cada página mudou de verdade), robots.txt (core/robots.js)
 //   estoque.xml                          ← o estoque em XML, para quem só lê XML (portais, catálogos, integrações antigas).
 //                                          "feedXml": { "caminho": "xml/estoque.xml" } muda o endereço; "feedXml": false desliga
 //
-// Páginas de conteúdo (home institucional, "quero vender", política...) são listas de BLOCOS no site.json:
-//   "paginas": [ { "caminho": "", "titulo": "...", "blocos": [ { "tipo": "banner", "imagem": "assets/x.webp" }, ... ] } ]
-// Cada tipo de bloco é um HTML do template (templates/<nome>/blocos/<tipo>.html).
+// Páginas de conteúdo (home institucional, lojas, "quero vender"...) são ARQUIVOS em sites/<dominio>/paginas/:
+//   index.json (home), lojas.json, sobre/nos.json → { "titulo": "...", "blocos": [ { "tipo": "banner", "imagem": "assets/x.webp" }, ... ] }
+//   feirao.html, feirao/index.html → HTML livre do designer (core/paginas-livres.js)
+// Cada tipo de bloco é um HTML do template (templates/<nome>/blocos/<tipo>.html). O site.json NÃO tem lista de páginas.
 // Páginas que TODO site ganha (contato, privacidade, cookies, LGPD...) vêm do TEMPLATE do site:
 // templates/<nome>/paginas-padrao/<nome>.json (cada template é autocontido; o texto legal muda num lugar só por template), com
 // {{site.nome}}, {{site.dominio}}, {{empresa.cnpj}}, {{rel}}... preenchidos por site. O site substitui uma delas com uma
-// página de mesmo "caminho" em "paginas", ou desliga com "paginasPadrao": { "<nome>": false }. Campos de link/imagem com caminho
+// página de mesmo nome em sites/<dominio>/paginas/ (ex.: contato.json), ou desliga com "paginasPadrao": { "<nome>": false }. Campos de link/imagem com caminho
 // relativo (link, imagem, foto, logo...) recebem o prefixo certo para a página onde aparecem.
 const fs = require('fs');
 const path = require('path');
@@ -54,6 +55,15 @@ const PAGINAS = ['index.html', 'carro.html', 'vendido.html', 'pagina.html'];
 const BLOCOS_OBRIGATORIOS = ['banner', 'vitrine', 'titulo', 'texto', 'formulario', 'lojas'];
 const AVISO_COOKIES_PADRAO = 'Usamos cookies para melhorar sua experiência e, se ativadas, ferramentas de medição. Ao continuar, você concorda.';
 const CAMINHO_ESTOQUE = 'multipla'; // a listagem do estoque fica SEMPRE em /multipla; a raiz é a home institucional
+// páginas de conteúdo (todas menos a home) ficam em /paginas/<nome>/ no site publicado: lojas, contato, lgpd, feirão...
+const PASTA_PAGINAS = 'paginas';
+const endPagina = (caminho) => (caminho ? `${PASTA_PAGINAS}/${caminho}` : ''); // pasta da página no site gerado
+// página de redirecionamento (meta refresh + JS; noindex com canonical para o destino)
+const htmlRedirecionamento = (para, abs, texto) =>
+  `<!doctype html><meta charset="utf-8"><meta name="robots" content="noindex"><link rel="canonical" href="${esc(abs)}">` +
+  `<meta http-equiv="refresh" content="0; url=${esc(para)}"><title>Redirecionando...</title>` +
+  `<script>location.replace(${JSON.stringify(para)} + location.search + location.hash)</script>` +
+  `<p>${esc(texto)}: <a href="${esc(para)}">clique aqui</a>.</p>`;
 // páginas fixas de filtro: campo do carro → pasta em /multipla/ (padrão quando o site não define "paginasFiltro")
 const FILTROS_PAGINA = { marca: 'marca', cidade: 'cidade', carroceria: 'carroceria', combustivel: 'combustivel', modelo: 'modelo' };
 const PAGINAS_FILTRO_PADRAO = ['marca', 'cidade', 'carroceria'];
@@ -95,7 +105,7 @@ const HOME_PADRAO = (site) => [
   { tipo: 'banner', titulo: site.nome, subtitulo: site.slogan || '' },
   { tipo: 'vitrine', titulo: 'Destaques', quantidade: 8, botao: 'Ver estoque completo' },
 ];
-const RESERVADOS = new Set(['carro', LinkCarro.PASTA, CAMINHO_ESTOQUE, 'motor', 'css', 'js', 'img', 'assets', 'carros.json', 'config.json', 'sitemap.xml', 'robots.txt']);
+const RESERVADOS = new Set(['carro', 'paginas', LinkCarro.PASTA, CAMINHO_ESTOQUE, 'motor', 'css', 'js', 'img', 'assets', 'carros.json', 'config.json', 'sitemap.xml', 'robots.txt']);
 const CAMINHO_OK = /^([a-z0-9][a-z0-9-]*)(\/[a-z0-9][a-z0-9-]*)*$/;
 const CHAVES_LINK = new Set(['link', 'imagem', 'foto', 'logo', 'logoRodape', 'banner', 'favicon']);
 const RETENCAO_PADRAO_DIAS = 30; // quanto tempo a página de um carro que saiu continua mostrando "indisponível"
@@ -110,7 +120,7 @@ const FEED_OK = /^[a-z0-9][a-z0-9_-]*(\/[a-z0-9][a-z0-9_-]*)*\.xml$/;
 // TODOS os sites (com 2500 sites, ~1 milhão de arquivos para publicar), então não amarramos isso ao arquivo inteiro:
 // um comentário ou refatoração não deve refazer nada. O teste tests/snapshot-html.test.js avisa se a saída mudou e a
 // versão não (e vice-versa). Templates, tema, textos e dados do site já entram no hash de cada site por conta própria.
-const VERSAO_HTML = 6; // 6: estoque.xml; 2: cards no HTML, filtros, <lastmod>; 3: páginas padrão; 4: link do estoque, URLs codificadas, formato revendamais; 5: 404.html, ?v= nos css/js, canonical nas páginas livres
+const VERSAO_HTML = 7; // 7: páginas de conteúdo em /paginas/<nome>/ (endereço antigo redireciona); 6: estoque.xml; 2: cards no HTML, filtros, <lastmod>; 3: páginas padrão; 4: link do estoque, URLs codificadas, formato revendamais; 5: 404.html, ?v= nos css/js, canonical nas páginas livres
 const RENDER_VERSION = `html-${VERSAO_HTML}`;
 
 const lerJSON = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -207,10 +217,11 @@ const temaDaPagina = (t, rel) => Object.fromEntries(Object.entries(t).map(([k, v
   [k, typeof v === 'string' && IMAGEM.test(v) && !/^([a-z]+:)?\/\//i.test(v) && !v.startsWith('/') ? rel + v : v]));
 // links/imagens relativos dentro de cabeçalho, rodapé e blocos ganham o prefixo da página
 const relativo = (v) => typeof v === 'string' && v !== '' && !/^([a-z][a-z0-9+.-]*:|\/\/|\/|#|\?)/i.test(v);
-function resolverLinks(o, rel) {
-  if (Array.isArray(o)) return o.map((x) => resolverLinks(x, rel));
+// mapa: ajusta o link antes do prefixo (ex.: "contato/" → "paginas/contato/", ver paraPagina no construir)
+function resolverLinks(o, rel, mapa = (x) => x) {
+  if (Array.isArray(o)) return o.map((x) => resolverLinks(x, rel, mapa));
   if (!o || typeof o !== 'object') return o;
-  return Object.fromEntries(Object.entries(o).map(([k, v]) => [k, CHAVES_LINK.has(k) && relativo(v) ? rel + v : resolverLinks(v, rel)]));
+  return Object.fromEntries(Object.entries(o).map(([k, v]) => [k, CHAVES_LINK.has(k) && relativo(v) ? rel + mapa(v) : resolverLinks(v, rel, mapa)]));
 }
 const limparCaminho = (c) => String(c ?? '').replace(/^\/+|\/+$/g, '');
 const prefixo = (caminho) => (caminho ? '../'.repeat(caminho.split('/').length) : '');
@@ -315,7 +326,18 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     if (cfgEstoque.caminho != null && limparCaminho(cfgEstoque.caminho) !== CAMINHO_ESTOQUE)
       console.warn(`  aviso: site "${site.id}": "estoque.caminho" foi ignorado (a listagem fica sempre em /${CAMINHO_ESTOQUE}/)`);
     const caminhoEstoque = CAMINHO_ESTOQUE;
-    const paginasSite = (site.paginas || []).map((p) => ({ ...p, caminho: limparCaminho(p.caminho) }));
+    // páginas do site: ARQUIVOS em sites/<dominio>/paginas/ (lojas.json, index.json = home, feirao.html...). O site.json
+    // não tem mais lista de páginas: o designer cria uma página nova criando um arquivo, sem mexer no cadastro.
+    if (site.paginas != null) throw new Error(`Site "${site.id}": "paginas" não fica mais no site.json: cada página é um arquivo em sites/${site.id}/paginas/ (index.json = home, lojas.json, feirao.html...). Para mover: node ferramentas/mover-paginas.js`);
+    const dirPagSite = C.paginasLivresSite(site.id);
+    const paginasSite = PL.lerPaginasJson(dirPagSite).map((p) => {
+      const onde = `sites/${site.id}/paginas/${path.relative(dirPagSite, p.arquivo)}`;
+      let j;
+      try { j = lerJSON(p.arquivo); } catch (e) { throw new Error(`${onde}: JSON inválido (${e.message})`); }
+      if (!j || typeof j !== 'object' || Array.isArray(j)) throw new Error(`${onde}: precisa ser um objeto { "titulo", "blocos": [...] }`);
+      const { caminho, ...resto } = j; // o caminho é o nome do arquivo
+      return { ...resto, caminho: p.caminho, arquivo: onde };
+    });
     const desligadas = site.paginasPadrao || {};
     // páginas livres dos designers (HTML normal). Prioridade de quem tem o mesmo caminho:
     //   site.json "paginas" > sites/<dominio>/paginas/ > templates/<nome>/paginas-extras/ > templates/<nome>/paginas-padrao/
@@ -327,7 +349,9 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     for (const p of livres) {
       const onde = `${p.origem}/${path.relative(p.origem.startsWith('sites') ? C.paginasLivresSite(site.id) : path.join(dirTpl, 'paginas-extras'), p.arquivo)}`;
       if (vistosLivres.get(p.caminho) === p.origem) throw new Error(`Página "${p.caminho}" duplicada em ${p.origem} (existe ${p.caminho}.html e ${p.caminho}/index.html)`);
-      if (paginasSite.some((x) => x.caminho === p.caminho) || vistosLivres.has(p.caminho)) continue; // quem vem antes ganha
+      const json = paginasSite.find((x) => x.caminho === p.caminho && !x.livre);
+      if (json && !p.doTemplate) throw new Error(`Página "${p.caminho}" duplicada em ${p.origem} (existe ${json.arquivo} e a página HTML ${onde}): fique com uma só`);
+      if (json || vistosLivres.has(p.caminho)) continue; // a do site vale mais que a do template
       if (p.doTemplate && desligadas[p.caminho] === false) continue;
       if (!CAMINHO_OK.test(p.caminho)) throw new Error(`Página livre ${onde}: nome inválido "${p.caminho}" (use letras minúsculas, números e hífen: ex. feirao-novembro.html)`);
       vistosLivres.set(p.caminho, p.origem);
@@ -345,7 +369,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       if (desligadas[p.nome] === false || paginasSite.some((x) => x.caminho === caminho)) continue;
       const { nome, provisorio, ...resto } = p;
       paginasSite.push({ ...preencherTextos(resto, {
-        site: { nome: site.nome, url: site.url || '', dominio: site.id, whatsapp: site.whatsapp || '' }, empresa: site.empresa || {}, rel: prefixo(caminho),
+        site: { nome: site.nome, url: site.url || '', dominio: site.id, whatsapp: site.whatsapp || '' }, empresa: site.empresa || {}, rel: prefixo(endPagina(caminho)),
       }), caminho, padrao: nome });
     }
     if (!paginasSite.some((p) => p.caminho === '')) paginasSite.unshift({ caminho: '', titulo: site.nome, descricao: site.slogan || '', blocos: HOME_PADRAO(site) });
@@ -354,10 +378,17 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       const onde = `Site "${site.id}", página "${p.caminho || '(raiz)'}"`;
       if (p.caminho && !CAMINHO_OK.test(p.caminho)) throw new Error(`${onde}: caminho inválido (use letras minúsculas, números, hífen e /)`);
       if (RESERVADOS.has(p.caminho.split('/')[0])) throw new Error(`${onde}: "${p.caminho.split('/')[0]}" é reservado`);
-      if (usados.has(p.caminho)) throw new Error(`${onde}: caminho repetido`);
+      if (usados.has(p.caminho)) throw new Error(`${onde}: caminho repetido${p.arquivo ? ` (${p.arquivo} e outro arquivo viram o mesmo endereço)` : ''}`);
       usados.add(p.caminho);
       if (!Array.isArray(p.blocos)) throw new Error(`${onde}: falta "blocos" (lista)`);
     }
+    // link para uma página do site escrito do jeito simples ("contato/", "lojas", "/sobre/nos/" no HTML do designer) vai
+    // para /paginas/<nome>/. Assim cadastro, blocos e HTML livre não precisam saber que as páginas moram em /paginas/.
+    const caminhosPag = new Set(paginasSite.map((p) => p.caminho).filter(Boolean));
+    const paraPagina = (v) => {
+      const m = /^([^?#]*?)(\/?)([?#].*)?$/.exec(v);
+      return m && caminhosPag.has(m[1]) ? `${PASTA_PAGINAS}/${m[1]}/${m[3] || ''}` : v;
+    };
     for (const f of site.filtros || []) {
       const campo = typeof f === 'string' ? f : f.campo;
       if (!CAMPOS_FILTRO.includes(campo)) console.warn(`  aviso: site "${site.id}" tem filtro desconhecido "${campo}" (use: ${CAMPOS_FILTRO.join(', ')})`);
@@ -455,7 +486,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
         // aviso de cookies (core/ui/ui-site.js): link para a política de cookies, ou de privacidade, se o site tiver
         avisoCookies: site.avisoCookies === false ? null : {
           texto: textos.avisoCookies || AVISO_COOKIES_PADRAO,
-          link: (() => { const p = paginasSite.find((x) => x.padrao === 'politica-de-cookies') || paginasSite.find((x) => x.padrao === 'politica-de-privacidade'); return p ? `${p.caminho}/` : ''; })(),
+          link: (() => { const p = paginasSite.find((x) => x.padrao === 'politica-de-cookies') || paginasSite.find((x) => x.padrao === 'politica-de-privacidade'); return p ? `${endPagina(p.caminho)}/` : ''; })(),
         },
         lojas: Object.fromEntries(usadas.map((id) => [id, { nome: lojas[id].nome, cidade: lojas[id].cidade, uf: lojas[id].uf, endereco: lojas[id].endereco || '', whatsapp: lojas[id].whatsapp || '' }])),
       }),
@@ -505,9 +536,9 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     const ctx = (r) => ({
       ...ctxSite, rel: r, tema: temaDaPagina(tema, r),
       site: { nome: site.nome, slogan: site.slogan || '', url: site.url || '', textos,
-        cabecalho: resolverLinks(site.cabecalho || {}, r), rodape: resolverLinks(site.rodape || {}, r),
+        cabecalho: resolverLinks(site.cabecalho || {}, r, paraPagina), rodape: resolverLinks(site.rodape || {}, r, paraPagina),
         // páginas com "rotulo" (as padrão têm): para o rodapé de qualquer template ({{#site.links}})
-        links: paginasSite.filter((p) => p.rotulo && p.caminho).map((p) => ({ rotulo: p.rotulo, link: `${r}${p.caminho}/` })) },
+        links: paginasSite.filter((p) => p.rotulo && p.caminho).map((p) => ({ rotulo: p.rotulo, link: `${r}${endPagina(p.caminho)}/` })) },
       inicioUrl: r || './', estoqueUrl: r + `${CAMINHO_ESTOQUE}/`, estoque: estoqueInfo(r),
     });
 
@@ -567,7 +598,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       return d;
     };
     const renderBlocos = (lista, r) => (lista || []).map((b) => {
-      const d = resolverLinks(enriquecer(b, r), r);
+      const d = resolverLinks(enriquecer(b, r), r, paraPagina);
       return render(tplBloco(b.tipo), { ...ctx(r), ...d, bloco: d });
     }).join('\n');
 
@@ -635,20 +666,21 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     // páginas de conteúdo
     const tplPagina = pagina('pagina.html');
     for (const p of paginasSite) {
-      const r = prefixo(p.caminho);
-      const arqRel = p.caminho ? `${p.caminho}/index.html` : 'index.html';
+      const dirP = endPagina(p.caminho); // '' (home) ou paginas/<caminho>
+      const r = prefixo(dirP);
+      const arqRel = dirP ? `${dirP}/index.html` : 'index.html';
       geradas.push(arqRel);
-      const canon = site.url ? `<link rel="canonical" href="${esc(site.url.replace(/\/$/, ''))}/${p.caminho ? esc(p.caminho) + '/' : ''}">` : '';
+      const canon = site.url ? `<link rel="canonical" href="${esc(site.url.replace(/\/$/, ''))}/${dirP ? esc(url(dirP)) + '/' : ''}">` : '';
       if (p.livre) {
         // página do designer: variáveis {{ }} (se usar), links "/x" relativos, e moldura do site ou só o essencial
         let html;
-        try { html = PL.linksRelativos(render(fs.readFileSync(p.livre.arquivo, 'utf8'), ctx(r)), r); }
+        try { html = PL.linksRelativos(render(fs.readFileSync(p.livre.arquivo, 'utf8'), ctx(r)), r, paraPagina); }
         catch (e) { throw new Error(`Página livre ${p.livre.onde}: ${e.message}`); }
         const final = p.livre.semMoldura ? PL.completarLivre(html, r, { titulo: p.titulo, descricao: p.descricao, canon })
           : render(tplPagina, { ...ctx(r), pagina: { titulo: p.titulo, descricao: p.descricao || site.slogan || '' }, canon, conteudo: html, temListagem: false });
-        for (const [k, v] of p.livre.assets) if (/\.(css|js)$/.test(k)) versoes.set(`${p.caminho}/${k}`, sha(fs.readFileSync(v)).slice(0, 8));
+        for (const [k, v] of p.livre.assets) if (/\.(css|js)$/.test(k)) versoes.set(`${dirP}/${k}`, sha(fs.readFileSync(v)).slice(0, 8));
         datar(arqRel, escreverHtml(arqRel, final));
-        for (const [k, v] of p.livre.assets) { const destino = `${p.caminho}/${k}`; copiarSe(v, path.join(out, destino), rel(destino), mud); estaticos.add(destino); }
+        for (const [k, v] of p.livre.assets) { const destino = `${dirP}/${k}`; copiarSe(v, path.join(out, destino), rel(destino), mud); estaticos.add(destino); }
         continue;
       }
       const nListagem = p.blocos.filter((b) => b.tipo === 'listagem').length;
@@ -676,8 +708,34 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       for (let d = path.dirname(path.join(out, arq)); d.startsWith(out + path.sep); d = path.dirname(d)) { try { fs.rmdirSync(d); } catch (e) { break; } }
     }
     // página que saiu do site.json (ou listagem que mudou de lugar): apaga
+    // página que MUDOU de endereço: o antigo redireciona para o novo (link compartilhado e Google não quebram).
+    //  - quem estava em /contato/ e agora está em /paginas/contato/ (por 180 dias, como os carros)
+    //  - formato Revenda Mais: as páginas sempre existiram na raiz (/contato, /financiamento): redireciona sempre
+    // Decidido ANTES de apagar as páginas que saíram, senão a limpeza apagaria (e despublicaria) o endereço antigo.
+    const diasRedirPag = site.retencaoRedirecionamentoDias ?? REDIRECIONAMENTO_PADRAO_DIAS;
+    const paginasMovidas = incremental ? { ...(estadoAnt.paginasMovidas || {}) } : {};
+    if (incremental) for (const velho of estadoAnt.paginas || []) {
+      const novo = `${PASTA_PAGINAS}/${velho}`;
+      if (!geradas.includes(velho) && !paginasMovidas[velho] && geradas.includes(novo)) paginasMovidas[velho] = { para: novo.replace(/index\.html$/, ''), desde: hoje };
+    }
+    if (site.formatoUrls === 'revendamais') for (const p of paginasSite) if (p.caminho) paginasMovidas[`${p.caminho}/index.html`] = { para: `${endPagina(p.caminho)}/`, desde: null };
+    for (const [velho, m] of Object.entries(paginasMovidas)) {
+      const vencido = m.desde && (Date.parse(hoje) - Date.parse(m.desde)) / 86400000 > diasRedirPag;
+      if (geradas.includes(velho) || !geradas.includes(`${m.para}index.html`) || vencido) {
+        delete paginasMovidas[velho];
+        // venceu ou o destino sumiu: o arquivo do redirecionamento sai (e é despublicado), com as pastas que ficarem vazias
+        if (!geradas.includes(velho) && fs.existsSync(path.join(out, velho))) {
+          fs.rmSync(path.join(out, velho), { force: true });
+          mud.removidos.push(rel(velho));
+          for (let d = path.dirname(path.join(out, velho)); d.startsWith(out + path.sep); d = path.dirname(d)) { try { fs.rmdirSync(d); } catch (e) { break; } }
+        }
+        continue;
+      }
+      const para = prefixo(path.posix.dirname(velho)) + url(m.para);
+      escreverSe(path.join(out, velho), htmlRedirecionamento(para, site.url ? `${site.url.replace(/\/$/, '')}/${url(m.para)}` : para, 'Esta página mudou de endereço'), rel(velho), mud);
+    }
     for (const arqRel of (incremental && estadoAnt.paginas) || []) {
-      if (geradas.includes(arqRel)) continue;
+      if (geradas.includes(arqRel) || paginasMovidas[arqRel]) continue;
       fs.rmSync(path.join(out, arqRel), { force: true });
       mud.removidos.push(rel(arqRel));
       // apaga as pastas que ficarem vazias, subindo (multipla/cidade/curitiba → multipla/cidade); para na primeira com conteúdo
@@ -792,16 +850,12 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       if (!destino || (Date.parse(hoje) - Date.parse(r.desde)) / 86400000 > diasRedir) { remover(velho); delete redirecionados[velho]; continue; }
       const para = relDe(velho) + url(destino);
       const abs = raizUrl ? `${raizUrl}/${url(destino)}` : para;
-      escreverSe(path.join(out, velho),
-        `<!doctype html><meta charset="utf-8"><meta name="robots" content="noindex"><link rel="canonical" href="${esc(abs)}">` +
-        `<meta http-equiv="refresh" content="0; url=${esc(para)}"><title>Redirecionando...</title>` +
-        `<script>location.replace(${JSON.stringify(para)} + location.search + location.hash)</script>` +
-        `<p>Este anúncio mudou de endereço: <a href="${esc(para)}">clique aqui</a>.</p>`, rel(velho), mud);
+      escreverSe(path.join(out, velho), htmlRedirecionamento(para, abs, 'Este anúncio mudou de endereço'), rel(velho), mud);
       redir++;
     }
 
     if (!efemero) {
-      gravarEstado(pasta, site.id, { render: RENDER_VERSION, base: baseHash, carros: hashes, links, titulos, vendidos, redirecionados, paginas: geradas, datas, estaticos: [...estaticos].sort(), em: new Date().toISOString() });
+      gravarEstado(pasta, site.id, { render: RENDER_VERSION, base: baseHash, carros: hashes, links, titulos, vendidos, redirecionados, paginas: geradas, paginasMovidas, datas, estaticos: [...estaticos].sort(), em: new Date().toISOString() });
       registrarPendente(pasta, site.id, mud, !incremental);
     }
 

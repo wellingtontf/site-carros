@@ -1,0 +1,14 @@
+{
+  "titulo": "Quem somos | Grupo Servopa Seminovos",
+  "descricao": "Conheça o Grupo Servopa Seminovos.",
+  "blocos": [
+    {
+      "tipo": "titulo",
+      "titulo": "Quem somos"
+    },
+    {
+      "tipo": "texto",
+      "html": "<p><strong>[TEXTO PROVISÓRIO: a página /empresa do site atual não pôde ser lida. Substituir pelo texto oficial.]</strong></p><p>O Grupo Servopa Seminovos reúne o estoque de seminovos das concessionárias do Grupo Servopa no Paraná e no Rio Grande do Sul: automóveis, híbridos, elétricos, motos e premium, com 1 ano de garantia.</p><p>No site, na concessionária ou na sua garagem: o seminovo ideal está mais perto de você.</p>"
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "titulo": "Contato | Grupo Servopa Seminovos",
+  "descricao": "Fale com um especialista Servopa.",
+  "blocos": [
+    {
+      "tipo": "titulo",
+      "titulo": "Contato",
+      "subtitulo": "Atendimento: 0800-999-2000 (também no WhatsApp)."
+    },
+    {
+      "tipo": "formulario",
+      "mensagem": "Olá! Vim pelo site e gostaria de falar com um especialista.",
+      "botao": "Enviar pelo WhatsApp",
+      "campos": [
+        {
+          "rotulo": "Nome",
+          "tipo": "linha",
+          "obrigatorio": true,
+          "meia": true
+        },
+        {
+          "rotulo": "Telefone",
+          "tipo": "telefone",
+          "obrigatorio": true,
+          "meia": true
+        },
+        {
+          "rotulo": "Cidade",
+          "tipo": "lista",
+          "opcoes": [
+            "Canoas",
+            "Cascavel",
+            "Curitiba",
+            "Gravataí",
+            "Londrina",
+            "Maringá",
+            "Novo Hamburgo",
+            "Paranaguá",
+            "Ponta Grossa",
+            "Porto Alegre",
+            "Ribeirão Preto",
+            "São José dos Pinhais",
+            "Umuarama"
+          ]
+        },
+        {
+          "rotulo": "Mensagem",
+          "tipo": "texto-longo",
+          "obrigatorio": true
+        }
+      ]
+    }
+  ]
+}

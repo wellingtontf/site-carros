@@ -1,0 +1,14 @@
+{
+  "titulo": "Lojas | Grupo Servopa Seminovos",
+  "descricao": "Encontre a loja Servopa mais perto de você: Paraná e Rio Grande do Sul.",
+  "blocos": [
+    {
+      "tipo": "titulo",
+      "titulo": "Nossas lojas",
+      "subtitulo": "24 lojas no Paraná, no Rio Grande do Sul e em São Paulo. Atendimento: 0800-999-2000."
+    },
+    {
+      "tipo": "lojas"
+    }
+  ]
+}

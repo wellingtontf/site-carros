@@ -49,8 +49,8 @@ test('página livre do designer (HTML completo) ganha canonical sozinha', () => 
   fs.writeFileSync(path.join(dir, 'index.html'), '<!doctype html><html><head><title>Promo</title><link rel="stylesheet" href="promo.css"></head><body><h1>Promo</h1></body></html>');
   fs.writeFileSync(path.join(dir, 'promo.css'), 'h1{color:red}');
   A.silencioso(() => construir({ sites: [ID] }));
-  const h = A.ler(ID, 'promo/index.html');
-  assert.match(h, new RegExp(`<link rel="canonical" href="https://${ID.replace(/\./g, '\\.')}/promo/">`));
+  const h = A.ler(ID, 'paginas/promo/index.html');
+  assert.match(h, new RegExp(`<link rel="canonical" href="https://${ID.replace(/\./g, '\\.')}/paginas/promo/">`));
   assert.match(h, /href="promo\.css\?v=[0-9a-f]{8}"/, 'css da própria página também versionado');
 });
 

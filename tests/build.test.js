@@ -188,19 +188,17 @@ test('restrições do site tiram carros', () => {
   assert.equal(build().total, 1);
 });
 
-test('páginas de conteúdo: criadas, no sitemap, e apagadas ao sair do site.json', () => {
+test('páginas de conteúdo (arquivos em sites/<id>/paginas/): criadas, no sitemap, e apagadas quando o arquivo sai', () => {
   A.criarSite(ID, { carros: [A.carro()], site: { paginas: [
     { caminho: '', titulo: 'Home', blocos: [{ tipo: 'texto', html: '<p>oi</p>' }] },
     { caminho: 'sobre/nos', titulo: 'Sobre', blocos: [{ tipo: 'texto', html: '<p>quem somos</p>' }] },
   ] } });
   build();
-  assert.match(A.ler(ID, 'sobre/nos/index.html'), /quem somos/);
-  assert.ok(A.ler(ID, 'sitemap.xml').includes(`https://${ID}/sobre/nos/<`));
-  const s = A.lerSite(ID);
-  s.paginas = s.paginas.slice(0, 1);
-  A.gravarSite(ID, s);
+  assert.match(A.ler(ID, 'paginas/sobre/nos/index.html'), /quem somos/);
+  assert.ok(A.ler(ID, 'sitemap.xml').includes(`https://${ID}/paginas/sobre/nos/<`));
+  fs.rmSync(A.arqPagina(ID, 'sobre/nos')); // o designer apagou o arquivo da página
   build();
-  assert.ok(!A.existe(ID, 'sobre/nos/index.html'));
+  assert.ok(!A.existe(ID, 'paginas/sobre/nos/index.html'));
   assert.ok(!A.existe(ID, 'sobre/nos'), 'pasta vazia removida');
 });
 
@@ -225,9 +223,9 @@ test('bloco lojas e dados globais do estoque (total, cidades, marcas)', () => {
 test('regressão: links do bloco lojas numa subpágina não dobram o "../" (bug achado pelos testes)', () => {
   A.criarSite(ID, { carros: [A.carro()], site: { paginas: [{ caminho: '', blocos: [] }, { caminho: 'lojas', blocos: [{ tipo: 'lojas' }] }] } });
   build();
-  const html = A.ler(ID, 'lojas/index.html');
-  assert.match(html, /href="\.\.\/multipla\/\?loja=Loja%20Centro"/);
-  assert.doesNotMatch(html, /\.\.\/\.\.\/multipla/);
+  const html = A.ler(ID, 'paginas/lojas/index.html');
+  assert.match(html, /href="\.\.\/\.\.\/multipla\/\?loja=Loja%20Centro"/); // /paginas/lojas/ → 2 níveis
+  assert.doesNotMatch(html, /\.\.\/\.\.\/\.\.\/multipla/);
   assert.deepEqual(A.verificarSiteGerado(ID), []);
 });
 
@@ -238,7 +236,7 @@ test('links e imagens relativos funcionam em qualquer profundidade (home, subpá
     paginas: [{ caminho: '', blocos: [] }, { caminho: 'a/b', blocos: [{ tipo: 'banner', imagem: 'assets/logo.png', titulo: 'x' }] }] } });
   fs.writeFileSync(path.join(A.raiz(), 'sites', ID, 'assets', 'logo.png'), 'png');
   build();
-  assert.match(A.ler(ID, 'a/b/index.html'), /href="\.\.\/\.\.\/multipla\/"/);
+  assert.match(A.ler(ID, 'paginas/a/b/index.html'), /href="\.\.\/\.\.\/\.\.\/multipla\/"/);
   assert.match(A.ler(ID, linkDe(c)), /src="\.\.\/\.\.\/\.\.\/\.\.\/assets\/logo\.png"/);
   assert.deepEqual(A.verificarSiteGerado(ID), []);
 });
@@ -266,7 +264,7 @@ test('erros de configuração dão mensagem clara (e não geram site pela metade
     [{ paginas: [{ caminho: 'multipla', blocos: [] }] }, /reservado/],
     [{ paginas: [{ caminho: 'carros', blocos: [] }] }, /reservado/],
     [{ paginas: [{ caminho: 'Maiuscula', blocos: [] }] }, /caminho inválido/],
-    [{ paginas: [{ caminho: 'x', blocos: [] }, { caminho: 'x', blocos: [] }] }, /repetido/],
+    [{ paginas: [{ caminho: 'x', blocos: [] }, { caminho: 'x/index', blocos: [] }] }, /repetido/], // x.json e x/index.json
     [{ paginas: [{ caminho: 'x' }] }, /falta "blocos"/],
     [{ paginas: [{ caminho: '', blocos: [{ tipo: 'nao-existe' }] }] }, /bloco "nao-existe" não existe/],
     [{ paginas: [{ caminho: '', blocos: [{ tipo: '../../x' }] }] }, /bloco/],
@@ -282,6 +280,22 @@ test('erros de configuração dão mensagem clara (e não geram site pela metade
   assert.throws(() => build(), /loja inexistente "norte"/);
 });
 
+test('"paginas" no site.json é recusado com o caminho para mover; o script de migração move para arquivos', () => {
+  A.limpar();
+  A.criarSite(ID, { carros: [A.carro()] });
+  const cfg = A.lerSite(ID);
+  cfg.paginas = [{ caminho: '', titulo: 'Home', blocos: [{ tipo: 'texto', html: '<p>home</p>' }] }, { caminho: 'sobre/nos', titulo: 'Sobre', blocos: [] }];
+  fs.writeFileSync(path.join(A.raiz(), 'sites', ID, 'site.json'), JSON.stringify(cfg)); // direto, sem o ajudante
+  assert.throws(() => build(), /não fica mais no site\.json.*sites\/loja-teste\.com\.br\/paginas\//);
+  const r = require('child_process').spawnSync(process.execPath, [path.join(A.PROJETO, 'ferramentas', 'mover-paginas.js'), ID], { env: { ...process.env, SITE_CARROS_RAIZ: A.raiz() }, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(A.lerSite(ID).paginas, undefined);
+  assert.equal(JSON.parse(fs.readFileSync(A.arqPagina(ID, ''), 'utf8')).titulo, 'Home');
+  assert.ok(fs.existsSync(A.arqPagina(ID, 'sobre/nos')));
+  build();
+  assert.match(A.ler(ID, 'index.html'), /home/);
+});
+
 test('pasta de site precisa ser um domínio', () => {
   A.criarSite('nao_e_dominio', { carros: [A.carro()] });
   assert.throws(() => A.silencioso(() => construir({ sites: ['nao_e_dominio'] })), /Pasta de site inválida/);
@@ -292,7 +306,7 @@ test('estoque.caminho é ignorado com aviso (a listagem é sempre /multipla)', (
   A.criarSite(ID, { carros: [A.carro()], site: { estoque: { caminho: 'estoque' } } });
   const { saidas } = A.silencioso(() => construir({ sites: [ID] }));
   assert.ok(saidas.some((s) => /estoque\.caminho.*ignorado/.test(s)));
-  assert.ok(!A.existe(ID, 'estoque/index.html'));
+  assert.ok(!A.existe(ID, 'paginas/estoque/index.html'));
 });
 
 test('motor e filtros: trocar não refaz páginas de carro', () => {
@@ -402,7 +416,7 @@ test('links do estoque (rodapé, menus) apontam para a página de filtro quando 
   A.criarSite(ID, { carros: cs, site: { paginas: [{ caminho: '', blocos: [{ tipo: 'lojas' }] }, { caminho: 'a/b', blocos: [{ tipo: 'lojas' }] }] } });
   build();
   // lojas: só "centro" tem carros, mas o filtro de loja não tem página → continua ?loja=
-  assert.match(A.ler(ID, 'a/b/index.html'), /href="\.\.\/\.\.\/multipla\/\?loja=/);
+  assert.match(A.ler(ID, 'paginas/a/b/index.html'), /href="\.\.\/\.\.\/\.\.\/multipla\/\?loja=/);
   assert.deepEqual(A.verificarSiteGerado(ID), []);
 });
 
@@ -421,28 +435,28 @@ test('/multipla já vem com os primeiros cards no HTML (o Google vê os carros s
 test('páginas padrão: todo site ganha contato, privacidade, cookies e LGPD, preenchidas com os dados dele', () => {
   A.criarSite(ID, { carros: [A.carro()], site: { nome: 'Loja do Zé', empresa: { razaoSocial: 'Zé Veículos LTDA', cnpj: '00.000.000/0001-00', email: 'dpo@loja.com' } } });
   build();
-  for (const p of ['contato', 'politica-de-privacidade', 'politica-de-cookies', 'lgpd']) assert.ok(A.existe(ID, `${p}/index.html`), p);
-  const priv = A.ler(ID, 'politica-de-privacidade/index.html');
+  for (const p of ['contato', 'politica-de-privacidade', 'politica-de-cookies', 'lgpd']) assert.ok(A.existe(ID, `paginas/${p}/index.html`), p);
+  const priv = A.ler(ID, 'paginas/politica-de-privacidade/index.html');
   assert.match(priv, /Zé Veículos LTDA/);
   assert.match(priv, /CNPJ 00\.000\.000\/0001-00/);
   assert.match(priv, /mailto:dpo@loja\.com/);
-  assert.match(priv, /href="\.\.\/lgpd\/"/, 'link interno com o prefixo certo');
+  assert.match(priv, /href="\.\.\/\.\.\/paginas\/lgpd\/"/, 'link interno com o prefixo certo');
   assert.ok(!/\{\{/.test(priv), 'nenhum marcador sobrando');
-  const contato = A.ler(ID, 'contato/index.html');
+  const contato = A.ler(ID, 'paginas/contato/index.html');
   assert.match(contato, /<option>Loja Centro<\/option>/, 'select de loja vem das lojas do site (opcoesDe)');
   assert.match(contato, /class="lojas"/);
   const sm = A.ler(ID, 'sitemap.xml');
-  for (const p of ['contato', 'lgpd']) assert.ok(sm.includes(`/${p}/<`), p);
-  assert.match(A.ler(ID, 'index.html'), /class="legal" href="lgpd\/">LGPD</, 'links legais no rodapé ({{#site.links}})');
+  for (const p of ['contato', 'lgpd']) assert.ok(sm.includes(`/paginas/${p}/<`), p);
+  assert.match(A.ler(ID, 'index.html'), /class="legal" href="paginas\/lgpd\/">LGPD</, 'links legais no rodapé ({{#site.links}})');
   assert.deepEqual(A.verificarSiteGerado(ID), []);
 });
 
 test('páginas padrão: sem dados da empresa, cai no nome do site e na página de contato', () => {
   A.criarSite(ID, { carros: [A.carro()], site: { nome: 'Loja do Zé' } });
   build();
-  const lgpd = A.ler(ID, 'lgpd/index.html');
+  const lgpd = A.ler(ID, 'paginas/lgpd/index.html');
   assert.match(lgpd, /<strong>Loja do Zé<\/strong>/);
-  assert.match(lgpd, /href="\.\.\/contato\/"/);
+  assert.match(lgpd, /href="\.\.\/\.\.\/paginas\/contato\/"/);
   assert.ok(!/mailto:/.test(lgpd));
 });
 
@@ -452,10 +466,10 @@ test('páginas padrão: o site substitui (mesmo caminho) ou desliga ("paginasPad
     paginasPadrao: { 'politica-de-cookies': false },
   } });
   build();
-  assert.match(A.ler(ID, 'contato/index.html'), /CONTATO PRÓPRIO/);
-  assert.ok(!A.existe(ID, 'politica-de-cookies/index.html'));
-  assert.ok(A.existe(ID, 'lgpd/index.html'));
-  assert.equal(A.lerJSON(ID, 'config.json').avisoCookies.link, 'politica-de-privacidade/', 'sem página de cookies, o aviso aponta para a privacidade');
+  assert.match(A.ler(ID, 'paginas/contato/index.html'), /CONTATO PRÓPRIO/);
+  assert.ok(!A.existe(ID, 'paginas/politica-de-cookies/index.html'));
+  assert.ok(A.existe(ID, 'paginas/lgpd/index.html'));
+  assert.equal(A.lerJSON(ID, 'config.json').avisoCookies.link, 'paginas/politica-de-privacidade/', 'sem página de cookies, o aviso aponta para a privacidade');
 });
 
 test('páginas padrão: texto provisório gera UM aviso por build (não um por site)', () => {
@@ -468,7 +482,7 @@ test('páginas padrão: texto provisório gera UM aviso por build (não um por s
 test('aviso de cookies: vai no config.json; "avisoCookies": false desliga; texto configurável', () => {
   A.criarSite(ID, { carros: [A.carro()], site: { textos: { avisoCookies: 'Cookies aqui.' } } });
   build();
-  assert.deepEqual(A.lerJSON(ID, 'config.json').avisoCookies, { texto: 'Cookies aqui.', link: 'politica-de-cookies/' });
+  assert.deepEqual(A.lerJSON(ID, 'config.json').avisoCookies, { texto: 'Cookies aqui.', link: 'paginas/politica-de-cookies/' });
   const s = A.lerSite(ID); s.avisoCookies = false; A.gravarSite(ID, s);
   build();
   assert.equal(A.lerJSON(ID, 'config.json').avisoCookies, null);
@@ -491,13 +505,13 @@ test('designer: arquivo só com conteúdo entra no cabeçalho/rodapé; título d
   A.criarSite(ID, { carros: [A.carro(), A.carro()] });
   escrever(pastaLivre('promocoes', 'feirao.html'), '<h1>Feirão &amp; Cia</h1><p>{{estoque.total}} carros</p><a href="/multipla/">ver</a> <a href="/contato/">contato</a> <a href="//cdn.x/a.js">cdn</a>');
   build();
-  const html = A.ler(ID, 'promocoes/feirao/index.html');
+  const html = A.ler(ID, 'paginas/promocoes/feirao/index.html');
   assert.match(html, /<title>Feirão &amp; Cia<\/title>/, 'título do <h1>, com o & escapado');
   assert.match(html, /<p>2 carros<\/p>/);
-  assert.match(html, /href="\.\.\/\.\.\/multipla\/"/);
+  assert.match(html, /href="\.\.\/\.\.\/\.\.\/multipla\/"/);
   assert.match(html, /href="\/\/cdn\.x\/a\.js"/, 'link de protocolo relativo não é mexido');
   assert.match(html, /motor\/ui-site\.js/, 'veio com a moldura do site (aviso de cookies)');
-  assert.ok(A.ler(ID, 'sitemap.xml').includes('/promocoes/feirao/<'));
+  assert.ok(A.ler(ID, 'sitemap.xml').includes('/paginas/promocoes/feirao/<'));
   assert.deepEqual(A.verificarSiteGerado(ID), []);
 });
 
@@ -507,7 +521,7 @@ test('designer: pasta com index.html + imagens/css vai inteira; imagem removida 
   escrever(pastaLivre('feirao', 'estilo.css'), 'h1{color:red}');
   escrever(pastaLivre('feirao', 'img', 'faixa.png'), 'png');
   build();
-  assert.ok(A.existe(ID, 'feirao/estilo.css') && A.existe(ID, 'feirao/img/faixa.png'));
+  assert.ok(A.existe(ID, 'paginas/feirao/estilo.css') && A.existe(ID, 'paginas/feirao/img/faixa.png'));
   assert.deepEqual(A.verificarSiteGerado(ID), [], 'caminhos relativos do designer funcionam no site');
   fs.rmSync(pastaLivre('feirao', 'img'), { recursive: true });
   escrever(pastaLivre('feirao', 'index.html'), '<link rel="stylesheet" href="estilo.css"><h1>Feirão</h1>');
@@ -519,11 +533,11 @@ test('designer: documento completo vira página livre; o build só acrescenta o 
   A.criarSite(ID, { carros: [A.carro()] });
   escrever(pastaLivre('landing.html'), '<!doctype html><html><head><title>Landing</title></head><body><h1>Oi</h1><a href="/multipla/">ir</a></body></html>');
   build();
-  const html = A.ler(ID, 'landing/index.html');
+  const html = A.ler(ID, 'paginas/landing/index.html');
   assert.match(html, /<html lang="pt-BR">/);
   assert.match(html, /name="viewport"/);
-  assert.match(html, /<body data-rel="\.\.\/">/);
-  assert.match(html, /<script src="\.\.\/motor\/ui-site\.js\?v=[0-9a-f]{8}"><\/script>\n<\/body>/);
+  assert.match(html, /<body data-rel="\.\.\/\.\.\/">/);
+  assert.match(html, /<script src="\.\.\/\.\.\/motor\/ui-site\.js\?v=[0-9a-f]{8}"><\/script>\n<\/body>/);
   assert.doesNotMatch(html, /class="marca"/, 'sem o cabeçalho do site');
   assert.deepEqual(A.verificarSiteGerado(ID), []);
 });
@@ -533,15 +547,15 @@ test('designer: comentários opcionais (titulo, descricao, rotulo no rodapé, mo
   escrever(pastaLivre('a.html'), '<!-- titulo: Título A --><!-- descricao: Desc A --><!-- rotulo: Página A --><p>a</p>');
   escrever(pastaLivre('b.html'), '<!-- moldura: nenhuma --><p>b sem moldura</p>');
   build();
-  const a = A.ler(ID, 'a/index.html');
+  const a = A.ler(ID, 'paginas/a/index.html');
   assert.match(a, /<title>Título A<\/title>/);
   assert.match(a, /content="Desc A"/);
-  assert.match(A.ler(ID, 'index.html'), /href="a\/">Página A</, 'rotulo vira link no rodapé');
-  const b = A.ler(ID, 'b/index.html');
+  assert.match(A.ler(ID, 'index.html'), /href="paginas\/a\/">Página A</, 'rotulo vira link no rodapé');
+  const b = A.ler(ID, 'paginas/b/index.html');
   assert.match(b, /motor\/ui-site\.js/, 'pedaço de HTML sem moldura ainda ganha o aviso de cookies');
   assert.match(b, /<meta charset="utf-8">/);
   assert.match(b, /<title>B<\/title>/, 'título do nome do arquivo');
-  assert.doesNotMatch(A.ler(ID, 'b/index.html'), /class="marca"/);
+  assert.doesNotMatch(A.ler(ID, 'paginas/b/index.html'), /class="marca"/);
 });
 
 test('designer: página do template vale para todos os sites; o site troca ou desliga', () => {
@@ -556,9 +570,9 @@ test('designer: página do template vale para todos os sites; o site troca ou de
     A.criarSite('terceiro.com.br', { carros: [A.carro()], site: { template: 'com-extras' } });
     escrever(path.join(A.raiz(), 'sites', 'terceiro.com.br', 'paginas', 'financiamento.html'), '<h1>Financiamento do terceiro</h1>');
     A.silencioso(() => construir({}));
-    assert.match(A.ler(ID, 'financiamento/index.html'), /Financiamento padrão/);
-    assert.ok(!A.existe('outro.com.br', 'financiamento/index.html'), 'desligado pelo site');
-    assert.match(A.ler('terceiro.com.br', 'financiamento/index.html'), /Financiamento do terceiro/, 'o site troca a do template');
+    assert.match(A.ler(ID, 'paginas/financiamento/index.html'), /Financiamento padrão/);
+    assert.ok(!A.existe('outro.com.br', 'paginas/financiamento/index.html'), 'desligado pelo site');
+    assert.match(A.ler('terceiro.com.br', 'paginas/financiamento/index.html'), /Financiamento do terceiro/, 'o site troca a do template');
   } finally { fs.rmSync(path.join(A.raiz(), 'templates', 'com-extras')); fs.rmSync(extras, { recursive: true }); }
 });
 
@@ -574,19 +588,21 @@ test('designer: editar página do template NÃO refaz as páginas de carro (2500
     escrever(arq, '<h1>v2</h1>');
     const f = build();
     assert.equal(f.resumo.base, false, 'páginas de carro intactas');
-    assert.match(A.ler(ID, 'financiamento/index.html'), /v2/);
+    assert.match(A.ler(ID, 'paginas/financiamento/index.html'), /v2/);
   } finally { fs.rmSync(path.join(A.raiz(), 'templates', 'com-extras')); fs.rmSync(extras, { recursive: true }); }
 });
 
-test('designer: prioridade site.json > pasta do site; nome inválido e duplicado dão erro claro; página apagada some', () => {
+test('designer: x.json e x.html na mesma pasta é erro claro; nome inválido e duplicado dão erro; página apagada some', () => {
   A.criarSite(ID, { carros: [A.carro()], site: { paginas: [{ caminho: 'x', titulo: 'do json', blocos: [{ tipo: 'texto', html: '<p>JSON</p>' }] }] } });
   escrever(pastaLivre('x.html'), '<p>ARQUIVO</p>');
+  assert.throws(() => build(), /"x" duplicada.*x\.json.*x\.html/);
+  fs.rmSync(pastaLivre('x.html'));
   escrever(pastaLivre('y.html'), '<p>y</p>');
   build();
-  assert.match(A.ler(ID, 'x/index.html'), /JSON/);
+  assert.match(A.ler(ID, 'paginas/x/index.html'), /JSON/);
   fs.rmSync(pastaLivre('y.html'));
   build();
-  assert.ok(!A.existe(ID, 'y/index.html'));
+  assert.ok(!A.existe(ID, 'paginas/y/index.html'));
   escrever(pastaLivre('Feirao Novo.html'), '<p>x</p>');
   assert.throws(() => build(), /nome inválido "Feirao Novo"/);
   fs.rmSync(pastaLivre('Feirao Novo.html'));
@@ -644,10 +660,10 @@ test('formatoUrls "revendamais": páginas de filtro nos endereços do Revenda Ma
 test('páginas padrão novas: financiamento e avaliação (com as lojas do site no formulário)', () => {
   A.criarSite(ID, { carros: [A.carro()] });
   build();
-  assert.match(A.ler(ID, 'financiamento/index.html'), /js-form-zap/);
-  const av = A.ler(ID, 'avaliacao/index.html');
+  assert.match(A.ler(ID, 'paginas/financiamento/index.html'), /js-form-zap/);
+  const av = A.ler(ID, 'paginas/avaliacao/index.html');
   assert.match(av, /<option>Loja Centro<\/option>/);
-  assert.match(A.ler(ID, 'index.html'), /href="avaliacao\/">Avalie seu carro</);
+  assert.match(A.ler(ID, 'index.html'), /href="paginas\/avaliacao\/">Avalie seu carro</);
 });
 
 test('troca de formato: as páginas no endereço antigo somem, com as pastas vazias', () => {
@@ -666,7 +682,7 @@ test('páginas padrão vêm do TEMPLATE: editar o texto atualiza a página sem r
   fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'templates', 'teste'), dir, { recursive: true });
   A.criarSite(ID, { carros: [A.carro(), A.carro()], site: { template: 'teste-padrao' } });
   build();
-  assert.ok(A.existe(ID, 'lgpd/index.html'));
+  assert.ok(A.existe(ID, 'paginas/lgpd/index.html'));
   assert.ok(!A.existe(ID, 'paginas-padrao/lgpd.json'), 'o JSON da página não vai para o site');
   const arq = path.join(dir, 'paginas-padrao', 'lgpd.json');
   const j = JSON.parse(fs.readFileSync(arq, 'utf8'));
@@ -674,11 +690,51 @@ test('páginas padrão vêm do TEMPLATE: editar o texto atualiza a página sem r
   fs.writeFileSync(arq, JSON.stringify(j));
   A.limparPendentes();
   const f = build();
-  assert.match(A.ler(ID, 'lgpd/index.html'), /Texto oficial do jurídico/);
+  assert.match(A.ler(ID, 'paginas/lgpd/index.html'), /Texto oficial do jurídico/);
   assert.equal(f.resumo.alterados + f.resumo.novos, 0);
   assert.equal(f.resumo.base, false, 'páginas de carro não foram refeitas');
   // template sem paginas-padrao: o site simplesmente não ganha essas páginas
   fs.rmSync(path.join(dir, 'paginas-padrao'), { recursive: true });
   build();
-  assert.ok(!A.existe(ID, 'lgpd/index.html'));
+  assert.ok(!A.existe(ID, 'paginas/lgpd/index.html'));
+});
+
+test('páginas ficam em /paginas/<nome>/; o endereço antigo redireciona; links simples ("contato/", "/lojas/") são ajustados', () => {
+  A.criarSite(ID, { carros: [A.carro()], site: { cabecalho: { menu: [{ rotulo: 'Lojas', link: 'lojas/' }, { rotulo: 'Estoque', link: 'multipla/' }] },
+    paginas: [{ caminho: 'lojas', titulo: 'Lojas', blocos: [{ tipo: 'lojas' }] }] } });
+  const pasta = path.join(A.raiz(), 'sites', ID, 'paginas');
+  fs.writeFileSync(path.join(pasta, 'feirao.html'), '<h1>Feirão</h1><a href="/lojas/">lojas</a> <a href="/multipla/">estoque</a>');
+  build();
+  assert.ok(A.existe(ID, 'paginas/lojas/index.html') && A.existe(ID, 'paginas/lgpd/index.html') && A.existe(ID, 'paginas/feirao/index.html'));
+  assert.ok(!A.existe(ID, 'lojas/index.html'), 'site novo: nada na raiz');
+  assert.match(A.ler(ID, 'index.html'), /href="paginas\/lojas\/"/, 'menu "lojas/" do site.json vai para /paginas/lojas/');
+  assert.match(A.ler(ID, 'index.html'), /href="multipla\/"/, 'o que não é página fica como está');
+  const f = A.ler(ID, 'paginas/feirao/index.html');
+  assert.match(f, /href="\.\.\/\.\.\/paginas\/lojas\/"/, 'HTML do designer: "/lojas/" vira a página certa');
+  assert.match(f, /href="\.\.\/\.\.\/multipla\/"/);
+  assert.deepEqual(A.verificarSiteGerado(ID), []);
+});
+
+test('mudança de endereço: página que estava na raiz redireciona (e o formato Revenda Mais mantém sempre a raiz)', () => {
+  A.criarSite(ID, { carros: [A.carro()], site: { paginas: [{ caminho: 'lojas', blocos: [{ tipo: 'lojas' }] }] } });
+  build({ hoje: '2026-01-01' });
+  // simula o estado de antes da mudança: a página estava na raiz
+  const arqEst = path.join(A.raiz(), '.estado', 'dist', `${ID}.json`);
+  const est = JSON.parse(fs.readFileSync(arqEst, 'utf8'));
+  est.paginas = est.paginas.map((p) => p.replace(/^paginas\//, ''));
+  fs.writeFileSync(arqEst, JSON.stringify(est));
+  A.limparPendentes();
+  build({ hoje: '2026-01-02' });
+  const r = A.ler(ID, 'lojas/index.html');
+  assert.match(r, /http-equiv="refresh" content="0; url=\.\.\/paginas\/lojas\/"/);
+  assert.match(r, /noindex/);
+  assert.ok(!A.pendente(ID).removidos.includes(`${ID}/lojas/index.html`), 'o endereço antigo não sai do ar');
+  assert.ok(!A.ler(ID, 'sitemap.xml').includes(`${ID}/lojas/<`), 'redirecionamento fora do sitemap');
+  build({ hoje: '2026-08-01' }); // 180 dias depois: some
+  assert.ok(!A.existe(ID, 'lojas/index.html'));
+  // formato Revenda Mais: /lojas, /contato... sempre redirecionam (o Google conhece esses endereços do site antigo)
+  const cfg = A.lerSite(ID); cfg.formatoUrls = 'revendamais'; A.gravarSite(ID, cfg);
+  build({ hoje: '2026-08-02' });
+  assert.match(A.ler(ID, 'contato/index.html'), /url=\.\.\/paginas\/contato\//);
+  assert.match(A.ler(ID, 'lojas/index.html'), /url=\.\.\/paginas\/lojas\//);
 });

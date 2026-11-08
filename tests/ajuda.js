@@ -40,17 +40,27 @@ const LOJAS = {
   sul: { nome: 'Loja Sul', cidade: 'Porto Alegre', uf: 'RS', endereco: 'Rua B, 2 - Porto Alegre - RS' },
 };
 
-// grava sites/<id>/site.json e estoque.json
+// páginas de um site: cada uma é um ARQUIVO em sites/<id>/paginas/ (index.json = home, lojas.json, a/b.json).
+// Os testes descrevem as páginas como lista { caminho, ...página }; isto grava os arquivos (apagando os .json antigos).
+const arqPagina = (id, caminho) => path.join(RAIZ, 'sites', id, 'paginas', `${String(caminho).replace(/^\/+|\/+$/g, '') || 'index'}.json`);
+function gravarPaginas(id, paginas) {
+  const dir = path.join(RAIZ, 'sites', id, 'paginas');
+  for (const f of listar(dir).filter((x) => x.endsWith('.json'))) fs.rmSync(f);
+  for (const { caminho, ...p } of paginas) { const f = arqPagina(id, caminho ?? ''); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify(p)); }
+}
+// grava sites/<id>/site.json, estoque.json e (se vier "paginas") os arquivos de sites/<id>/paginas/
 function criarSite(id, { site = {}, carros = [] } = {}) {
   const dir = path.join(RAIZ, 'sites', id);
   fs.mkdirSync(dir, { recursive: true });
-  const cfg = { nome: `Site ${id}`, slogan: 'Seminovos de teste', motor: 'v2', template: 'teste', url: `https://${id}`, whatsapp: '5511999999999', fotosBase: 'https://fotos.teste/', lojas: LOJAS, ...site };
+  const { paginas, ...resto } = site;
+  const cfg = { nome: `Site ${id}`, slogan: 'Seminovos de teste', motor: 'v2', template: 'teste', url: `https://${id}`, whatsapp: '5511999999999', fotosBase: 'https://fotos.teste/', lojas: LOJAS, ...resto };
   fs.writeFileSync(path.join(dir, 'site.json'), JSON.stringify(cfg, null, 2));
   fs.writeFileSync(path.join(dir, 'estoque.json'), JSON.stringify({ carros }));
+  if (paginas) gravarPaginas(id, paginas);
   return cfg;
 }
 const lerSite = (id) => JSON.parse(fs.readFileSync(path.join(RAIZ, 'sites', id, 'site.json'), 'utf8'));
-const gravarSite = (id, cfg) => fs.writeFileSync(path.join(RAIZ, 'sites', id, 'site.json'), JSON.stringify(cfg, null, 2));
+const gravarSite = (id, cfg) => { const { paginas, ...resto } = cfg; fs.writeFileSync(path.join(RAIZ, 'sites', id, 'site.json'), JSON.stringify(resto, null, 2)); if (paginas) gravarPaginas(id, paginas); };
 const gravarEstoque = (id, carros) => fs.writeFileSync(path.join(RAIZ, 'sites', id, 'estoque.json'), JSON.stringify({ carros }));
 
 const saida = (id, arq = '', pasta = 'dist') => path.join(RAIZ, pasta, id, arq);
@@ -135,7 +145,7 @@ async function silenciosoAsync(fn) {
 }
 
 module.exports = {
-  PROJETO, prepararRaiz, raiz, limpar, carro, LOJAS, criarSite, lerSite, gravarSite, gravarEstoque,
+  PROJETO, prepararRaiz, raiz, limpar, carro, LOJAS, criarSite, lerSite, gravarSite, gravarEstoque, gravarPaginas, arqPagina,
   saida, existe, ler, lerJSON, listar, marcadoresSobrando, linksQuebrados, verificarSiteGerado, carregarMotor,
   pendente, limparPendentes, silencioso, silenciosoAsync,
 };

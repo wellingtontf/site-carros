@@ -43,7 +43,7 @@ for (const id of reais) {
   test(`[${id}] páginas obrigatórias, SEO e ids que a listagem precisa`, () => {
     const dir = A.saida(id, '', 'dist-teste');
     for (const p of ['index.html', 'multipla/index.html', 'carros.json', 'config.json', 'motor/engine.js', 'motor/ui-lista.js', 'motor/link-carro.js', 'motor/ui-site.js',
-      'contato/index.html', 'politica-de-privacidade/index.html', 'politica-de-cookies/index.html', 'lgpd/index.html']) {
+      'paginas/contato/index.html', 'paginas/politica-de-privacidade/index.html', 'paginas/politica-de-cookies/index.html', 'paginas/lgpd/index.html']) {
       assert.ok(fs.existsSync(path.join(dir, p)), p);
     }
     const lista = fs.readFileSync(path.join(dir, 'multipla', 'index.html'), 'utf8');

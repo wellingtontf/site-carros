@@ -1,0 +1,13 @@
+{
+  "titulo": "Nossas lojas",
+  "blocos": [
+    {
+      "tipo": "titulo",
+      "titulo": "Nossas lojas",
+      "subtitulo": "São Paulo e Rio de Janeiro"
+    },
+    {
+      "tipo": "lojas"
+    }
+  ]
+}

@@ -64,7 +64,7 @@ O GitHub roda tudo a cada push (`.github/workflows/testes.yml`).
 | `motor/engine.js`, `motor/ui-*.js` | `core/motor/<versao do site>/` e `core/ui/` |
 | `css/`, `js/`, `img/`... | `templates/<nome>/` (tudo menos `paginas/` e `template.json`) |
 | `assets/` | `sites/<dominio>/assets/` |
-| `index.html` (home institucional) | página `""` de `paginas` (sem ela, o core gera uma home padrão: banner + vitrine) |
+| `index.html` (home institucional) | `sites/<dominio>/paginas/index.json` (sem ela, o core gera uma home padrão: banner + vitrine) |
 | `multipla/index.html` (listagem do estoque, **sempre** em `/multipla`) | `templates/<nome>/paginas/index.html` + blocos de `estoque.blocosAntes/blocosDepois` |
 | `carros/<Marca>/<Modelo>/<Versao>/<...>-<id>.html` | `templates/<nome>/paginas/carro.html` (e `vendido.html`) |
 | `<caminho>/index.html` de cada página de conteúdo | `templates/<nome>/paginas/pagina.html` + `blocos/<tipo>.html` |
@@ -106,7 +106,19 @@ Campos opcionais:
 - `carroceria` (texto: Hatch, Sedan, SUV, Utilitário, Moto...): vira filtro `carroceria` e os atalhos por tipo da home.
 
 ## Páginas de conteúdo e blocos
-Além da listagem e das páginas dos carros, um site pode ter páginas de conteúdo (home institucional, "quero vender", lojas, política...). Cada página é uma lista de **blocos**; cada tipo de bloco é um HTML do template (`templates/<nome>/blocos/<tipo>.html`). Exemplo completo em `sites/trokey.com.br/site.json`.
+Além da listagem e das páginas dos carros, um site pode ter páginas de conteúdo (home institucional, "quero vender", lojas, política...). **Toda página que não é padrão do template é um arquivo em `sites/<dominio>/paginas/`**: é ali que o web designer cria uma página nova, sem mexer no `site.json` (que não tem lista de páginas). O endereço vem do nome do arquivo:
+
+```
+sites/<dominio>/paginas/           (fonte)       →  site publicado
+  index.json                                     →  /                       (a home)
+  lojas.json            (página de BLOCOS)       →  /paginas/lojas/
+  sobre/nos.json                                 →  /paginas/sobre/nos/
+  feirao.html           (HTML livre do designer) →  /paginas/feirao/
+  feirao/index.html     (com imagens/css junto)  →  /paginas/feirao/
+```
+No site publicado, **toda página de conteúdo fica em `/paginas/<nome>/`** (as padrão também: `/paginas/lgpd/`, `/paginas/contato/`). Só a home fica na raiz, com `/multipla/` (estoque) e `/carros/...`. Links escritos do jeito simples continuam valendo: `"link": "contato/"` no cadastro ou nos blocos e `href="/lojas/"` no HTML do designer são ajustados para `/paginas/...` pelo build. Página que mudou de lugar (estava em `/contato/`) deixa o endereço antigo redirecionando por 180 dias; nos sites `"formatoUrls": "revendamais"`, a raiz (`/contato`, `/financiamento`...) redireciona sempre, porque o Google conhece esses endereços do site antigo.
+
+Uma página de blocos é `{ "titulo", "descricao", "rotulo", "blocos": [...] }`; cada tipo de bloco é um HTML do template (`templates/<nome>/blocos/<tipo>.html`). Exemplos em `sites/trokey.com.br/paginas/`. O `site.json` guarda só o resto (cabeçalho, rodapé, estoque):
 ```json
 "cabecalho": { "menu": [ { "rotulo": "ESTOQUE", "link": "estoque/" }, { "rotulo": "FRANQUIA", "link": "https://..." } ],
                "botao": { "rotulo": "SEJA UM AUTO BROKER", "link": "https://..." } },
@@ -114,19 +126,20 @@ Além da listagem e das páginas dos carros, um site pode ter páginas de conte�
                "sociais": [ { "rede": "Instagram", "link": "https://..." } ], "copyright": "..." },
 "estoque":   { "caminho": "estoque",
                "blocosAntes":  [ { "tipo": "banner", "imagem": "assets/banner-estoque.webp", "alt": "..." } ],
-               "blocosDepois": [ { "tipo": "chamada", "titulo": "...", "botao": "...", "mensagem": "..." } ] },
-"paginas": [
-  { "caminho": "", "titulo": "Trokey Motors", "descricao": "...", "blocos": [
-      { "tipo": "banner", "imagem": "assets/home-hero.webp", "alt": "..." },
-      { "tipo": "vitrine", "titulo": "NOSSO ESTOQUE", "quantidade": 4, "botao": "VER ESTOQUE COMPLETO" } ] },
-  { "caminho": "politica-privacidade", "titulo": "Política de Privacidade", "blocos": [
-      { "tipo": "texto", "html": "<h3>...</h3><p>...</p>" } ] } ]
+               "blocosDepois": [ { "tipo": "chamada", "titulo": "...", "botao": "...", "mensagem": "..." } ] }
 ```
-- A listagem do estoque fica **sempre** em `/multipla/` (`multipla` é reservado). A raiz é a home institucional: a página `"caminho": ""`; se o site não tiver uma, o core gera a home padrão.
+E `sites/trokey.com.br/paginas/index.json` (a home):
+```json
+{ "titulo": "Trokey Motors", "descricao": "...", "blocos": [
+    { "tipo": "banner", "imagem": "assets/home-hero.webp", "alt": "..." },
+    { "tipo": "vitrine", "titulo": "NOSSO ESTOQUE", "quantidade": 4, "botao": "VER ESTOQUE COMPLETO" } ] }
+```
+Site antigo com `"paginas"` no `site.json`: o build recusa e explica; `node ferramentas/mover-paginas.js` move cada página para um arquivo.
+- A listagem do estoque fica **sempre** em `/multipla/` (`multipla` é reservado). A raiz é a home institucional: `paginas/index.json`; se o site não tiver uma, o core gera a home padrão.
 - Um template pode mostrar o estoque já na home com o bloco `listagem` (o estoque interativo, com ou sem filtros, na ordem do estoque; os primeiros cards já saem no HTML). Só um por página.
 - Dados do estoque disponíveis em qualquer página/bloco: `{{estoque.total}}`, `{{estoque.destaques}}`, `{{#estoque.cidades}}`, `{{#estoque.marcas}}`, `{{#estoque.carrocerias}}`, `{{#estoque.combustiveis}}` (cada item: `valor`, `total`, `link` para `/multipla/?campo=valor`, `chave` sem acento) e `{{#estoque.lojas}}`. Os nomes entram no hash das páginas de carro; as **contagens não**: nas páginas de carro use `.js-total` (o `config.json` traz `total`).
 - Links e imagens relativos (`link`, `imagem`, `foto`, `logo`...) são relativos à raiz do site; o build ajusta para cada página.
-- Página que sai do `site.json` tem o HTML apagado no próximo build. Todas entram no `sitemap.xml`.
+- Arquivo de página apagado: o HTML some no próximo build. Todas entram no `sitemap.xml`. `x.json` e `x.html` na mesma pasta é erro (uma só por endereço).
 - Blocos do template `trokey`:
 
 | tipo | campos |
@@ -168,7 +181,7 @@ Você só cria **arquivos HTML** numa pasta. Sem JSON, sem configuração, sem p
 ## Páginas padrão (todo site ganha): `templates/<nome>/paginas-padrao/`
 `contato`, `financiamento`, `avaliacao`, `politica-de-privacidade`, `politica-de-cookies` e `lgpd` ficam **no template**, em `templates/<nome>/paginas-padrao/<nome>.json` (mesmo formato de uma página do `site.json`). Cada template é autocontido e traz as suas; templates próprios de inquilino (`inquilinos/<id>/templates/`) também. Todo template precisa ter pelo menos contato, privacidade, cookies e LGPD (um teste cobra). Elas são geradas em **todos** os sites do template, com os dados de cada um: `{{site.nome}}`, `{{site.dominio}}`, `{{site.url}}`, `{{site.whatsapp}}`, `{{empresa.razaoSocial}}`, `{{empresa.cnpj}}`, `{{empresa.email}}`, `{{empresa.encarregado}}` e `{{rel}}` (prefixo até a raiz, para links internos). O jurídico muda o texto no `paginas-padrao/` de cada template e o build atualiza os sites dele, sem refazer as páginas de carro (essa pasta fica fora do hash do template).
 - Dados legais por site: `"empresa": { "razaoSocial": "...", "cnpj": "...", "email": "dpo@...", "encarregado": "Fulano" }` no `site.json` (sem eles, o texto usa o nome do site e a página de contato).
-- O site **substitui** uma página padrão criando em `paginas` uma de mesmo `caminho`, ou **desliga**: `"paginasPadrao": { "lgpd": false }`.
+- O site **substitui** uma página padrão criando em `sites/<dominio>/paginas/` uma de mesmo nome (ex.: `contato.json`), ou **desliga**: `"paginasPadrao": { "lgpd": false }`.
 - Página com `"provisorio": true` gera um aviso no build (uma vez, não um por site) até o texto oficial chegar.
 - Formulário: campo `"opcoesDe": "lojas"` lista as lojas do site.
 - Páginas com `"rotulo"` entram em `{{#site.links}}` (rodapé de todos os templates).

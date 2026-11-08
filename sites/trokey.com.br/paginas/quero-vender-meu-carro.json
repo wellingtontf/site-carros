@@ -1,0 +1,105 @@
+{
+  "titulo": "Venda seu carro | Trokey",
+  "descricao": "Envie os dados do seu carro para receber uma avaliação personalizada da nossa equipe especializada.",
+  "blocos": [
+    {
+      "tipo": "banner",
+      "imagem": "assets/vender-banner.webp",
+      "alt": "Venda seu carro com transparência e segurança"
+    },
+    {
+      "tipo": "banner",
+      "imagem": "assets/vender-faixa.webp",
+      "alt": "Avalie seu veículo"
+    },
+    {
+      "tipo": "formulario",
+      "subtitulo": "Envie os dados do seu carro para receber uma avaliação personalizada da nossa equipe especializada.",
+      "botao": "Enviar Para Avaliação",
+      "aviso": "Ao enviar este formulário, você concorda com nossa política de privacidade.",
+      "mensagem": "Olá! Quero vender meu carro. Seguem os dados:",
+      "campos": [
+        {
+          "rotulo": "Nome Completo",
+          "tipo": "linha",
+          "obrigatorio": true,
+          "dica": "Seu nome completo",
+          "meia": true
+        },
+        {
+          "rotulo": "E-mail",
+          "tipo": "email",
+          "obrigatorio": true,
+          "dica": "seu@email.com",
+          "meia": true
+        },
+        {
+          "rotulo": "Telefone / WhatsApp",
+          "tipo": "telefone",
+          "obrigatorio": true,
+          "dica": "(00) 9 0000-0000",
+          "meia": true
+        },
+        {
+          "rotulo": "Marca",
+          "tipo": "linha",
+          "dica": "Ex: Volkswagen, Honda...",
+          "meia": true
+        },
+        {
+          "rotulo": "Modelo",
+          "tipo": "linha",
+          "obrigatorio": true,
+          "dica": "Ex: Corolla, Civic...",
+          "meia": true
+        },
+        {
+          "rotulo": "Ano",
+          "tipo": "linha",
+          "obrigatorio": true,
+          "dica": "Ex: 2024/2025",
+          "meia": true
+        },
+        {
+          "rotulo": "Quilometragem (KM)",
+          "tipo": "linha",
+          "obrigatorio": true,
+          "dica": "Ex: 45.000",
+          "meia": true
+        },
+        {
+          "rotulo": "Placa (Opcional)",
+          "tipo": "linha",
+          "dica": "Ex: ABC-1234",
+          "meia": true
+        },
+        {
+          "rotulo": "Cor",
+          "tipo": "linha",
+          "obrigatorio": true,
+          "dica": "Ex: Prata, Preto...",
+          "meia": true
+        },
+        {
+          "rotulo": "Estado de Conservação",
+          "tipo": "lista",
+          "obrigatorio": true,
+          "meia": true,
+          "opcoes": [
+            "Novo (0km)",
+            "Seminovo - Excelente",
+            "Seminovo - Bom",
+            "Usado - Bom",
+            "Usado - Regular",
+            "Necessita de Reparos"
+          ]
+        },
+        {
+          "rotulo": "Observações Adicionais",
+          "tipo": "texto-longo",
+          "dica": "Descreva detalhes como acessórios, revisões , sinistros, etc."
+        }
+      ]
+    }
+  ]
+}

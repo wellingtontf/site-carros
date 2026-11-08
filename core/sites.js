@@ -109,7 +109,8 @@ function validarSite(s, dominio) {
   if (s.url != null && !(typeof s.url === 'string' && /^https:\/\/[^\s/]+\/?$/i.test(s.url))) e('"url" precisa ser https://dominio (sem caminho)');
   if (s.fotosBase != null && !(typeof s.fotosBase === 'string' && /^https?:\/\/\S+\/$/i.test(s.fotosBase))) e('"fotosBase" precisa ser uma URL terminada em "/"');
   if (s.whatsapp != null && !/^\d{10,15}$/.test(String(s.whatsapp))) e('"whatsapp" só com números, com DDI e DDD (ex.: 5541999990000)');
-  for (const k of ['paginas', 'filtros', 'ordenacao']) if (s[k] != null && !Array.isArray(s[k])) e(`"${k}" deve ser lista`);
+  for (const k of ['filtros', 'ordenacao']) if (s[k] != null && !Array.isArray(s[k])) e(`"${k}" deve ser lista`);
+  if (s.paginas != null) e('"paginas" não vai no cadastro: cada página é um arquivo em sites/<dominio>/paginas/ (index.json = home, lojas.json...)');
   if (s.rascunho != null && typeof s.rascunho !== 'boolean') e('"rascunho" deve ser true ou false');
   if (s.robots != null) { const r = require('./robots').validarRobots(s.robots); r.erros.forEach((x) => e(`robots: ${x}`)); }
   if (s.feedXml != null && s.feedXml !== false && !(typeof s.feedXml === 'object' && typeof s.feedXml.caminho === 'string' && /^[a-z0-9][a-z0-9_/-]*\.xml$/.test(s.feedXml.caminho))) e('"feedXml" deve ser false ou { "caminho": "estoque.xml" }');
@@ -120,11 +121,14 @@ function validarSite(s, dominio) {
     if (!ID_LOJA.test(id)) e(`loja "${id}": id só com minúsculas, números e hífen`);
     if (!l || !txt(l.nome) || !txt(l.cidade) || !/^[A-Z]{2}$/.test(String(l && l.uf))) e(`loja "${id}": precisa de "nome", "cidade" e "uf" (2 letras maiúsculas)`);
   }
-  // blocos das páginas precisam existir no template (senão o build para)
-  if (Array.isArray(s.paginas) && txt(s.template)) {
-    s.paginas.forEach((p, i) => (p && Array.isArray(p.blocos) ? p.blocos : []).forEach((b) => {
-      if (!b || !/^[a-z0-9-]+$/.test(String(b.tipo)) || !fs.existsSync(path.join(Inq.dirTemplate(inq, s.template), 'blocos', `${b.tipo}.html`))) e(`página ${i + 1}: bloco "${b && b.tipo}" não existe no template "${s.template}"`);
-    }));
+  // trocar de template: os blocos das páginas do site (sites/<dominio>/paginas/*.json) precisam existir no template novo
+  if (txt(s.template) && ID_SITE.test(String(dominio))) {
+    for (const p of require('./paginas-livres').lerPaginasJson(C.paginasLivresSite(dominio))) {
+      const j = lerJSON(p.arquivo, {});
+      for (const b of Array.isArray(j.blocos) ? j.blocos : []) {
+        if (!b || !/^[a-z0-9-]+$/.test(String(b.tipo)) || !fs.existsSync(path.join(Inq.dirTemplate(inq, s.template), 'blocos', `${b.tipo}.html`))) e(`página "${p.caminho || '(home)'}": bloco "${b && b.tipo}" não existe no template "${s.template}"`);
+      }
+    }
   }
   // o estoque que já está no ar precisa continuar válido com as lojas novas
   if (ID_SITE.test(String(dominio))) {

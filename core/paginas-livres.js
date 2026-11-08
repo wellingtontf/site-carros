@@ -1,9 +1,16 @@
-// Páginas livres dos web designers: HTML normal, sem JSON, sem mexer no core.
+// Páginas criadas pelos web designers, sem mexer no core. TODA página de um site que não é padrão do template mora
+// em sites/<dominio>/paginas/ (o site.json não tem lista de páginas):
 //
 //   sites/<dominio>/paginas/            páginas SÓ deste site
-//   templates/<nome>/paginas-extras/    páginas de TODOS os sites do template
+//   templates/<nome>/paginas-extras/    páginas livres de TODOS os sites do template
 //
-// Formatos (o designer escolhe):
+// Páginas de BLOCOS (JSON, os blocos do template: lojas, vitrine, listagem, formulário...):
+//   index.json                          → / (a home)
+//   lojas.json                          → /lojas/
+//   sobre/nos.json                      → /sobre/nos/
+//   conteúdo: { "titulo": "...", "descricao": "...", "rotulo": "...", "blocos": [ { "tipo": "lojas" }, ... ] }
+//
+// Páginas LIVRES (HTML normal). Formatos (o designer escolhe):
 //   feirao.html                         → /feirao/
 //   feirao/index.html + imagens, css…   → /feirao/ (os arquivos da pasta vão junto: dá para abrir o index.html direto
 //                                          no navegador e ver igual ao site)
@@ -72,9 +79,10 @@ function metadados(html, caminho) {
   };
 }
 
-// href="/multipla/" → href="../multipla/" (relativo à página), também src= e srcset=
-function linksRelativos(html, rel) {
-  const ajusta = (u) => (u.startsWith('/') && !u.startsWith('//') ? (rel || './') + u.slice(1) : u);
+// href="/multipla/" → href="../multipla/" (relativo à página), também src= e srcset=.
+// mapa: ajusta o caminho antes (ex.: "/contato/" → "paginas/contato/": o designer escreve o endereço simples)
+function linksRelativos(html, rel, mapa = (x) => x) {
+  const ajusta = (u) => (u.startsWith('/') && !u.startsWith('//') ? (rel || './') + mapa(u.slice(1)) : u);
   return html
     .replace(/\b(href|src|action|poster)=(["'])(\/[^"']*)\2/gi, (_, a, q, u) => `${a}=${q}${ajusta(u)}${q}`)
     .replace(/\bsrcset=(["'])([^"']*)\1/gi, (_, q, v) => `srcset=${q}${v.split(',').map((p) => p.trim().replace(/^\S+/, ajusta)).join(', ')}${q}`);
@@ -97,4 +105,22 @@ function completarLivre(html, rel, { titulo = '', descricao = '', canon = '' } =
   return h;
 }
 
-module.exports = { lerPaginasLivres, metadados, linksRelativos, completarLivre };
+// páginas de blocos (*.json) de uma pasta → [{ caminho, arquivo }]. Pasta que é página HTML (tem index.html) é dela:
+// um .json lá dentro é arquivo da página, não outra página.
+function lerPaginasJson(raiz) {
+  const paginas = [];
+  if (!fs.existsSync(raiz)) return paginas;
+  const andar = (dir, prefixo) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const abs = path.join(dir, e.name);
+      if (e.isFile() && e.name.endsWith('.json')) {
+        const nome = e.name.slice(0, -5);
+        paginas.push({ caminho: nome === 'index' ? prefixo.replace(/\/$/, '') : prefixo + nome, arquivo: abs });
+      } else if (e.isDirectory() && !fs.existsSync(path.join(abs, 'index.html'))) andar(abs, `${prefixo}${e.name}/`);
+    }
+  };
+  andar(raiz, '');
+  return paginas;
+}
+
+module.exports = { lerPaginasJson, lerPaginasLivres, metadados, linksRelativos, completarLivre };

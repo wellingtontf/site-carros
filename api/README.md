@@ -122,7 +122,7 @@ Para um site que **já está no ar** e muda de domínio (caso raro; rascunho usa
 }
 ```
 
-Obrigatórios: `nome`, `template` e `motor`. As `lojas` são opcionais num site novo (cada uma com `nome`, `cidade` e `uf`); sem loja, o site não aceita estoque. Os opcionais (`cabecalho`, `rodape`, `paginas`, `filtros`, `tema`...) seguem o mesmo formato do `site.json` (README do projeto). A API recusa (422, nada gravado): template ou motor inexistente, bloco que o template não tem, `url` sem https e loja removida que ainda tem carros no estoque. O cadastro anterior fica guardado como cópia de segurança.
+Obrigatórios: `nome`, `template` e `motor`. As `lojas` são opcionais num site novo (cada uma com `nome`, `cidade` e `uf`); sem loja, o site não aceita estoque. Os opcionais (`cabecalho`, `rodape`, `filtros`, `tema`...) seguem o mesmo formato do `site.json` (README do projeto). As **páginas não vão no cadastro**: cada página é um arquivo em `sites/<dominio>/paginas/`, criado pelo web designer (um cadastro com `"paginas"` volta 422). A API recusa (422, nada gravado): template ou motor inexistente, bloco que o template não tem, `url` sem https e loja removida que ainda tem carros no estoque. O cadastro anterior fica guardado como cópia de segurança.
 
 ## Vários sites numa chamada
 

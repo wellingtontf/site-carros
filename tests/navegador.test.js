@@ -113,10 +113,10 @@ for (const t of templates) {
   });
 
   test(`[${t}] aviso de cookies aparece (com link para a política) e o contato tem o formulário`, { skip: pular }, async () => {
-    const { dom, erros } = await abrir(`${base}/${id}/contato/`);
+    const { dom, erros } = await abrir(`${base}/${id}/paginas/contato/`);
     assert.deepEqual(erros, []);
     assert.match(dom, /class="aviso-cookies"/, 'aviso de cookies');
-    assert.match(dom, /href="\.\.\/politica-de-cookies\/"[^>]*>Saiba mais/);
+    assert.match(dom, /href="\.\.\/\.\.\/paginas\/politica-de-cookies\/"[^>]*>Saiba mais/);
     assert.match(dom, /class="b-form-campos js-form-zap"/);
   });
 
