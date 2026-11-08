@@ -1,5 +1,5 @@
 // CloudFront Function (runtime cloudfront-js-2.0), evento "viewer request", na frente de TODOS os sites.
-// O S3 guarda os sites gerados (dist/<dominio>/...); esta função adapta o pedido do navegador ao que o S3 entende:
+// O S3 guarda os sites gerados (sites-public/<dominio>/...); esta função adapta o pedido do navegador ao que o S3 entende:
 //   /multipla/            → /multipla/index.html          (S3 não tem "índice de pasta")
 //   /multipla             → 301 /multipla/                (um endereço só por página: bom para o SEO)
 //   /carros//x.html       → 301 /carros/x.html            (links antigos do Revenda Mais com "//")

@@ -6,17 +6,17 @@ Responda em português informal. Dono do projeto: Wellington (dev PHP/Yii, traba
 Plataforma com ~2500 sites estáticos de revendas de carros, cada um em um domínio próprio. Os sites têm busca, filtros e links personalizados. As atualizações precisam ser muito práticas, porque são muitos sites.
 
 ## Decisões de arquitetura (já tomadas)
-1. **Um site por domínio, um estoque por site:** `sites/<dominio>/` tem `site.json` (template, tema, textos, filtros, restrições, motor, vendedores, fotosBase, url e as `lojas` do site), `estoque.json` (o ÚNICO JSON de carros do site; cada carro diz sua `loja`, opcional se o site tem uma loja só) e `assets/` (logo, banner...). O nome da pasta é o domínio e o id do site (não há campo `id`). Não existe mais estoque nem loja compartilhados entre sites (decisão do Wellington: "sempre será passado só um json de estoque de carros").
+1. **Um site por domínio, um estoque por site:** `sites-config/<dominio>/` tem `site.json` (template, tema, textos, filtros, restrições, motor, vendedores, fotosBase, url e as `lojas` do site), `estoque.json` (o ÚNICO JSON de carros do site; cada carro diz sua `loja`, opcional se o site tem uma loja só) e `assets/` (logo, banner...). O nome da pasta é o domínio e o id do site (não há campo `id`). Não existe mais estoque nem loja compartilhados entre sites (decisão do Wellington: "sempre será passado só um json de estoque de carros").
 2. **Core isolado, visual separado:**
    - `core/` é só código: `motor/<versao>/engine.js` (busca, filtros em cascata, estado na URL e WhatsApp; não mexe em DOM, roda no navegador e no Node), `ui/` (liga o motor à página), `caminhos.js` (todos os caminhos), `build.js`, `cli.js`, `atualizar.js`, `sites.js` (validar/gravar cadastro), `fotos.js`.
    - `api/` é a porta de entrada HTTP (portas e adaptadores): só traduz HTTP ↔ core. **`core/` nunca importa de `api/`** (um teste cobra).
    - `templates/<nome>/` é autocontido: `template.json`, `paginas/{index,carro,vendido}.html`, `css/`, `js/`, `img/`. Hoje há `barra-topo`, `lateral`, `trokey` e `servopa`. Não existe base compartilhada entre templates.
-   - Páginas de conteúdo (home institucional, vender, lojas, política) são **arquivos em `sites/<dominio>/paginas/`** (decisão do Wellington: toda página que não é padrão fica ali; é onde o web designer cria páginas; o `site.json` NÃO tem lista de páginas e o build recusa `"paginas"` nele; `ferramentas/mover-paginas.js` migra). `index.json` = home, `lojas.json`, `a/b.json` (páginas de blocos) ou `.html` livre. **Endereço público: `/paginas/<nome>/`** (decisão do Wellington; constante `PASTA_PAGINAS`), inclusive as páginas padrão (`/paginas/lgpd/`); só a home fica na raiz. O build ajusta links simples (`"contato/"`, `href="/lojas/"`) para `/paginas/` (`paraPagina`); página que mudou de lugar redireciona do endereço antigo (`paginasMovidas` no estado, 180 dias; `formatoUrls: revendamais` = raiz redireciona sempre); cada tipo de bloco é `templates/<nome>/blocos/<tipo>.html`, a moldura é `paginas/pagina.html`, e pedaços comuns ficam em `parciais/` (`{{> nome}}`). `estoque.caminho` põe a listagem numa subpasta (Trokey: `/estoque/`). `cabecalho` e `rodape` também vêm do `site.json`. Hoje só o template `trokey` tem blocos.
-   - **A listagem do estoque fica SEMPRE em `/multipla/`** (constante `CAMINHO_ESTOQUE` no build); a raiz é a home institucional (`sites/<dominio>/paginas/index.json`, ou a `HOME_PADRAO` do core: banner + vitrine). Todo template precisa de `paginas/pagina.html` e dos blocos `banner` e `vitrine`. O bloco `listagem` põe o estoque interativo dentro de uma página (ex.: home da Servopa).
+   - Páginas de conteúdo (home institucional, vender, lojas, política) são **arquivos em `sites-config/<dominio>/paginas/`** (decisão do Wellington: toda página que não é padrão fica ali; é onde o web designer cria páginas; o `site.json` NÃO tem lista de páginas e o build recusa `"paginas"` nele; `ferramentas/mover-paginas.js` migra). `index.json` = home, `lojas.json`, `a/b.json` (páginas de blocos) ou `.html` livre. **Endereço público: `/paginas/<nome>/`** (decisão do Wellington; constante `PASTA_PAGINAS`), inclusive as páginas padrão (`/paginas/lgpd/`); só a home fica na raiz. O build ajusta links simples (`"contato/"`, `href="/lojas/"`) para `/paginas/` (`paraPagina`); página que mudou de lugar redireciona do endereço antigo (`paginasMovidas` no estado, 180 dias; `formatoUrls: revendamais` = raiz redireciona sempre); cada tipo de bloco é `templates/<nome>/blocos/<tipo>.html`, a moldura é `paginas/pagina.html`, e pedaços comuns ficam em `parciais/` (`{{> nome}}`). `estoque.caminho` põe a listagem numa subpasta (Trokey: `/estoque/`). `cabecalho` e `rodape` também vêm do `site.json`. Hoje só o template `trokey` tem blocos.
+   - **A listagem do estoque fica SEMPRE em `/multipla/`** (constante `CAMINHO_ESTOQUE` no build); a raiz é a home institucional (`sites-config/<dominio>/paginas/index.json`, ou a `HOME_PADRAO` do core: banner + vitrine). Todo template precisa de `paginas/pagina.html` e dos blocos `banner` e `vitrine`. O bloco `listagem` põe o estoque interativo dentro de uma página (ex.: home da Servopa).
    - **Compatível com o Revenda Mais (migração sem perder SEO):** campo `link` no carro (o link que o Revenda Mais já usa; tem regras/bugs próprios como cidade sem a letra acentuada "Maring", "//" e "R/t", impossíveis de recalcular) e `"formatoUrls": "revendamais"` no site (`/multipla/marca/<minúsculo>`, `/multipla/revenda_cidade_nome/<Cidade>`...). Endereços com espaço/acento vão codificados (função `url()` no build). Sitemap real da Servopa: só home, /multipla, /financiamento, /avaliacao, /contato, /multipla/marca/* e os carros.
    - **Ordem de exibição vem do estoque:** campo `ordem` (ou a posição no arquivo) → `carros.json` sai nessa ordem (campo `r`) e o motor v2 tem a ordenação `destaque` (padrão). Campos opcionais do carro: `ordem`, `destaque`, `carroceria`.
    - **Páginas padrão** (`templates/<nome>/paginas-padrao/*.json`: contato, financiamento, avaliação, política de privacidade, cookies, LGPD; decisão do Wellington: NÃO existe pasta global, elas são do template; um teste exige as 4 legais em todo template) entram em TODO site do template, preenchidas com `{{site.*}}`/`{{empresa.*}}`/`{{rel}}`; o site substitui (mesmo `caminho`) ou desliga (`paginasPadrao`). Textos legais estão como MODELO PROVISÓRIO até o jurídico do Revenda Mais mandar o oficial. Aviso de cookies e formulários por WhatsApp ficam no core (`core/ui/ui-site.js`), carregado por todas as páginas de todos os templates.
-   - **Páginas livres dos designers** (HTML normal, sem JSON): `sites/<dominio>/paginas/` (só aquele site) e `templates/<nome>/paginas-extras/` (todos os sites do template). Lógica em `core/paginas-livres.js`. Prioridade de mesmo caminho: `site.json` > pasta do site > `paginas-extras/` do template > `paginas-padrao/` do template. Editar `paginas-extras` ou `paginas-padrao` NÃO refaz páginas de carro (ficam fora do hash do template). O designer não pode precisar mexer no core: tudo que ele fizer de comum (links "/x", título, imagens na pasta) o build resolve.
+   - **Páginas livres dos designers** (HTML normal, sem JSON): `sites-config/<dominio>/paginas/` (só aquele site) e `templates/<nome>/paginas-extras/` (todos os sites do template). Lógica em `core/paginas-livres.js`. Prioridade de mesmo caminho: `site.json` > pasta do site > `paginas-extras/` do template > `paginas-padrao/` do template. Editar `paginas-extras` ou `paginas-padrao` NÃO refaz páginas de carro (ficam fora do hash do template). O designer não pode precisar mexer no core: tudo que ele fizer de comum (links "/x", título, imagens na pasta) o build resolve.
    - O web designer mexe só nos templates e nas pastas de páginas.
 3. **Motor versionado, com rollout:** `core/motor/rascunho` é o único lugar onde se edita. `congelar vN` copia o rascunho para `core/motor/vN`, que passa a ser imutável. `aplicar vN --sites a,b` ou `--todos` roda os testes antes. Existem `reverter` e `historico`. O site fixa a versão em `"motor": "v1"`.
 4. **Filtros configuráveis por site:** estado, cidade, loja, marca, modelo, ano, preço, km, câmbio, combustível e cor. Estado, cidade e loja funcionam em cascata, e marca filtra modelo. Dá para mudar rótulos, opções e ordem, e há `restricoes` (precoMin, precoMax, anoMin, marcas, estados, cidades).
@@ -34,16 +34,22 @@ Plataforma com ~2500 sites estáticos de revendas de carros, cada um em um domí
 - **Scripts de infra:** `ferramentas/infra/{criar,promover,renomear,remover}.sh` (CloudFront SaaS Manager + S3; `SIMULAR=1`), chamados pelo `infra.json` do inquilino com os IDs dele.
 - **Infra:** `infra/docker/Dockerfile` (código na imagem; dados em /dados = EFS; `SITE_CARROS_TEMPLATES`/`SITE_CARROS_PAGINAS_PADRAO`), `infra/k8s/` (kustomize: EFS RWX, api + HPA, trabalhador + KEDA pela métrica `site_carros_fila_pedidos`, ALB, IRSA), `infra/cloudfront/roteador.js` (função de borda: index.html, barra final, `//`). `/v1/pronto` e `/metrics` para o Kubernetes. Nada aplicado numa conta AWS ainda.
 
+## Pastas (decisão do Wellington, 2026-11-08)
+- `sites-config/<dominio>/` = a FONTE de cada site (site.json, estoque.json, paginas/, assets/), gravada pela API. Era `sites/`.
+- `sites-public/<dominio>/` = a SAÍDA gerada pelo build (o que vai para o ar). Era `dist/`. O nome mora em `C.PUBLICO` (core/caminhos.js); funções recebem `pasta = C.PUBLICO`.
+- As rotas da API continuam `/v1/sites/...` (endereço público da API, não é pasta).
+- `core/sitemap.js`: `gerarSitemap(dominio)` reconstrói o sitemap.xml a partir do estado do build (páginas + carros no ar); o build usa `montarSitemap` ao reconstruir o site; `node core/cli.js sitemap [dominios]`.
+
 ## Estrutura de arquivos
 ```
 core/                         SÓ CÓDIGO (isolado)
   caminhos.js                 todos os caminhos do projeto (nada monta caminho fora daqui)
   build.js                    build incremental (estado em .estado/<pasta>/<dominio>.json, pendências em .estado/<pasta>/pendentes/<dominio>.json)
   cli.js                      status | congelar | testar | aplicar | reverter | historico | atualizar | publicar
-  atualizar.js                valida, grava sites/<dominio>/estoque.json e reconstrói só aquele site; publicarPendentes()
+  atualizar.js                valida, grava sites-config/<dominio>/estoque.json e reconstrói só aquele site; publicarPendentes()
   robots.js                   modelo do robots.txt (config/robots.txt; site.json "robots" vale mais), validação com trava
                               contra Disallow: / ; atualizar.reescreverRobots() reescreve só o robots.txt de todos os sites
-  sites.js                    REPOSITÓRIO DE SITES: o único que lê sites/ (listar, existe, carregar, carregarTodos, lojas, estoque,
+  sites.js                    REPOSITÓRIO DE SITES: o único que lê sites-config/ (listar, existe, carregar, carregarTodos, lojas, estoque,
                               resumo, resumos, validarSite, cadastroNovo, gravarSite, criarArquivos, renomearArquivos). Nada mais
                               lista sites por conta própria (um teste cobra)
   operacoes.js                criarSite (estrutura + build + infra "criar"), promoverSite (RASCUNHO → definitivo: domínio final, tira
@@ -58,9 +64,9 @@ core/                         SÓ CÓDIGO (isolado)
                               carro que saiu; sem "enviar" grava em "pasta" (teste local). Estado em .estado/fotos/<dominio>.json
 api/                          API de integração (contrato: api/README.md). Depende do core; o core nunca depende dela
   servidor.js                 liga tudo: token, HTTP, fila, trabalhador de fotos
-  rotas.js                    /v1: GET/PUT/DELETE sites/<d>/paginas/<nome> e sites/<d>/assets/<arquivo> (core/arquivos-site.js: tipo
+  rotas.js                    /v1: GET/PUT/DELETE sites-config/<d>/paginas/<nome> e sites-config/<d>/assets/<arquivo> (core/arquivos-site.js: tipo
                               conferido pelo conteúdo, SVG sem código), avisos de campo desconhecido no cadastro (Sites.avisosSite),
-                              PUT sites/<d> (site.json inteiro) e PATCH sites/<d> (só os campos enviados, JSON Merge Patch; Sites.mesclar), POST sites (site novo só com domínio), POST sites/<d>/dominio (troca domínio), PUT site (cria se não existe), POST estoques (1..N sites), PUT estoque, PUT/DELETE carro,
+                              PUT sites-config/<d> (site.json inteiro) e PATCH sites-config/<d> (só os campos enviados, JSON Merge Patch; Sites.mesclar), POST sites (site novo só com domínio), POST sites-config/<d>/dominio (troca domínio), PUT site (cria se não existe), POST estoques (1..N sites), PUT estoque, PUT/DELETE carro,
                               POST build (lista ou todos), PUT/DELETE robots (todos os sites), POST atualizar (fontes), GET pedidos
   fila.js                     pedidos em disco (.estado/api/): aplica na ordem, valida um a um, 1 build por site por lote
   clientes.js, cli.js         tokens por sistema externo (config/clientes.json, só sha256): node api/cli.js cliente criar <nome> --sites a,b|*
@@ -68,14 +74,14 @@ api/                          API de integração (contrato: api/README.md). Dep
   http.js                     utilidades HTTP
   motor/rascunho, motor/vN    engine.js (vN imutável)
   ui/                         ui-util.js, ui-lista.js, ui-carro.js → vão para <site>/motor/ no build
-sites/<dominio>/              site.json, estoque.json, paginas/, assets/ (tudo gravável pela API; teste tests/api-ponta-a-ponta.test.js)
+sites-config/<dominio>/              site.json, estoque.json, paginas/, assets/ (tudo gravável pela API; teste tests/api-ponta-a-ponta.test.js)
 templates/<nome>/             template.json, paginas/, css/, js/, img/
 config/                       fontes.exemplo.json, publicacao.exemplo.json (copiar sem .exemplo; ignorados no git), historico.json
-ferramentas/                  gerar-exemplo.js, importar-trokey.py (teste de migração), auditar-dist.js (problemas de site estático no ar)
+ferramentas/                  gerar-exemplo.js, importar-trokey.py (teste de migração), auditar-sites.js (problemas de site estático no ar)
 ```
-Saída: `dist/<dominio>/` com `motor/` (core), `css/ js/ img/` (template), `assets/` (site), `index.html`, `404.html` (links a partir da raiz; `pagina404` no site.json), `estoque.xml` (feed XML de compatibilidade; `feedXml` no site.json), `carro/<id>/`, `carros.json`, `config.json`, `sitemap.xml`, `robots.txt`.
-**Pastas de saída:** `dist/` é a ÚNICA que vale (build, API, publicação). `dist-preview/` = `build.js --motor rascunho` (para olhar um motor novo; nunca publicada). `node core/cli.js testar` gera numa pasta temporária em `.estado/` e apaga no fim; os testes automáticos usam pastas temporárias fora do projeto. Uma `dist-teste/` na raiz é sobra antiga: pode apagar.
-Gerados e fora do git: `dist*/`, `.estado/`, `s3-local/` (simula o bucket de fotos; servido em :8081 nos testes locais).
+Saída: `sites-public/<dominio>/` com `motor/` (core), `css/ js/ img/` (template), `assets/` (site), `index.html`, `404.html` (links a partir da raiz; `pagina404` no site.json), `estoque.xml` (feed XML de compatibilidade; `feedXml` no site.json), `carro/<id>/`, `carros.json`, `config.json`, `sitemap.xml`, `robots.txt`.
+**Pastas de saída:** `sites-public/` é a ÚNICA que vale (build, API, publicação). `dist-preview/` = `build.js --motor rascunho` (para olhar um motor novo; nunca publicada). `node core/cli.js testar` gera numa pasta temporária em `.estado/` e apaga no fim; os testes automáticos usam pastas temporárias fora do projeto. Uma `dist-teste/` na raiz é sobra antiga: pode apagar.
+Gerados e fora do git: `sites-public/`, `dist-preview/`, `.estado/`, `s3-local/` (simula o bucket de fotos; servido em :8081 nos testes locais).
 
 ## Como a atualização funciona (já implementado e testado)
 - `node core/cli.js atualizar [dominios] [--publicar] [--forcar] [--completo]` busca em `config/fontes.json` (`{dominio: url | {url, headers}}`, aceita `${VAR}` de ambiente, timeout de 30 s).
@@ -100,7 +106,7 @@ Gerados e fora do git: `dist*/`, `.estado/`, `s3-local/` (simula o bucket de fot
 - A compressão (gzip/brotli) precisa estar ligada no servidor/CDN.
 
 ## Regras ao mexer no código
-- **Arquitetura de pastas é prioridade do Wellington:** core isolado em `core/`; cada site em `sites/<dominio>/` com subpastas; cada template inteiro dentro de `templates/<nome>/` (nada solto na raiz de `templates/`). Caminho novo → adicionar em `core/caminhos.js`.
+- **Arquitetura de pastas é prioridade do Wellington:** core isolado em `core/`; cada site em `sites-config/<dominio>/` com subpastas; cada template inteiro dentro de `templates/<nome>/` (nada solto na raiz de `templates/`). Caminho novo → adicionar em `core/caminhos.js`.
 - Nunca editar versões congeladas do motor (`core/motor/v1`, ...). Só `core/motor/rascunho`.
 - Rodar `npm test` antes de entregar mudanças (139+ testes, ~10 s; `npm run test:rapido` pula o Chrome). Bug corrigido → teste de regressão junto. O GitHub Actions roda os testes a cada push.
 - `VERSAO_HTML` em `core/build.js`: aumentar SÓ quando mudar o HTML/JSON gerado pelo build (refaz as páginas de todos os sites). O `tests/snapshot-html.test.js` cobra; depois de aumentar, `npm run test:snapshot`.

@@ -1,7 +1,7 @@
 // Páginas criadas pelos web designers, sem mexer no core. TODA página de um site que não é padrão do template mora
-// em sites/<dominio>/paginas/ (o site.json não tem lista de páginas):
+// em sites-config/<dominio>/paginas/ (o site.json não tem lista de páginas):
 //
-//   sites/<dominio>/paginas/            páginas SÓ deste site
+//   sites-config/<dominio>/paginas/            páginas SÓ deste site
 //   templates/<nome>/paginas-extras/    páginas livres de TODOS os sites do template
 //
 // Páginas de BLOCOS (JSON, os blocos do template: lojas, vitrine, listagem, formulário...):

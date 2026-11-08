@@ -22,7 +22,7 @@ const req = (metodo, caminho, { corpo, token = tokA } = {}) => fetch(url + camin
 });
 const reqJ = async (...a) => { const r = await req(...a); return { status: r.status, j: await r.json() }; };
 const esperar = async (cond, ms = 10000) => { const fim = Date.now() + ms; while (Date.now() < fim) { if (await cond()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; };
-const estoque = (id = ID) => JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites', id, 'estoque.json'), 'utf8')).carros;
+const estoque = (id = ID) => JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites-config', id, 'estoque.json'), 'utf8')).carros;
 const carrosJson = (id = ID) => JSON.parse(fs.readFileSync(A.saida(id, 'carros.json'), 'utf8'));
 
 async function subir(env = {}) {
@@ -85,12 +85,12 @@ test('site inexistente, domínio esquisito e rota errada: 404 sem derrubar nada'
 });
 
 test('JSON quebrado: 400; estoque inválido: 422 com a lista de erros e nada gravado', async () => {
-  const antes = fs.readFileSync(path.join(A.raiz(), 'sites', ID, 'estoque.json'), 'utf8');
+  const antes = fs.readFileSync(path.join(A.raiz(), 'sites-config', ID, 'estoque.json'), 'utf8');
   assert.equal((await req('PUT', `/v1/sites/${ID}/estoque`, { corpo: '{quebrado' })).status, 400);
   const r = await reqJ('PUT', `/v1/sites/${ID}/estoque`, { corpo: { carros: [A.carro({ marca: '' }), A.carro({ ano: 1800 })] } });
   assert.equal(r.status, 422);
   assert.ok(r.j.erros.some((e) => /marca/.test(e)) && r.j.erros.some((e) => /ano/.test(e)), JSON.stringify(r.j));
-  assert.equal(fs.readFileSync(path.join(A.raiz(), 'sites', ID, 'estoque.json'), 'utf8'), antes);
+  assert.equal(fs.readFileSync(path.join(A.raiz(), 'sites-config', ID, 'estoque.json'), 'utf8'), antes);
 });
 
 test('PUT do estoque inteiro com ?esperar: responde 200 já com o site refeito', async () => {
@@ -240,7 +240,7 @@ test('PUT /v1/sites/<d>: atualiza o cadastro e refaz; cadastro inválido é 422 
   const semLoja = await reqJ('PUT', `/v1/sites/${NOVO}`, { corpo: cadastro({ lojas: { outra: { nome: 'Outra', cidade: 'X', uf: 'SP' }, mais: { nome: 'Mais', cidade: 'Y', uf: 'SP' } } }), token: tokTodos });
   assert.equal(semLoja.status, 422);
   assert.match(semLoja.j.erros.join(' '), /ficariam sem loja/);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites', NOVO, 'site.json'), 'utf8')).nome, 'Loja Renomeada');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites-config', NOVO, 'site.json'), 'utf8')).nome, 'Loja Renomeada');
   assert.equal((await req('PUT', '/v1/sites/Dominio_Ruim', { corpo: cadastro(), token: tokTodos })).status, 422);
 });
 
@@ -278,7 +278,7 @@ test('POST /v1/build: lista de sites, ou todos (só com token "*")', async () =>
   assert.equal((await reqJ('GET', todos.j.link, { token: tokTodos })).j.concluido, true);
   assert.ok(idsDist().every((s) => A.existe(s, '404.html')), 'todos refeitos');
 });
-const idsDist = () => fs.readdirSync(path.join(A.raiz(), 'sites'));
+const idsDist = () => fs.readdirSync(path.join(A.raiz(), 'sites-config'));
 
 test('arquitetura: o core nunca depende da API (api/ → core/, nunca o contrário)', () => {
   const core = A.listar(path.join(A.PROJETO, 'core')).filter((f) => f.endsWith('.js'));
@@ -321,12 +321,12 @@ test('POST /v1/sites: cria site novo só com o domínio (modelo + infra), toda a
   const r = await reqJ('POST', '/v1/sites?esperar=20', { corpo: { dominio: D }, token: tokTodos });
   assert.equal(r.status, 201, JSON.stringify(r.j));
   assert.equal(r.j.resultado.infra.status, 'ok');
-  const dir = path.join(A.raiz(), 'sites', D);
+  const dir = path.join(A.raiz(), 'sites-config', D);
   for (const f of ['site.json', 'estoque.json', 'assets', 'paginas']) assert.ok(fs.existsSync(path.join(dir, f)), f);
   const cad = JSON.parse(fs.readFileSync(path.join(dir, 'site.json'), 'utf8'));
   assert.deepEqual([cad.nome, cad.url, cad.template, cad.tema.cor, cad.motor, '_comentario' in cad], [D, `https://${D}`, 'teste', '#123456', 'v2', false]);
   assert.ok(A.existe(D, 'index.html') && A.existe(D, 'multipla/index.html') && A.existe(D, 'robots.txt'), 'site gerado');
-  assert.match(fs.readFileSync(path.join(A.raiz(), 'infra.log'), 'utf8'), new RegExp(`${D} dist/${D}`));
+  assert.match(fs.readFileSync(path.join(A.raiz(), 'infra.log'), 'utf8'), new RegExp(`${D} sites-public/${D}`));
   // estoque antes das lojas: recusado com explicação; depois de cadastrar a loja, entra
   const semLoja = await reqJ('PUT', `/v1/sites/${D}/estoque`, { corpo: { carros: [A.carro()] }, token: tokTodos });
   assert.equal(semLoja.status, 422);
@@ -355,7 +355,7 @@ test('POST /v1/sites/<d>/dominio: troca o domínio em tudo (estrutura, históric
   // sobe pela API para ter estado, e um carro sai (vira "vendido": histórico que precisa ir junto)
   assert.equal((await req('POST', `/v1/sites/${ANT}/build?esperar=20`, { token: tokTodos })).status, 200);
   assert.equal((await req('DELETE', `/v1/sites/${ANT}/carros/M2?esperar=20`, { token: tokTodos })).status, 200);
-  const vendidoAntes = JSON.parse(fs.readFileSync(path.join(A.raiz(), '.estado', 'dist', `${ANT}.json`), 'utf8')).vendidos;
+  const vendidoAntes = JSON.parse(fs.readFileSync(path.join(A.raiz(), '.estado', 'sites-public', `${ANT}.json`), 'utf8')).vendidos;
   assert.ok(vendidoAntes.M2);
 
   assert.equal((await req('POST', `/v1/sites/${ANT}/dominio`, { corpo: { novo: NOVO }, token: tokLoja })).status, 403, 'token de um site só não troca domínio');
@@ -365,13 +365,13 @@ test('POST /v1/sites/<d>/dominio: troca o domínio em tudo (estrutura, históric
   assert.equal(r.status, 200, JSON.stringify(r.j));
   assert.equal(r.j.resultado.trocasNoCadastro, 3, 'nome ("Site vai-mudar.com.br"), url (com www) e e-mail');
 
-  assert.ok(!fs.existsSync(path.join(A.raiz(), 'sites', ANT)) && !fs.existsSync(A.saida(ANT)), 'nada sobra no antigo');
-  const cad = JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites', NOVO, 'site.json'), 'utf8'));
+  assert.ok(!fs.existsSync(path.join(A.raiz(), 'sites-config', ANT)) && !fs.existsSync(A.saida(ANT)), 'nada sobra no antigo');
+  const cad = JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites-config', NOVO, 'site.json'), 'utf8'));
   assert.equal(cad.url, `https://www.${NOVO}`);
   assert.equal(cad.rodape.email, `contato@${NOVO}`);
   assert.match(A.ler(NOVO, 'sitemap.xml'), new RegExp(`https://www\\.${NOVO.replace(/\./g, '\\.')}/`));
   assert.ok(!A.ler(NOVO, 'sitemap.xml').includes(ANT));
-  const est = JSON.parse(fs.readFileSync(path.join(A.raiz(), '.estado', 'dist', `${NOVO}.json`), 'utf8'));
+  const est = JSON.parse(fs.readFileSync(path.join(A.raiz(), '.estado', 'sites-public', `${NOVO}.json`), 'utf8'));
   assert.deepEqual(est.vendidos.M2, vendidoAntes.M2, 'página de vendido (e seu prazo) vai junto');
   assert.ok(A.existe(NOVO, vendidoAntes.M2.link));
   assert.equal(A.pendente(NOVO).completo, true, 'domínio novo publica inteiro');
@@ -415,7 +415,7 @@ test('POST /v1/sites sem domínio: cria o próximo rascunho da sequência (siteN
   assert.equal(a.status, 201, JSON.stringify(a.j));
   assert.match(a.j.site, /^site(\d+)\.carro57\.com\.br$/);
   const n = Number(a.j.site.match(/\d+/)[0]);
-  const cad = JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites', a.j.site, 'site.json'), 'utf8'));
+  const cad = JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites-config', a.j.site, 'site.json'), 'utf8'));
   assert.deepEqual([cad.nome, cad.rascunho, cad.url], ['Loja do João', true, `https://${a.j.site}`]);
   assert.match(A.ler(a.j.site, 'robots.txt'), /Disallow: \//, 'rascunho fora do Google');
   // sem corpo nenhum também vale; o número segue
@@ -443,8 +443,8 @@ test('DELETE /v1/sites/<d>?confirmar=<d>: tira o site (recuperável), apaga a sa
   assert.equal((await req('DELETE', `/v1/sites/${D}?confirmar=${ID}`, { token: tokTodos })).status, 422, 'confirmação de outro domínio');
   const r = await reqJ('DELETE', `/v1/sites/${D}?confirmar=${D}&esperar=20`, { token: tokTodos });
   assert.equal(r.status, 200, JSON.stringify(r.j));
-  assert.ok(!fs.existsSync(path.join(A.raiz(), 'sites', D)) && !A.existe(D, ''), 'site e saída fora');
-  assert.ok(!fs.readFileSync(path.join(A.raiz(), 'dist', 'index.html'), 'utf8').includes(D), 'o índice não lista o site que saiu');
+  assert.ok(!fs.existsSync(path.join(A.raiz(), 'sites-config', D)) && !A.existe(D, ''), 'site e saída fora');
+  assert.ok(!fs.readFileSync(path.join(A.raiz(), 'sites-public', 'index.html'), 'utf8').includes(D), 'o índice não lista o site que saiu');
   assert.ok(fs.existsSync(path.join(A.raiz(), r.j.resultado.arquivo, 'site', 'site.json')), 'cópia recuperável');
   assert.equal(A.pendente(D), undefined);
   assert.equal((await req('GET', `/v1/sites/${D}`, { token: tokTodos })).status, 404);
@@ -477,7 +477,7 @@ test('build: um site, uma lista ou todos; "completo" regera todas as páginas ma
   A.criarSite(D, { carros: [A.carro({ id: 'RB1' }), A.carro({ id: 'RB2' })] });
   assert.equal((await req('POST', `/v1/sites/${D}/build?esperar=20`, { token: tokTodos })).status, 200);
   assert.equal((await req('DELETE', `/v1/sites/${D}/carros/RB2?esperar=20`, { token: tokTodos })).status, 200); // vira "vendido"
-  const est = () => JSON.parse(fs.readFileSync(path.join(A.raiz(), '.estado', 'dist', `${D}.json`), 'utf8'));
+  const est = () => JSON.parse(fs.readFileSync(path.join(A.raiz(), '.estado', 'sites-public', `${D}.json`), 'utf8'));
   assert.ok(est().vendidos.RB2);
   // estraga a página de um carro "por fora": o build incremental não percebe; o completo regera
   const pagina = A.saida(D, est().links.RB1);

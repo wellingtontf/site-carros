@@ -152,7 +152,7 @@ test('migração do formato antigo /carro/<id>/: estado antigo vira redirecionam
   A.criarSite(ID, { carros: [c] });
   build();
   // simula um estado gerado pela versão antiga (sem "links")
-  const arqEstado = path.join(A.raiz(), '.estado', 'dist', `${ID}.json`);
+  const arqEstado = path.join(A.raiz(), '.estado', 'sites-public', `${ID}.json`);
   const est = JSON.parse(fs.readFileSync(arqEstado, 'utf8'));
   delete est.links;
   fs.writeFileSync(arqEstado, JSON.stringify(est));
@@ -188,7 +188,7 @@ test('restrições do site tiram carros', () => {
   assert.equal(build().total, 1);
 });
 
-test('páginas de conteúdo (arquivos em sites/<id>/paginas/): criadas, no sitemap, e apagadas quando o arquivo sai', () => {
+test('páginas de conteúdo (arquivos em sites-config/<id>/paginas/): criadas, no sitemap, e apagadas quando o arquivo sai', () => {
   A.criarSite(ID, { carros: [A.carro()], site: { paginas: [
     { caminho: '', titulo: 'Home', blocos: [{ tipo: 'texto', html: '<p>oi</p>' }] },
     { caminho: 'sobre/nos', titulo: 'Sobre', blocos: [{ tipo: 'texto', html: '<p>quem somos</p>' }] },
@@ -231,10 +231,10 @@ test('regressão: links do bloco lojas numa subpágina não dobram o "../" (bug 
 
 test('links e imagens relativos funcionam em qualquer profundidade (home, subpágina, página do carro)', () => {
   const c = A.carro();
-  fs.mkdirSync(path.join(A.raiz(), 'sites', ID, 'assets'), { recursive: true });
+  fs.mkdirSync(path.join(A.raiz(), 'sites-config', ID, 'assets'), { recursive: true });
   A.criarSite(ID, { carros: [c], site: { tema: { logo: 'assets/logo.png' }, cabecalho: { menu: [{ rotulo: 'Estoque', link: 'multipla/' }, { rotulo: 'Fora', link: 'https://x.com' }] },
     paginas: [{ caminho: '', blocos: [] }, { caminho: 'a/b', blocos: [{ tipo: 'banner', imagem: 'assets/logo.png', titulo: 'x' }] }] } });
-  fs.writeFileSync(path.join(A.raiz(), 'sites', ID, 'assets', 'logo.png'), 'png');
+  fs.writeFileSync(path.join(A.raiz(), 'sites-config', ID, 'assets', 'logo.png'), 'png');
   build();
   assert.match(A.ler(ID, 'paginas/a/b/index.html'), /href="\.\.\/\.\.\/\.\.\/multipla\/"/);
   assert.match(A.ler(ID, linkDe(c)), /src="\.\.\/\.\.\/\.\.\/\.\.\/assets\/logo\.png"/);
@@ -285,8 +285,8 @@ test('"paginas" no site.json é recusado com o caminho para mover; o script de m
   A.criarSite(ID, { carros: [A.carro()] });
   const cfg = A.lerSite(ID);
   cfg.paginas = [{ caminho: '', titulo: 'Home', blocos: [{ tipo: 'texto', html: '<p>home</p>' }] }, { caminho: 'sobre/nos', titulo: 'Sobre', blocos: [] }];
-  fs.writeFileSync(path.join(A.raiz(), 'sites', ID, 'site.json'), JSON.stringify(cfg)); // direto, sem o ajudante
-  assert.throws(() => build(), /não fica mais no site\.json.*sites\/loja-teste\.com\.br\/paginas\//);
+  fs.writeFileSync(path.join(A.raiz(), 'sites-config', ID, 'site.json'), JSON.stringify(cfg)); // direto, sem o ajudante
+  assert.throws(() => build(), /não fica mais no site\.json.*sites-config\/loja-teste\.com\.br\/paginas\//);
   const r = require('child_process').spawnSync(process.execPath, [path.join(A.PROJETO, 'ferramentas', 'mover-paginas.js'), ID], { env: { ...process.env, SITE_CARROS_RAIZ: A.raiz() }, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   assert.equal(A.lerSite(ID).paginas, undefined);
@@ -340,10 +340,10 @@ test('build efêmero (usado pelos testes do cli) não grava estado nem pendênci
 
 test('site sem estoque.json: gera com 0 carros e avisa', () => {
   A.criarSite(ID, { carros: [] });
-  fs.rmSync(path.join(A.raiz(), 'sites', ID, 'estoque.json'));
+  fs.rmSync(path.join(A.raiz(), 'sites-config', ID, 'estoque.json'));
   const { r, saidas } = A.silencioso(() => construir({ sites: [ID] }));
   assert.equal(r.feitos[0].total, 0);
-  assert.ok(saidas.some((s) => /sem sites\/.*estoque\.json/.test(s)));
+  assert.ok(saidas.some((s) => /sem sites-config\/.*estoque\.json/.test(s)));
 });
 
 // ---------- SEO: lastmod, páginas de filtro, cards no HTML ----------
@@ -498,7 +498,7 @@ test('template sem os blocos obrigatórios é recusado com mensagem clara', () =
 });
 
 // ---------- páginas livres dos web designers (core/paginas-livres.js) ----------
-const pastaLivre = (...p) => path.join(A.raiz(), 'sites', ID, 'paginas', ...p);
+const pastaLivre = (...p) => path.join(A.raiz(), 'sites-config', ID, 'paginas', ...p);
 const escrever = (arq, txt) => { fs.mkdirSync(path.dirname(arq), { recursive: true }); fs.writeFileSync(arq, txt); };
 
 test('designer: arquivo só com conteúdo entra no cabeçalho/rodapé; título do <h1>; links "/" viram relativos; variáveis funcionam', () => {
@@ -568,7 +568,7 @@ test('designer: página do template vale para todos os sites; o site troca ou de
     A.criarSite(ID, { carros: [A.carro()], site: { template: 'com-extras' } });
     A.criarSite('outro.com.br', { carros: [A.carro()], site: { template: 'com-extras', paginasPadrao: { financiamento: false } } });
     A.criarSite('terceiro.com.br', { carros: [A.carro()], site: { template: 'com-extras' } });
-    escrever(path.join(A.raiz(), 'sites', 'terceiro.com.br', 'paginas', 'financiamento.html'), '<h1>Financiamento do terceiro</h1>');
+    escrever(path.join(A.raiz(), 'sites-config', 'terceiro.com.br', 'paginas', 'financiamento.html'), '<h1>Financiamento do terceiro</h1>');
     A.silencioso(() => construir({}));
     assert.match(A.ler(ID, 'paginas/financiamento/index.html'), /Financiamento padrão/);
     assert.ok(!A.existe('outro.com.br', 'paginas/financiamento/index.html'), 'desligado pelo site');
@@ -702,7 +702,7 @@ test('páginas padrão vêm do TEMPLATE: editar o texto atualiza a página sem r
 test('páginas ficam em /paginas/<nome>/; o endereço antigo redireciona; links simples ("contato/", "/lojas/") são ajustados', () => {
   A.criarSite(ID, { carros: [A.carro()], site: { cabecalho: { menu: [{ rotulo: 'Lojas', link: 'lojas/' }, { rotulo: 'Estoque', link: 'multipla/' }] },
     paginas: [{ caminho: 'lojas', titulo: 'Lojas', blocos: [{ tipo: 'lojas' }] }] } });
-  const pasta = path.join(A.raiz(), 'sites', ID, 'paginas');
+  const pasta = path.join(A.raiz(), 'sites-config', ID, 'paginas');
   fs.writeFileSync(path.join(pasta, 'feirao.html'), '<h1>Feirão</h1><a href="/lojas/">lojas</a> <a href="/multipla/">estoque</a>');
   build();
   assert.ok(A.existe(ID, 'paginas/lojas/index.html') && A.existe(ID, 'paginas/lgpd/index.html') && A.existe(ID, 'paginas/feirao/index.html'));
@@ -719,7 +719,7 @@ test('mudança de endereço: página que estava na raiz redireciona (e o formato
   A.criarSite(ID, { carros: [A.carro()], site: { paginas: [{ caminho: 'lojas', blocos: [{ tipo: 'lojas' }] }] } });
   build({ hoje: '2026-01-01' });
   // simula o estado de antes da mudança: a página estava na raiz
-  const arqEst = path.join(A.raiz(), '.estado', 'dist', `${ID}.json`);
+  const arqEst = path.join(A.raiz(), '.estado', 'sites-public', `${ID}.json`);
   const est = JSON.parse(fs.readFileSync(arqEst, 'utf8'));
   est.paginas = est.paginas.map((p) => p.replace(/^paginas\//, ''));
   fs.writeFileSync(arqEst, JSON.stringify(est));

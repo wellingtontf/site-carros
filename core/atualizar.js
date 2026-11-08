@@ -1,5 +1,5 @@
 // Atualiza o estoque de um ou mais sites e refaz SÓ os arquivos afetados.
-// Cada site tem UM JSON de carros: sites/<dominio>/estoque.json.
+// Cada site tem UM JSON de carros: sites-config/<dominio>/estoque.json.
 //   node core/cli.js atualizar                          busca o estoque de todos os sites de config/fontes.json
 //   node core/cli.js atualizar trokey.com.br,outro.com  só esses
 //   node core/cli.js atualizar --publicar               depois de gerar, publica só o que mudou (config/publicacao.json)
@@ -70,7 +70,7 @@ const hashCarros = (o) => sha(JSON.stringify(o.carros));
 
 // grava só se mudou; guarda cópia do anterior; recusa queda brusca (proteção contra API devolvendo lista vazia)
 function gravarEstoque(id, obj, { forcar = false } = {}) {
-  if (!Sites.existe(id)) return { id, status: 'invalido', erros: [`site "${id}" não existe (sites/${id}/site.json)`] };
+  if (!Sites.existe(id)) return { id, status: 'invalido', erros: [`site "${id}" não existe (sites-config/${id}/site.json)`] };
   const erros = validarEstoque(obj, Sites.lojas(id));
   if (erros.length) return { id, status: 'invalido', erros };
   const antigo = lerJSON(arqEstoque(id), null);
@@ -115,7 +115,7 @@ function rodar(cmd) {
 }
 const aspas = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 
-async function publicarPendentes({ pasta = 'dist', sites = null, log = console.log } = {}) {
+async function publicarPendentes({ pasta = C.PUBLICO, sites = null, log = console.log } = {}) {
   // cada site publica com a configuração do INQUILINO dele (inquilinos/<id>/config/publicacao.json; sem ela, a global)
   const cfgDe = (site) => Inq.lerConfig(Inq.doSite(site), 'publicacao.json', null);
   const global = lerJSON(C.config('publicacao.json'), null);
@@ -194,7 +194,7 @@ async function atualizar({ sites: ids = null, recebidos = null, refazer = [], to
 
 // Reescreve SÓ o robots.txt dos sites já gerados (modelo novo): segundos para milhares de sites, sem passar pelo build.
 // O que mudou entra nas pendências de publicação. Cada site com a trava dele; site ocupado vai em "ocupados".
-async function reescreverRobots({ sites = null, pasta = 'dist' } = {}) {
+async function reescreverRobots({ sites = null, pasta = C.PUBLICO } = {}) {
   const alterados = [], iguais = [], proprio = [], semUrl = [], ocupados = [];
   for (const id of sites || Sites.listar()) {
     const r = await comTrava(chaveSite(id), () => {

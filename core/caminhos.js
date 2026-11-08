@@ -3,7 +3,7 @@
 //   core/                     código (este diretório): motor, ui, build, cli, atualizar, servidor
 //     motor/<versao>/engine.js   motor que roda no navegador (rascunho = única versão editável)
 //     ui/                        liga o motor à página (copiado para <site>/motor/ no build)
-//   sites/<dominio>/          um site por domínio
+//   sites-config/<dominio>/          um site por domínio
 //     site.json                  configuração do site (inclui as lojas)
 //     estoque.json               o único JSON de carros do site
 //     assets/                    imagens próprias do site (logo, banner...) → <site>/assets/
@@ -15,14 +15,15 @@
 //   config/                   configuração global (e a do inquilino "padrao"): fontes.json, publicacao.json, historico.json, clientes.json
 //   .estado/                  estado do build incremental, travas, cópias de segurança
 //     api/pedidos/, api/entrada/  pedidos recebidos pela API e o corpo deles enquanto estão na fila
-//   dist/                     saída (uma pasta por domínio)
+//   sites-public/             saída: os sites gerados, uma pasta por domínio (é o que vai para o ar)
 const path = require('path');
 
-// SITE_CARROS_RAIZ troca a pasta de dados (sites/, templates/, config/, .estado/, dist/): usado pelos testes.
+// SITE_CARROS_RAIZ troca a pasta de dados (sites-config/, templates/, config/, .estado/, sites-public/): usado pelos testes.
 // O código (core/motor, core/ui) vem sempre daqui.
 const ROOT = process.env.SITE_CARROS_RAIZ ? path.resolve(process.env.SITE_CARROS_RAIZ) : path.resolve(__dirname, '..');
 const CORE = __dirname;
-const SITES = path.join(ROOT, 'sites');
+const SITES = path.join(ROOT, 'sites-config');
+const PUBLICO = 'sites-public'; // nome da pasta de saída (relativo à raiz): C.saida(C.PUBLICO) = <raiz>/sites-public
 // templates (com as páginas padrão de cada um em templates/<nome>/paginas-padrao/) são CÓDIGO versionado: na imagem
 // Docker eles vêm junto (SITE_CARROS_TEMPLATES aponta para dentro da imagem); os DADOS ficam no volume (EFS)
 const TEMPLATES = process.env.SITE_CARROS_TEMPLATES ? path.resolve(process.env.SITE_CARROS_TEMPLATES) : path.join(ROOT, 'templates');
@@ -31,7 +32,7 @@ const ESTADO = path.join(ROOT, '.estado');
 const INQUILINOS = path.join(ROOT, 'inquilinos'); // multi-tenant: inquilinos/<id>/{inquilino.json, config/}
 
 module.exports = {
-  ROOT, CORE, SITES, TEMPLATES, CONFIG, ESTADO, INQUILINOS,
+  ROOT, CORE, SITES, TEMPLATES, CONFIG, ESTADO, INQUILINOS, PUBLICO,
   inquilino: (id) => path.join(INQUILINOS, id),
   inquilinoJson: (id) => path.join(INQUILINOS, id, 'inquilino.json'),
   inquilinoConfig: (id, arquivo) => path.join(INQUILINOS, id, 'config', arquivo),

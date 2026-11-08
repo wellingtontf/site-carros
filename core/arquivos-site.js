@@ -1,5 +1,5 @@
-// Arquivos próprios de um site (sites/<dominio>/assets/: logo, favicon, banners, fontes) e páginas
-// (sites/<dominio>/paginas/), gravados por quem não mexe no disco: a API. O build copia/gera como sempre.
+// Arquivos próprios de um site (sites-config/<dominio>/assets/: logo, favicon, banners, fontes) e páginas
+// (sites-config/<dominio>/paginas/), gravados por quem não mexe no disco: a API. O build copia/gera como sempre.
 //
 // Arquivos: o tipo é conferido pelo CONTEÚDO (os primeiros bytes), não só pelo nome: um "logo.png" que é um HTML ou um
 // executável é recusado. SVG passa só sem código (script, on*=, javascript:, foreignObject...): ele é servido no domínio

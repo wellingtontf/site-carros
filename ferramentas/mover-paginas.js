@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Tira a lista "paginas" do site.json e grava cada página como arquivo em sites/<dominio>/paginas/
+// Tira a lista "paginas" do site.json e grava cada página como arquivo em sites-config/<dominio>/paginas/
 // (index.json = home, lojas.json, sobre/nos.json). Roda uma vez por site; não sobrescreve arquivo que já existe.
 //   node ferramentas/mover-paginas.js [dominio1,dominio2]   (sem argumento: todos os sites)
 const fs = require('fs');

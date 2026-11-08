@@ -1,4 +1,4 @@
-// Problemas clássicos de site estático no ar (ferramentas/auditar-dist.js): página 404, cache de css/js (?v=),
+// Problemas clássicos de site estático no ar (ferramentas/auditar-sites.js): página 404, cache de css/js (?v=),
 // canonical nas páginas livres e a trava que impede publicar site com fotos em localhost/http.
 const A = require('./ajuda');
 A.prepararRaiz();
@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { construir, problemasProducao } = require('../core/build.js');
 const { publicarPendentes } = require('../core/atualizar.js');
-const { auditar } = require('../ferramentas/auditar-dist.js');
+const { auditar } = require('../ferramentas/auditar-sites.js');
 
 const ID = 'prod.teste.com.br';
 beforeEach(() => A.limpar());
@@ -44,7 +44,7 @@ test('css/js com ?v=<hash> em tudo, estável entre builds (não refaz página à
 
 test('página livre do designer (HTML completo) ganha canonical sozinha', () => {
   A.criarSite(ID, { carros: [A.carro()] });
-  const dir = path.join(A.raiz(), 'sites', ID, 'paginas', 'promo');
+  const dir = path.join(A.raiz(), 'sites-config', ID, 'paginas', 'promo');
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'index.html'), '<!doctype html><html><head><title>Promo</title><link rel="stylesheet" href="promo.css"></head><body><h1>Promo</h1></body></html>');
   fs.writeFileSync(path.join(dir, 'promo.css'), 'h1{color:red}');
@@ -78,6 +78,6 @@ test('publicação recusa site com fotos em localhost e deixa ele pendente', asy
 
 test('auditoria do site gerado: nenhum PROBLEMA', () => {
   gerar();
-  const { resultados } = auditar(path.join(A.raiz(), 'dist'));
+  const { resultados } = auditar(path.join(A.raiz(), 'sites-public'));
   assert.deepEqual(resultados.filter((r) => r.nivel === 'PROBLEMA').map((r) => `${r.item}: ${r.detalhe}`), []);
 });

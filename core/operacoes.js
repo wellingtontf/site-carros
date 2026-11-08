@@ -1,5 +1,5 @@
 // Operações de infraestrutura de um site, de ponta a ponta (usadas pela API e por quem mais precisar):
-//   criarSite(dominio, parcial)    estrutura nova (sites/<dominio>/...) → gera o site → comando "criar" da infra
+//   criarSite(dominio, parcial)    estrutura nova (sites-config/<dominio>/...) → gera o site → comando "criar" da infra
 //   promoverSite(rascunho, final)  RASCUNHO → DEFINITIVO: domínio final, tira o "rascunho" (volta ao Google), descarta o
 //                                  histórico do rascunho, gera do zero → comando "promover" da infra
 //   removerSite(dominio)           tira o site: fotos do armazenamento, arquivos para .estado/removidos/ (recuperável),
@@ -37,7 +37,7 @@ function rodarInfra(acao, valores, inquilino = Inq.PADRAO) {
 }
 
 // site novo só com o domínio (o resto vem de config/site-modelo.json) ou com o cadastro que vier
-async function criarSite(dominio, parcial = {}, { inquilino = Inq.PADRAO, pasta = 'dist', log = console.log } = {}) {
+async function criarSite(dominio, parcial = {}, { inquilino = Inq.PADRAO, pasta = C.PUBLICO, log = console.log } = {}) {
   if (Sites.existe(dominio)) return { status: 'existe', erros: [`o domínio "${dominio}" já está em uso`] };
   const cadastro = Sites.cadastroNovo(dominio, parcial, inquilino);
   const erros = Sites.validarSite(cadastro, dominio);
@@ -53,7 +53,7 @@ async function criarSite(dominio, parcial = {}, { inquilino = Inq.PADRAO, pasta 
   return { status: 'ok', site: dominio, inquilino, cadastro, infra: await rodarInfra('criar', { site: dominio, pasta: path.join(pasta, dominio) }, inquilino) };
 }
 
-async function renomearSite(antigo, novo, { pasta = 'dist', log = console.log } = {}) {
+async function renomearSite(antigo, novo, { pasta = C.PUBLICO, log = console.log } = {}) {
   if (!Sites.existe(antigo)) return { status: 'invalido', erros: [`site "${antigo}" não existe`] };
   if (!Sites.ID_SITE.test(String(novo))) return { status: 'invalido', erros: [`domínio novo inválido "${novo}" (ex.: novaloja.com.br, só minúsculas)`] };
   if (fs.existsSync(C.site(novo))) return { status: 'existe', erros: [`já existe um site "${novo}"`] };
@@ -72,7 +72,7 @@ async function renomearSite(antigo, novo, { pasta = 'dist', log = console.log } 
 // "url" opcional troca o endereço público (ex.: https://www.<final>); sem ela, as menções ao domínio são trocadas.
 // O histórico do build do rascunho (páginas de vendido, redirecionamentos, datas) não vale para o site definitivo:
 // o site é gerado do zero e publicado inteiro.
-async function promoverSite(dominio, { final = null, url = null, pasta = 'dist', log = console.log } = {}) {
+async function promoverSite(dominio, { final = null, url = null, pasta = C.PUBLICO, log = console.log } = {}) {
   if (!Sites.existe(dominio)) return { status: 'invalido', erros: [`site "${dominio}" não existe`] };
   const atual = Sites.carregar(dominio);
   if (!atual.rascunho) return { status: 'recusado', erros: [`o site "${dominio}" já é definitivo (não está em rascunho)`] };
@@ -114,7 +114,7 @@ async function promoverSite(dominio, { final = null, url = null, pasta = 'dist',
     infra: await rodarInfra('promover', { rascunho: dominio, site: destino, pasta: path.join(pasta, destino) }, Inq.doSite(destino)) };
 }
 
-async function removerSite(dominio, { pasta = 'dist', log = console.log } = {}) {
+async function removerSite(dominio, { pasta = C.PUBLICO, log = console.log } = {}) {
   if (!Sites.existe(dominio)) return { status: 'invalido', erros: [`site "${dominio}" não existe`] };
   const inquilino = Inq.doSite(dominio);
   const r = await comTrava(chaveSite(dominio), async () => {

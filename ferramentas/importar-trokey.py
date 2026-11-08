@@ -2,8 +2,8 @@
 """Teste de migração: importa o estoque público da Trokey para o formato da plataforma.
 
 - Lê https://www.trokey.com.br/api/public/vehicles (lista) e /vehicles/<id> (detalhe: opcionais e telefone da loja).
-- Grava sites/trokey.com.br/estoque.json (o único JSON de carros do site; cada carro diz a sua "loja").
-- Atualiza "lojas" de sites/trokey.com.br/site.json (uma loja por franqueado, com WhatsApp quando a API informa).
+- Grava sites-config/trokey.com.br/estoque.json (o único JSON de carros do site; cada carro diz a sua "loja").
+- Atualiza "lojas" de sites-config/trokey.com.br/site.json (uma loja por franqueado, com WhatsApp quando a API informa).
 - Baixa as fotos e grava no padrão do S3 da plataforma: <pasta>/carros/<id>/<n>-<400|800|1600>.webp
   (por padrão em s3-local/, que faz o papel do bucket; em produção seria um `aws s3 sync s3-local/ s3://bucket/`).
 
@@ -18,7 +18,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 API = 'https://www.trokey.com.br/api/public/vehicles'
 TEAM = 'edd32414-9f46-4574-b147-bab7f5c5ee01'
 UA = {'User-Agent': 'Mozilla/5.0 (importador site-carros)'}
-SITE = os.path.join(ROOT, 'sites', 'trokey.com.br')
+SITE = os.path.join(ROOT, 'sites-config', 'trokey.com.br')
 TAMANHOS = (400, 800, 1600)
 MAX_FOTOS = 60
 
@@ -153,7 +153,7 @@ def main():
     carros = [c for lid in site['lojas'] for c in estoques[lid]]
     with open(os.path.join(SITE, 'estoque.json'), 'w') as f:
         json.dump({'atualizado': max(v.get('published_at') or '' for v in lista), 'carros': carros}, f, ensure_ascii=False, indent=1)
-    print(f'sites/trokey.com.br/estoque.json: {len(carros)} carros')
+    print(f'sites-config/trokey.com.br/estoque.json: {len(carros)} carros')
 
 if __name__ == '__main__':
     main()

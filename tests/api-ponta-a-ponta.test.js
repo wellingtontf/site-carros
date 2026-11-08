@@ -1,6 +1,6 @@
 // Ponta a ponta: um site montado SÓ pela API (como um sistema externo faria), do zero, sem ninguém mexer em arquivo.
 // Confere que o que passa pela API é suficiente para gerar tudo da aplicação: site.json, estoque.json, páginas, arquivos
-// (sites/<dominio>/) e o site gerado (config.json, carros.json, páginas, LGPD com os dados da empresa, sitemap, robots,
+// (sites-config/<dominio>/) e o site gerado (config.json, carros.json, páginas, LGPD com os dados da empresa, sitemap, robots,
 // estoque.xml, fotos), sem link quebrado e sem PROBLEMA de produção.
 const A = require('./ajuda');
 A.prepararRaiz();
@@ -107,8 +107,8 @@ test('1) cria o site, manda arquivos, páginas e estoque, ajusta o cadastro: tud
   assert.ok(await esperar(() => { try { return A.lerJSON(D, 'carros.json').find((x) => x.i === 'C1').n === 2; } catch (e) { return false; } }), `fotos não ficaram prontas:\n${saida.slice(-2000)}`);
 });
 
-test('2) os JSONs da aplicação (sites/<dominio>/) são exatamente o que veio pela API', () => {
-  const dir = path.join(A.raiz(), 'sites', D);
+test('2) os JSONs da aplicação (sites-config/<dominio>/) são exatamente o que veio pela API', () => {
+  const dir = path.join(A.raiz(), 'sites-config', D);
   const cad = JSON.parse(fs.readFileSync(path.join(dir, 'site.json'), 'utf8'));
   assert.equal(cad.whatsapp, '5541988887777', 'PATCH aplicado');
   assert.equal(cad.lojas.sul.whatsapp, '5551988887777');
@@ -148,8 +148,8 @@ test('3) o site gerado tem tudo: home, estoque, carros (com o link do Revenda Ma
   assert.match(A.ler(D, 'robots.txt'), /Sitemap: https:\/\/api-completo\.com\.br\/sitemap\.xml/);
   assert.equal((A.ler(D, 'estoque.xml').match(/<veiculo>/g) || []).length, 3);
   assert.deepEqual(A.verificarSiteGerado(D), [], 'nenhum link quebrado');
-  const { auditar } = require('../ferramentas/auditar-dist.js');
-  const problemas = auditar(path.join(A.raiz(), 'dist')).resultados.filter((r) => r.nivel === 'PROBLEMA');
+  const { auditar } = require('../ferramentas/auditar-sites.js');
+  const problemas = auditar(path.join(A.raiz(), 'sites-public')).resultados.filter((r) => r.nivel === 'PROBLEMA');
   assert.deepEqual(problemas.map((r) => `${r.item}: ${r.detalhe}`), []);
 });
 
@@ -194,6 +194,6 @@ test('6) recusas claras: arquivo que não é o que diz, SVG com script, página 
   // página no outro formato substitui (não fica duplicada)
   assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/promo`, { titulo: 'Promo', blocos: [] })).status, 202);
   assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/promo?esperar=30`, '<h1>Promo HTML</h1>', { tipo: 'text/html' })).status, 200);
-  assert.ok(!fs.existsSync(path.join(A.raiz(), 'sites', D, 'paginas', 'promo.json')));
+  assert.ok(!fs.existsSync(path.join(A.raiz(), 'sites-config', D, 'paginas', 'promo.json')));
   assert.match(A.ler(D, 'paginas/promo/index.html'), /Promo HTML/);
 });

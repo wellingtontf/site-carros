@@ -29,10 +29,10 @@ function gerar() {
   });
   A.silencioso(() => construir({ sites: [ID], hoje: '2026-01-01' }));
   // um carro sai e outro muda de link: cobre a página "indisponível" e o redirecionamento
-  const est = JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites', ID, 'estoque.json'), 'utf8'));
+  const est = JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites-config', ID, 'estoque.json'), 'utf8'));
   est.carros = est.carros.filter((x) => x.id !== 'S3');
   est.carros[0].versao = 'Touring 1.5';
-  fs.writeFileSync(path.join(A.raiz(), 'sites', ID, 'estoque.json'), JSON.stringify(est));
+  fs.writeFileSync(path.join(A.raiz(), 'sites-config', ID, 'estoque.json'), JSON.stringify(est));
   A.silencioso(() => construir({ sites: [ID], hoje: '2026-01-02' }));
   const dir = A.saida(ID);
   const arquivos = A.listar(dir).map((f) => path.relative(dir, f).split(path.sep).join('/'))

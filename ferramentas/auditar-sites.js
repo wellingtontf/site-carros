@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Auditoria dos sites gerados (dist/<dominio>/) contra os problemas mais conhecidos de site estático em produção.
-//   node ferramentas/auditar-dist.js [pasta=dist]        (sai com código 1 se houver PROBLEMA)
-//   require('./ferramentas/auditar-dist.js').auditar(pasta) → { resumo, resultados: [{ chave, nivel, item, detalhe }] }
+// Auditoria dos sites gerados (sites-public/<dominio>/) contra os problemas mais conhecidos de site estático em produção.
+//   node ferramentas/auditar-sites.js [pasta=sites-public]        (sai com código 1 se houver PROBLEMA)
+//   require('./ferramentas/auditar-sites.js').auditar(pasta) → { resumo, resultados: [{ chave, nivel, item, detalhe }] }
 // Cada verificação diz: OK, ATENÇÃO (funciona, mas tem risco) ou PROBLEMA (quebra em produção).
 // O tests/sites-e-templates.test.js roda isto nos sites reais: um PROBLEMA novo derruba os testes.
 const fs = require('fs');
@@ -100,7 +100,7 @@ return { resumo: { pasta: DIST, sites: sites.length, ...total }, resultados: res
 module.exports = { auditar };
 
 if (require.main === module) {
-const { resumo: total, resultados } = auditar(process.argv[2] || 'dist');
+const { resumo: total, resultados } = auditar(process.argv[2] || 'sites-public');
 const DIST = total.pasta, sites = { length: total.sites };
 console.log(`Auditoria de ${DIST}: ${sites.length} sites, ${total.arquivos} arquivos, ${(total.bytes / 1024 / 1024).toFixed(1)} MB, ${total.html} páginas HTML\n`);
 for (const r of resultados) console.log(`${r.nivel.padEnd(9)} ${r.item}\n          ${r.detalhe}\n`);

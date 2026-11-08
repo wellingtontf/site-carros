@@ -28,9 +28,9 @@ before(async () => {
   A.silencioso(() => construir({}));
   const tipos = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json', '.css': 'text/css' };
   srv = http.createServer((req, res) => {
-    let p = path.join(raiz, 'dist', decodeURIComponent(new URL(req.url, 'http://x').pathname));
+    let p = path.join(raiz, 'sites-public', decodeURIComponent(new URL(req.url, 'http://x').pathname));
     if (fs.existsSync(p) && fs.statSync(p).isDirectory()) p = path.join(p, 'index.html');
-    if (!p.startsWith(path.join(raiz, 'dist')) || !fs.existsSync(p)) { res.writeHead(404); return res.end(); }
+    if (!p.startsWith(path.join(raiz, 'sites-public')) || !fs.existsSync(p)) { res.writeHead(404); return res.end(); }
     res.writeHead(200, { 'content-type': tipos[path.extname(p)] || 'application/octet-stream' });
     res.end(fs.readFileSync(p));
   }).listen(0);
@@ -69,7 +69,7 @@ for (const t of templates) {
     assert.ok(href, 'card com link');
     const alvo = (href[1] || href[2]).replace(/^\.\.\//, '');
     assert.equal(alvo, `carros/Link/Do/Revenda-Mais/${t}-especial-1.html`, 'o card usa o link vindo do estoque');
-    assert.ok(fs.existsSync(path.join(raiz, 'dist', id, alvo)), `link do card aponta para página que existe: ${alvo}`);
+    assert.ok(fs.existsSync(path.join(raiz, 'sites-public', id, alvo)), `link do card aponta para página que existe: ${alvo}`);
   });
 
   test(`[${t}] /multipla?marca=Honda: filtro vindo do link é aplicado`, { skip: pular }, async () => {
@@ -82,7 +82,7 @@ for (const t of templates) {
     // o Chrome headless não mostra a URL final no DOM: a página escreve location.href num atributo para o teste ler
     const ler = async (u) => (await abrir(u)).dom;
     const url = (dom) => (dom.match(/data-url-final="([^"]*)"/) || [])[1];
-    const pagina = path.join(raiz, 'dist', id, 'multipla', 'cidade', 'porto-alegre', 'index.html');
+    const pagina = path.join(raiz, 'sites-public', id, 'multipla', 'cidade', 'porto-alegre', 'index.html');
     const html = fs.readFileSync(pagina, 'utf8');
     fs.writeFileSync(pagina, html.replace('</body>', '<script>setTimeout(()=>document.body.setAttribute("data-url-final",location.href),1500)</script></body>'));
     try {
@@ -101,7 +101,7 @@ for (const t of templates) {
   });
 
   test(`[${t}] página do carro: botão de WhatsApp com o número da loja e a referência do carro`, { skip: pular }, async () => {
-    const c = JSON.parse(fs.readFileSync(path.join(raiz, 'sites', id, 'estoque.json'), 'utf8')).carros[0];
+    const c = JSON.parse(fs.readFileSync(path.join(raiz, 'sites-config', id, 'estoque.json'), 'utf8')).carros[0];
     const loja = A.LOJAS[c.loja];
     const { dom, erros } = await abrir(`${base}/${id}/${L.caminho({ ...c, cidade: loja.cidade, uf: loja.uf })}`);
     assert.deepEqual(erros, []);

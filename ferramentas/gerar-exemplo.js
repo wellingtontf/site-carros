@@ -1,4 +1,4 @@
-// Gera os estoques dos 3 sites de exemplo (sites/<dominio>/estoque.json).
+// Gera os estoques dos 3 sites de exemplo (sites-config/<dominio>/estoque.json).
 // Em produção, cada estoque.json vem do Revenda Mais (um JSON por site), via node core/cli.js atualizar.
 const fs = require('fs');
 const path = require('path');
@@ -95,8 +95,8 @@ function gerarCarro(prefixo, n, modelos) {
   };
 }
 
-// Um estoque.json por site de exemplo (sites/<dominio>/estoque.json). Cada carro diz a sua loja (ids de site.json → "lojas").
-// Os sites e as lojas já existem em sites/<dominio>/site.json; aqui só se geram os carros.
+// Um estoque.json por site de exemplo (sites-config/<dominio>/estoque.json). Cada carro diz a sua loja (ids de site.json → "lojas").
+// Os sites e as lojas já existem em sites-config/<dominio>/site.json; aqui só se geram os carros.
 const caros = MODELOS.filter((m) => m[3] >= 90000);
 const SITES = [
   { dominio: 'autocentral.exemplo.com.br', lojas: [
@@ -134,11 +134,11 @@ const SITES = [
   ] },
 ];
 
-const raiz = path.join(__dirname, '..', 'sites');
+const raiz = path.join(__dirname, '..', 'sites-config');
 let soma = 0;
 for (const s of SITES) {
   const dir = path.join(raiz, s.dominio);
-  if (!fs.existsSync(path.join(dir, 'site.json'))) { console.log(`pulei ${s.dominio}: sites/${s.dominio}/site.json não existe`); continue; }
+  if (!fs.existsSync(path.join(dir, 'site.json'))) { console.log(`pulei ${s.dominio}: sites-config/${s.dominio}/site.json não existe`); continue; }
   let carros = s.lojas.flatMap((l) => Array.from({ length: l.total }, (_, i) => ({ ...gerarCarro(l.prefixo, i + 1, l.modelos), loja: l.loja })));
   if (s.ordem) {
     // como viria do Revenda Mais: metade marcada como destaque, e "ordem" = posição de exibição (destaques primeiro, misturando as lojas)
@@ -150,6 +150,6 @@ for (const s of SITES) {
   }
   fs.writeFileSync(path.join(dir, 'estoque.json'), JSON.stringify({ atualizado: new Date().toISOString(), carros }));
   soma += carros.length;
-  console.log(`sites/${s.dominio}/estoque.json: ${carros.length} carros`);
+  console.log(`sites-config/${s.dominio}/estoque.json: ${carros.length} carros`);
 }
 console.log(`Total: ${soma} carros`);

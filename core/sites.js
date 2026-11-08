@@ -1,7 +1,7 @@
-// Repositório de sites: o ÚNICO lugar que lê a pasta sites/. Todo o resto (build, atualização, CLI, API) lista,
+// Repositório de sites: o ÚNICO lugar que lê a pasta sites-config/. Todo o resto (build, atualização, CLI, API) lista,
 // confere e carrega sites por aqui, para que a regra "o que é um site" exista uma vez só.
 //
-//   listar({inquilino})  → ['a.com.br', ...]  domínios com sites/<dominio>/site.json, em ordem (do inquilino, se pedido)
+//   listar({inquilino})  → ['a.com.br', ...]  domínios com sites-config/<dominio>/site.json, em ordem (do inquilino, se pedido)
 //   existe(dominio)      → true/false (sem varrer a pasta)
 //   carregar(dominio)    → cadastro (site.json) + id
 //   carregarTodos()      → [cadastro, ...]
@@ -97,7 +97,7 @@ const CAMPOS_SITE = new Set(['inquilino', 'nome', 'slogan', 'template', 'motor',
   'formatoUrls', 'avisoCookies', 'paginasPadrao', 'pagina404', 'retencaoVendidosDias', 'retencaoRedirecionamentoDias', 'robots', 'feedXml', 'rascunho']);
 const avisosSite = (s) => (s && typeof s === 'object' ? Object.keys(s).filter((k) => !CAMPOS_SITE.has(k)).map((k) => `campo "${k}" não é usado pela plataforma (erro de digitação?)`) : []);
 
-// página de blocos de um site (sites/<dominio>/paginas/<caminho>.json): formato e blocos que o template do site tem
+// página de blocos de um site (sites-config/<dominio>/paginas/<caminho>.json): formato e blocos que o template do site tem
 function validarPagina(dominio, caminho, pagina) {
   const erros = [];
   if (caminho !== '' && !/^([a-z0-9][a-z0-9-]*)(\/[a-z0-9][a-z0-9-]*)*$/.test(String(caminho))) erros.push(`nome de página inválido "${caminho}" (minúsculas, números, hífen e /)`);
@@ -133,7 +133,7 @@ function validarSite(s, dominio) {
   if (s.fotosBase != null && !(typeof s.fotosBase === 'string' && /^https?:\/\/\S+\/$/i.test(s.fotosBase))) e('"fotosBase" precisa ser uma URL terminada em "/"');
   if (s.whatsapp != null && !/^\d{10,15}$/.test(String(s.whatsapp))) e('"whatsapp" só com números, com DDI e DDD (ex.: 5541999990000)');
   for (const k of ['filtros', 'ordenacao']) if (s[k] != null && !Array.isArray(s[k])) e(`"${k}" deve ser lista`);
-  if (s.paginas != null) e('"paginas" não vai no cadastro: cada página é um arquivo em sites/<dominio>/paginas/ (index.json = home, lojas.json...)');
+  if (s.paginas != null) e('"paginas" não vai no cadastro: cada página é um arquivo em sites-config/<dominio>/paginas/ (index.json = home, lojas.json...)');
   if (s.rascunho != null && typeof s.rascunho !== 'boolean') e('"rascunho" deve ser true ou false');
   if (s.robots != null) { const r = require('./robots').validarRobots(s.robots); r.erros.forEach((x) => e(`robots: ${x}`)); }
   if (s.feedXml != null && s.feedXml !== false && !(typeof s.feedXml === 'object' && typeof s.feedXml.caminho === 'string' && /^[a-z0-9][a-z0-9_/-]*\.xml$/.test(s.feedXml.caminho))) e('"feedXml" deve ser false ou { "caminho": "estoque.xml" }');
@@ -144,7 +144,7 @@ function validarSite(s, dominio) {
     if (!ID_LOJA.test(id)) e(`loja "${id}": id só com minúsculas, números e hífen`);
     if (!l || !txt(l.nome) || !txt(l.cidade) || !/^[A-Z]{2}$/.test(String(l && l.uf))) e(`loja "${id}": precisa de "nome", "cidade" e "uf" (2 letras maiúsculas)`);
   }
-  // trocar de template: os blocos das páginas do site (sites/<dominio>/paginas/*.json) precisam existir no template novo
+  // trocar de template: os blocos das páginas do site (sites-config/<dominio>/paginas/*.json) precisam existir no template novo
   if (txt(s.template) && ID_SITE.test(String(dominio))) {
     for (const p of require('./paginas-livres').lerPaginasJson(C.paginasLivresSite(dominio))) {
       const j = lerJSON(p.arquivo, {});
@@ -190,7 +190,7 @@ function gravarSite(dominio, obj) {
   return { criado };
 }
 
-// estrutura de um site novo: sites/<dominio>/{site.json, estoque.json vazio, assets/, paginas/}
+// estrutura de um site novo: sites-config/<dominio>/{site.json, estoque.json vazio, assets/, paginas/}
 function criarArquivos(dominio, cadastro) {
   if (existe(dominio)) throw new Error(`site "${dominio}" já existe`);
   fs.mkdirSync(C.assets(dominio), { recursive: true });
@@ -204,7 +204,7 @@ function criarArquivos(dominio, cadastro) {
 // redirecionamentos: o SEO das páginas de carro vai junto), fotos, cópias de segurança, pendências de publicação,
 // config/fontes.json e as menções ao domínio no site.json (url, e-mails, links). Devolve desfazer() para voltar
 // tudo como estava se um passo seguinte (o build) falhar.
-function renomearArquivos(antigo, novo, { pasta = 'dist' } = {}) {
+function renomearArquivos(antigo, novo, { pasta = C.PUBLICO } = {}) {
   if (!existe(antigo)) throw new Error(`site "${antigo}" não existe`);
   if (!ID_SITE.test(String(novo))) throw new Error(`domínio novo inválido "${novo}"`);
   if (fs.existsSync(C.site(novo))) throw new Error(`já existe um site "${novo}"`);
@@ -232,8 +232,8 @@ function renomearArquivos(antigo, novo, { pasta = 'dist' } = {}) {
 }
 
 // tira o site da plataforma SEM destruir: cadastro, estoque e estado vão para .estado/removidos/<dominio>-<data>/
-// (dá para recuperar). Só a saída gerada (dist/<dominio>) é apagada. Pendências de publicação e fontes.json saem.
-function arquivarArquivos(dominio, { pasta = 'dist' } = {}) {
+// (dá para recuperar). Só a saída gerada (sites-public/<dominio>) é apagada. Pendências de publicação e fontes.json saem.
+function arquivarArquivos(dominio, { pasta = C.PUBLICO } = {}) {
   if (!existe(dominio)) throw new Error(`site "${dominio}" não existe`);
   const destino = path.join(C.ESTADO, 'removidos', `${dominio}-${new Date().toISOString().replace(/[:.]/g, '-')}`);
   const mover = (de, para) => { if (!fs.existsSync(de)) return; fs.mkdirSync(path.dirname(para), { recursive: true }); fs.renameSync(de, para); };

@@ -243,7 +243,7 @@ function criarRotas({ fila }) {
     const d = site(dominio);
     const refazer = () => fila.adicionar({ tipo: 'build', site: d, cliente: cliente.nome });
 
-    // PÁGINAS do site (sites/<dominio>/paginas/): o que o web designer faz na pasta, um sistema faz por aqui.
+    // PÁGINAS do site (sites-config/<dominio>/paginas/): o que o web designer faz na pasta, um sistema faz por aqui.
     //   GET    /v1/sites/<d>/paginas              lista (nome, formato, endereço público)
     //   GET    /v1/sites/<d>/paginas/<nome>       uma (JSON de blocos ou o HTML)
     //   PUT    /v1/sites/<d>/paginas/<nome>       grava: JSON { titulo, blocos } ou HTML (content-type text/html). "index" = home
@@ -281,7 +281,7 @@ function criarRotas({ fila }) {
       }
     }
 
-    // ARQUIVOS do site (sites/<dominio>/assets/: logo, favicon, banners, fontes). No site.json, use "assets/<nome>".
+    // ARQUIVOS do site (sites-config/<dominio>/assets/: logo, favicon, banners, fontes). No site.json, use "assets/<nome>".
     //   GET /v1/sites/<d>/assets   ·   PUT /v1/sites/<d>/assets/<nome> (corpo = o arquivo)   ·   DELETE /v1/sites/<d>/assets/<nome>
     if (resto === '/assets' && m === 'GET') return enviar(res, 200, { arquivos: Arq.listarAssets(d) });
     rp = /^\/assets\/(.+)$/.exec(resto);
@@ -350,8 +350,8 @@ function criarRotas({ fila }) {
       const acao = b.acao || 'criar';
       if (!['criar', 'promover', 'renomear'].includes(acao)) throw new Erro(422, '"acao" deve ser "criar", "promover" ou "renomear"');
       if (acao !== 'criar' && !Sites.ID_SITE.test(String(b.antigo))) throw new Erro(422, 'informe "antigo" (o domínio anterior / de rascunho)');
-      const r = await Ops.rodarInfra(acao, acao === 'criar' ? { site: d, pasta: `dist/${d}` }
-        : acao === 'promover' ? { rascunho: b.antigo, site: d, pasta: `dist/${d}` } : { antigo: b.antigo, novo: d, pasta: `dist/${d}` });
+      const r = await Ops.rodarInfra(acao, acao === 'criar' ? { site: d, pasta: `${C.PUBLICO}/${d}` }
+        : acao === 'promover' ? { rascunho: b.antigo, site: d, pasta: `${C.PUBLICO}/${d}` } : { antigo: b.antigo, novo: d, pasta: `${C.PUBLICO}/${d}` });
       return enviar(res, r.status === 'falhou' ? 502 : 200, r);
     }
     if (m === 'PUT' && resto === '/estoque') {

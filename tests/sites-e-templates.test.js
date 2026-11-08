@@ -1,12 +1,12 @@
-// Os sites REAIS do projeto (sites/*) e todos os templates: gera tudo numa pasta temporária e varre cada página
+// Os sites REAIS do projeto (sites-config/*) e todos os templates: gera tudo numa pasta temporária e varre cada página
 // atrás de link local quebrado, marcador {{ }} esquecido e motor funcionando com os dados de verdade.
 const A = require('./ajuda');
 const fs = require('fs');
 const path = require('path');
 const raiz = A.prepararRaiz();
-// usa os sites reais (somente leitura: o build não escreve em sites/)
-fs.rmSync(path.join(raiz, 'sites'), { recursive: true });
-fs.symlinkSync(path.join(A.PROJETO, 'sites'), path.join(raiz, 'sites'));
+// usa os sites reais (somente leitura: o build não escreve em sites-config/)
+fs.rmSync(path.join(raiz, 'sites-config'), { recursive: true });
+fs.symlinkSync(path.join(A.PROJETO, 'sites-config'), path.join(raiz, 'sites-config'));
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { construir } = require('../core/build.js');
@@ -66,7 +66,7 @@ for (const id of reais) {
 // problemas clássicos de site estático no ar (404, cache, charset, JSON-LD...). "localhost" fica de fora: a Trokey usa
 // o s3-local no teste local de propósito, e quem barra isso é a publicação (tests/producao.test.js)
 test('auditoria dos sites reais: nenhum PROBLEMA de produção', () => {
-  const { auditar } = require('../ferramentas/auditar-dist.js');
+  const { auditar } = require('../ferramentas/auditar-sites.js');
   const { resultados } = auditar(path.join(raiz, 'dist-teste'));
   assert.deepEqual(resultados.filter((r) => r.nivel === 'PROBLEMA' && r.chave !== 'localhost').map((r) => `${r.item}: ${r.detalhe}`), []);
 });
@@ -92,9 +92,9 @@ test('todo template funciona com a home padrão e com um site de 1 loja (gerado 
     fs.writeFileSync(path.join(dir, 'site.json'), JSON.stringify({ nome: 'X', motor: 'v2', template: t, url: `https://${id}`, whatsapp: '5511', lojas: { u: { nome: 'Única', cidade: 'Curitiba', uf: 'PR' } } }));
     fs.writeFileSync(path.join(dir, 'estoque.json'), JSON.stringify({ carros: [A.carro({ loja: undefined }), A.carro({ loja: undefined, fotos: 0 })] }));
   }
-  // aponta sites/ para a pasta temporária só neste teste
-  fs.rmSync(path.join(raiz, 'sites'));
-  fs.symlinkSync(sitesTmp, path.join(raiz, 'sites'));
+  // aponta sites-config/ para a pasta temporária só neste teste
+  fs.rmSync(path.join(raiz, 'sites-config'));
+  fs.symlinkSync(sitesTmp, path.join(raiz, 'sites-config'));
   try {
     A.silencioso(() => construir({ saida: 'dist-tpl', completo: true, efemero: true }));
     for (const t of fs.readdirSync(path.join(A.PROJETO, 'templates'))) {
@@ -102,7 +102,7 @@ test('todo template funciona com a home padrão e com um site de 1 loja (gerado 
       assert.deepEqual(A.verificarSiteGerado(id, 'dist-tpl').slice(0, 10), [], `template ${t}`);
     }
   } finally {
-    fs.rmSync(path.join(raiz, 'sites'));
-    fs.symlinkSync(path.join(A.PROJETO, 'sites'), path.join(raiz, 'sites'));
+    fs.rmSync(path.join(raiz, 'sites-config'));
+    fs.symlinkSync(path.join(A.PROJETO, 'sites-config'), path.join(raiz, 'sites-config'));
   }
 });

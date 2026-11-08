@@ -9,9 +9,9 @@ Como a plataforma roda em produção para milhares de sites de vários inquilino
   (Revenda Mais, Webmotors...)                      │ grava pedido
                                                     ▼
                                    ┌──── EFS (volume compartilhado, /dados) ────┐
-                                   │ inquilinos/  sites/  config/                │
+                                   │ inquilinos/  sites-config/  config/                │
                                    │ .estado/ (fila, travas, estado do build)    │
-                                   │ dist/ (sites gerados)                       │
+                                   │ sites-public/ (sites gerados)                       │
                                    └─────────────────────────────────────────────┘
                                                     ▲ pega um site por vez (trava por site)
                                    pods "trabalhador" (2..20, KEDA pelo tamanho da fila)
@@ -33,7 +33,7 @@ Como a plataforma roda em produção para milhares de sites de vários inquilino
 inquilinos/revenda-mais/inquilino.json      { "nome", "templates": [...], "rascunhos": { "padrao": "site{n}.carro57.com.br" } }
 inquilinos/revenda-mais/config/             fotos.json, infra.json, publicacao.json, robots.txt, site-modelo.json
 inquilinos/webmotors/...
-sites/<dominio>/site.json                   "inquilino": "revenda-mais"
+sites-config/<dominio>/site.json                   "inquilino": "revenda-mais"
 config/clientes.json                        tokens (só o hash), cada um de UM inquilino
 ```
 
@@ -79,7 +79,7 @@ kubectl -n site-carros exec deploy/api -- node api/cli.js cliente criar wm-integ
 4. **IAM (IRSA):** o papel de `infra/k8s/conta-servico.yaml` com acesso aos buckets e ao CloudFront.
 5. Secret `TOKEN_ATUALIZAR` (de preferência via External Secrets + Secrets Manager).
 6. `kubectl apply -k infra/k8s`.
-7. Copiar os dados atuais para o EFS (`sites/`, `inquilinos/`, `config/`, `.estado/`) e rodar um `POST /v1/build` com o token admin.
+7. Copiar os dados atuais para o EFS (`sites-config/`, `inquilinos/`, `config/`, `.estado/`) e rodar um `POST /v1/build` com o token admin.
 
 ## Scripts de infra (`ferramentas/infra/`)
 

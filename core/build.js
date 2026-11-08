@@ -1,36 +1,36 @@
 #!/usr/bin/env node
-// Gera os sites. Cada site = sites/<dominio>/ (site.json + estoque.json + assets/) + um template + uma versão do motor.
+// Gera os sites. Cada site = sites-config/<dominio>/ (site.json + estoque.json + assets/) + um template + uma versão do motor.
 // É INCREMENTAL: guarda o que gerou em .estado/ e, na próxima vez, só reescreve o que mudou.
-//   node core/build.js                                          todos os sites, com o motor que cada um usa (dist/)
+//   node core/build.js                                          todos os sites, com o motor que cada um usa (sites-public/)
 //   node core/build.js --sites trokey.com.br,outro.com.br        só esses sites
 //   node core/build.js --sites trokey.com.br --motor rascunho    testa o motor em rascunho num site (vai para dist-preview/)
 //   --completo                                                  ignora o que já foi gerado e refaz tudo
 //   --saida <pasta>                                             muda a pasta de saída
-// Entradas:  sites/<dominio>/  templates/<nome>/  core/motor/<versao>/engine.js  core/ui/
+// Entradas:  sites-config/<dominio>/  templates/<nome>/  core/motor/<versao>/engine.js  core/ui/
 // Saídas:    <saida>/<dominio>/...   e   .estado/<saida>/pendentes/<dominio>.json (o que mudou e ainda não foi publicado)
 //
 // O que vai para cada site gerado:
 //   motor/engine.js + motor/ui-*.js      ← core (motor da versão do site + ui)
 //   css/ js/ img/ ...                    ← templates/<nome>/ (tudo menos paginas/ e template.json)
-//   assets/                              ← sites/<dominio>/assets/
-//   index.html                           ← a HOME institucional: sites/<dominio>/paginas/index.json (sem ela, o core gera uma padrão)
+//   assets/                              ← sites-config/<dominio>/assets/
+//   index.html                           ← a HOME institucional: sites-config/<dominio>/paginas/index.json (sem ela, o core gera uma padrão)
 //   multipla/index.html                  ← templates/<nome>/paginas/index.html (a listagem do estoque; sempre em /multipla)
 //   carros/<Marca>/<Modelo>/<Versao>/<...>-<id>.html ← templates/<nome>/paginas/carro.html (e vendido.html); regra em core/ui/link-carro.js
-//   <caminho>/index.html                 ← templates/<nome>/paginas/pagina.html + blocos/<tipo>.html (sites/<dominio>/paginas/<caminho>.json)
+//   <caminho>/index.html                 ← templates/<nome>/paginas/pagina.html + blocos/<tipo>.html (sites-config/<dominio>/paginas/<caminho>.json)
 //   multipla/<campo>/<valor>/index.html  ← páginas fixas de filtro (marca, cidade, carroceria): a listagem já filtrada,
 //                                          com título próprio e os carros no HTML (SEO). "paginasFiltro" no site.json
 //   carros.json, config.json, sitemap.xml (com <lastmod> = quando cada página mudou de verdade), robots.txt (core/robots.js)
 //   estoque.xml                          ← o estoque em XML, para quem só lê XML (portais, catálogos, integrações antigas).
 //                                          "feedXml": { "caminho": "xml/estoque.xml" } muda o endereço; "feedXml": false desliga
 //
-// Páginas de conteúdo (home institucional, lojas, "quero vender"...) são ARQUIVOS em sites/<dominio>/paginas/:
+// Páginas de conteúdo (home institucional, lojas, "quero vender"...) são ARQUIVOS em sites-config/<dominio>/paginas/:
 //   index.json (home), lojas.json, sobre/nos.json → { "titulo": "...", "blocos": [ { "tipo": "banner", "imagem": "assets/x.webp" }, ... ] }
 //   feirao.html, feirao/index.html → HTML livre do designer (core/paginas-livres.js)
 // Cada tipo de bloco é um HTML do template (templates/<nome>/blocos/<tipo>.html). O site.json NÃO tem lista de páginas.
 // Páginas que TODO site ganha (contato, privacidade, cookies, LGPD...) vêm do TEMPLATE do site:
 // templates/<nome>/paginas-padrao/<nome>.json (cada template é autocontido; o texto legal muda num lugar só por template), com
 // {{site.nome}}, {{site.dominio}}, {{empresa.cnpj}}, {{rel}}... preenchidos por site. O site substitui uma delas com uma
-// página de mesmo nome em sites/<dominio>/paginas/ (ex.: contato.json), ou desliga com "paginasPadrao": { "<nome>": false }. Campos de link/imagem com caminho
+// página de mesmo nome em sites-config/<dominio>/paginas/ (ex.: contato.json), ou desliga com "paginasPadrao": { "<nome>": false }. Campos de link/imagem com caminho
 // relativo (link, imagem, foto, logo...) recebem o prefixo certo para a página onde aparecem.
 const fs = require('fs');
 const path = require('path');
@@ -40,8 +40,9 @@ const LinkCarro = require('./ui/link-carro.js'); // regra do link da página do 
 const PL = require('./paginas-livres'); // páginas livres dos web designers (HTML normal)
 const Fotos = require('./fotos'); // fotos por URL: quantas já estão prontas
 const Robots = require('./robots');
+const Sitemap = require('./sitemap'); // sitemap.xml: páginas + carros no ar (core/sitemap.js; gerarSitemap(dominio) também roda sozinho)
 const Inq = require('./inquilinos'); // inquilino do site: template próprio dele, se houver
-const Sites = require('./sites'); // repositório de sites: o único que lê a pasta sites/
+const Sites = require('./sites'); // repositório de sites: o único que lê a pasta sites-config/
 const Pendentes = require('./pendentes'); // o que falta publicar, um arquivo por site
 const { renovarMinhas } = require('./trava'); // build longo: mantém as travas do trabalhador vivas // modelo do robots.txt (um para todos os sites; o site pode ter o seu)
 
@@ -125,7 +126,7 @@ const RENDER_VERSION = `html-${VERSAO_HTML}`;
 
 const lerJSON = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 const lerJSONSeExiste = (p, padrao) => { try { return lerJSON(p); } catch (e) { return padrao; } };
-// sites/<dominio>/site.json → o id é sempre o nome da pasta
+// sites-config/<dominio>/site.json → o id é sempre o nome da pasta
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const brl = (n) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 const foto = (base, id, n, w) => `${base}carros/${id}/${n}-${w}.webp`;
@@ -239,15 +240,15 @@ function passa(c, loja, r) {
   return true;
 }
 
-// carros do site: sites/<dominio>/estoque.json; cada carro diz sua loja ("loja": "<id>" de site.lojas).
+// carros do site: sites-config/<dominio>/estoque.json; cada carro diz sua loja ("loja": "<id>" de site.lojas).
 // Site com uma loja só: o campo "loja" do carro é opcional.
 function juntar(site) {
   const lojas = site.lojas || {};
   const ids = Object.keys(lojas);
-  if (!fs.existsSync(C.estoque(site.id))) console.warn(`  aviso: site "${site.id}" sem sites/${site.id}/estoque.json`);
+  if (!fs.existsSync(C.estoque(site.id))) console.warn(`  aviso: site "${site.id}" sem sites-config/${site.id}/estoque.json`);
   const estoque = Sites.estoque(site.id);
   // site recém-criado ainda sem lojas: sobe sem estoque (carro só entra depois que a loja dele existir)
-  if (!ids.length) { if ((estoque.carros || []).length) throw new Error(`Site "${site.id}" tem carros mas nenhuma loja em sites/${site.id}/site.json`); return []; }
+  if (!ids.length) { if ((estoque.carros || []).length) throw new Error(`Site "${site.id}" tem carros mas nenhuma loja em sites-config/${site.id}/site.json`); return []; }
   // ordem de exibição: campo "ordem" (menor primeiro); sem ele, a posição no arquivo. Empate: posição no arquivo.
   const lista = (estoque.carros || []).map((c, i) => ({ c, i }))
     .sort((a, b) => (typeof a.c.ordem === 'number' ? a.c.ordem : Infinity) - (typeof b.c.ordem === 'number' ? b.c.ordem : Infinity) || a.i - b.i)
@@ -283,7 +284,7 @@ const preencherTextos = (o, ctx) => (typeof o === 'string' ? render(o, ctx) : Ar
 // completo = do zero, DESCARTANDO o histórico (vendidos, redirecionamentos): só antes de publicar.
 // todasPaginas = regera todas as páginas do site MANTENDO o histórico (o "rebuild" seguro para site no ar).
 function construir({ sites = null, motor = null, saida = null, completo = false, todasPaginas = false, efemero = false, hoje: hojeParam = null } = {}) {
-  const pasta = saida || (motor ? 'dist-preview' : 'dist');
+  const pasta = saida || (motor ? 'dist-preview' : C.PUBLICO);
   const DIST = C.saida(pasta);
   const todos = Sites.carregarTodos();
   const alvo = sites
@@ -310,9 +311,9 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
   };
 
   for (const site of alvo) {
-    if (!Sites.ID_SITE.test(String(site.id))) throw new Error(`Pasta de site inválida: "sites/${site.id}" (o nome da pasta é o domínio, ex.: sites/minhaloja.com.br)`);
+    if (!Sites.ID_SITE.test(String(site.id))) throw new Error(`Pasta de site inválida: "sites-config/${site.id}" (o nome da pasta é o domínio, ex.: sites-config/minhaloja.com.br)`);
     const versao = motor || site.motor;
-    if (!versao) throw new Error(`Site "${site.id}" sem "motor" (ex.: "motor": "v1") em sites/${site.id}/site.json`);
+    if (!versao) throw new Error(`Site "${site.id}" sem "motor" (ex.: "motor": "v1") em sites-config/${site.id}/site.json`);
     const arqMotor = path.join(C.motor(versao), 'engine.js');
     if (!fs.existsSync(arqMotor)) throw new Error(`Site "${site.id}": motor "${versao}" não existe (core/motor/${versao}/engine.js)`);
     const nomeTpl = site.template;
@@ -328,12 +329,12 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     if (cfgEstoque.caminho != null && limparCaminho(cfgEstoque.caminho) !== CAMINHO_ESTOQUE)
       console.warn(`  aviso: site "${site.id}": "estoque.caminho" foi ignorado (a listagem fica sempre em /${CAMINHO_ESTOQUE}/)`);
     const caminhoEstoque = CAMINHO_ESTOQUE;
-    // páginas do site: ARQUIVOS em sites/<dominio>/paginas/ (lojas.json, index.json = home, feirao.html...). O site.json
+    // páginas do site: ARQUIVOS em sites-config/<dominio>/paginas/ (lojas.json, index.json = home, feirao.html...). O site.json
     // não tem mais lista de páginas: o designer cria uma página nova criando um arquivo, sem mexer no cadastro.
-    if (site.paginas != null) throw new Error(`Site "${site.id}": "paginas" não fica mais no site.json: cada página é um arquivo em sites/${site.id}/paginas/ (index.json = home, lojas.json, feirao.html...). Para mover: node ferramentas/mover-paginas.js`);
+    if (site.paginas != null) throw new Error(`Site "${site.id}": "paginas" não fica mais no site.json: cada página é um arquivo em sites-config/${site.id}/paginas/ (index.json = home, lojas.json, feirao.html...). Para mover: node ferramentas/mover-paginas.js`);
     const dirPagSite = C.paginasLivresSite(site.id);
     const paginasSite = PL.lerPaginasJson(dirPagSite).map((p) => {
-      const onde = `sites/${site.id}/paginas/${path.relative(dirPagSite, p.arquivo)}`;
+      const onde = `sites-config/${site.id}/paginas/${path.relative(dirPagSite, p.arquivo)}`;
       let j;
       try { j = lerJSON(p.arquivo); } catch (e) { throw new Error(`${onde}: JSON inválido (${e.message})`); }
       if (!j || typeof j !== 'object' || Array.isArray(j)) throw new Error(`${onde}: precisa ser um objeto { "titulo", "blocos": [...] }`);
@@ -342,14 +343,14 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     });
     const desligadas = site.paginasPadrao || {};
     // páginas livres dos designers (HTML normal). Prioridade de quem tem o mesmo caminho:
-    //   site.json "paginas" > sites/<dominio>/paginas/ > templates/<nome>/paginas-extras/ > templates/<nome>/paginas-padrao/
+    //   site.json "paginas" > sites-config/<dominio>/paginas/ > templates/<nome>/paginas-extras/ > templates/<nome>/paginas-padrao/
     const livres = [
-      ...PL.lerPaginasLivres(C.paginasLivresSite(site.id)).map((p) => ({ ...p, origem: `sites/${site.id}/paginas` })),
+      ...PL.lerPaginasLivres(C.paginasLivresSite(site.id)).map((p) => ({ ...p, origem: `sites-config/${site.id}/paginas` })),
       ...PL.lerPaginasLivres(path.join(dirTpl, 'paginas-extras')).map((p) => ({ ...p, origem: `templates/${nomeTpl}/paginas-extras`, doTemplate: true })),
     ];
     const vistosLivres = new Map();
     for (const p of livres) {
-      const onde = `${p.origem}/${path.relative(p.origem.startsWith('sites') ? C.paginasLivresSite(site.id) : path.join(dirTpl, 'paginas-extras'), p.arquivo)}`;
+      const onde = `${p.origem}/${path.relative(p.origem.startsWith('sites-config') ? C.paginasLivresSite(site.id) : path.join(dirTpl, 'paginas-extras'), p.arquivo)}`;
       if (vistosLivres.get(p.caminho) === p.origem) throw new Error(`Página "${p.caminho}" duplicada em ${p.origem} (existe ${p.caminho}.html e ${p.caminho}/index.html)`);
       const json = paginasSite.find((x) => x.caminho === p.caminho && !x.livre);
       if (json && !p.doTemplate) throw new Error(`Página "${p.caminho}" duplicada em ${p.origem} (existe ${json.arquivo} e a página HTML ${onde}): fique com uma só`);
@@ -808,10 +809,8 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
 
     // sitemap e robots: é por aqui que o Google descobre as páginas dos carros (a listagem é montada por JS)
     if (raizUrl) {
-      // <lastmod>: dia em que a página mudou de verdade (o Google revisita só o que mudou)
-      const urls = [...geradas.map((g) => [`${raizUrl}/${url(g.replace(/index\.html$/, ''))}`, datas[g]]), ...carros.map((c) => [`${raizUrl}/${url(links[c.id])}`, datas[links[c.id]]])];
-      escreverSe(path.join(out, 'sitemap.xml'),
-        `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(([u, d]) => `<url><loc>${esc(u)}</loc>${d ? `<lastmod>${d}</lastmod>` : ''}</url>`).join('\n')}\n</urlset>\n`, rel('sitemap.xml'), mud);
+      // reconstrói o sitemap com as páginas e os carros desta reconstrução (a mesma função de gerarSitemap(dominio))
+      escreverSe(path.join(out, 'sitemap.xml'), Sitemap.montarSitemap(site, { paginas: geradas, links, datas }), rel('sitemap.xml'), mud);
       escreverSe(path.join(out, 'robots.txt'), Robots.textoRobots(site), rel('robots.txt'), mud);
     }
 
@@ -877,7 +876,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
 
 // <saida>/index.html: índice só para navegar entre os sites durante o desenvolvimento (não é publicado). Refeito pelo
 // build e quando um site sai (core/operacoes.js), para nunca listar site que não existe mais.
-function atualizarIndice(pasta = 'dist') {
+function atualizarIndice(pasta = C.PUBLICO) {
   const DIST = C.saida(pasta);
   if (!fs.existsSync(DIST)) return;
   const presentes = Sites.carregarTodos().filter((s) => fs.existsSync(path.join(DIST, s.id, 'index.html')));

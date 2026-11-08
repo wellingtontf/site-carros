@@ -25,7 +25,7 @@ Authorization: Bearer sc_xxxxxxxxxxxxxxxx
 | 403 | o token não tem acesso a esse site |
 | 404 | site, carro, pedido ou rota não existe |
 
-O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da pasta `sites/<dominio>/`.
+O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da pasta `sites-config/<dominio>/`.
 
 ## Rotas
 
@@ -168,7 +168,7 @@ O `PATCH` segue o JSON Merge Patch (RFC 7396): objeto mescla campo a campo (no e
 }
 ```
 
-Obrigatórios: `nome`, `template` e `motor`. As `lojas` são opcionais num site novo (cada uma com `nome`, `cidade` e `uf`); sem loja, o site não aceita estoque. Os opcionais (`cabecalho`, `rodape`, `filtros`, `tema`...) seguem o mesmo formato do `site.json` (README do projeto). As **páginas não vão no cadastro**: cada página é um arquivo em `sites/<dominio>/paginas/`, criado pelo web designer (um cadastro com `"paginas"` volta 422). A API recusa (422, nada gravado): template ou motor inexistente, bloco que o template não tem, `url` sem https e loja removida que ainda tem carros no estoque. O cadastro anterior fica guardado como cópia de segurança.
+Obrigatórios: `nome`, `template` e `motor`. As `lojas` são opcionais num site novo (cada uma com `nome`, `cidade` e `uf`); sem loja, o site não aceita estoque. Os opcionais (`cabecalho`, `rodape`, `filtros`, `tema`...) seguem o mesmo formato do `site.json` (README do projeto). As **páginas não vão no cadastro**: cada página é um arquivo em `sites-config/<dominio>/paginas/`, criado pelo web designer (um cadastro com `"paginas"` volta 422). A API recusa (422, nada gravado): template ou motor inexistente, bloco que o template não tem, `url` sem https e loja removida que ainda tem carros no estoque. O cadastro anterior fica guardado como cópia de segurança.
 
 ## Vários sites numa chamada
 

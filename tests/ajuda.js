@@ -7,10 +7,10 @@ const path = require('path');
 const PROJETO = path.resolve(__dirname, '..');
 let RAIZ = null;
 
-// cria uma pasta de dados vazia (sites/, config/) com os templates reais + o template "teste", e aponta o core para ela
+// cria uma pasta de dados vazia (sites-config/, config/) com os templates reais + o template "teste", e aponta o core para ela
 function prepararRaiz() {
   RAIZ = fs.mkdtempSync(path.join(os.tmpdir(), 'site-carros-teste-'));
-  for (const d of ['sites', 'config', 'templates']) fs.mkdirSync(path.join(RAIZ, d));
+  for (const d of ['sites-config', 'config', 'templates']) fs.mkdirSync(path.join(RAIZ, d));
   for (const t of fs.readdirSync(path.join(PROJETO, 'templates'))) fs.symlinkSync(path.join(PROJETO, 'templates', t), path.join(RAIZ, 'templates', t));
   fs.symlinkSync(path.join(__dirname, 'fixtures', 'templates', 'teste'), path.join(RAIZ, 'templates', 'teste'));
   process.env.SITE_CARROS_RAIZ = RAIZ;
@@ -21,8 +21,8 @@ const raiz = () => RAIZ;
 
 // apaga sites, saída e estado (entre um teste e outro)
 function limpar() {
-  for (const d of ['sites', 'dist', 'dist-teste', 'dist-preview', '.estado', 'config']) fs.rmSync(path.join(RAIZ, d), { recursive: true, force: true });
-  fs.mkdirSync(path.join(RAIZ, 'sites'));
+  for (const d of ['sites-config', 'sites-public', 'dist-teste', 'dist-preview', '.estado', 'config']) fs.rmSync(path.join(RAIZ, d), { recursive: true, force: true });
+  fs.mkdirSync(path.join(RAIZ, 'sites-config'));
   fs.mkdirSync(path.join(RAIZ, 'config'));
 }
 
@@ -40,17 +40,17 @@ const LOJAS = {
   sul: { nome: 'Loja Sul', cidade: 'Porto Alegre', uf: 'RS', endereco: 'Rua B, 2 - Porto Alegre - RS' },
 };
 
-// páginas de um site: cada uma é um ARQUIVO em sites/<id>/paginas/ (index.json = home, lojas.json, a/b.json).
+// páginas de um site: cada uma é um ARQUIVO em sites-config/<id>/paginas/ (index.json = home, lojas.json, a/b.json).
 // Os testes descrevem as páginas como lista { caminho, ...página }; isto grava os arquivos (apagando os .json antigos).
-const arqPagina = (id, caminho) => path.join(RAIZ, 'sites', id, 'paginas', `${String(caminho).replace(/^\/+|\/+$/g, '') || 'index'}.json`);
+const arqPagina = (id, caminho) => path.join(RAIZ, 'sites-config', id, 'paginas', `${String(caminho).replace(/^\/+|\/+$/g, '') || 'index'}.json`);
 function gravarPaginas(id, paginas) {
-  const dir = path.join(RAIZ, 'sites', id, 'paginas');
+  const dir = path.join(RAIZ, 'sites-config', id, 'paginas');
   for (const f of listar(dir).filter((x) => x.endsWith('.json'))) fs.rmSync(f);
   for (const { caminho, ...p } of paginas) { const f = arqPagina(id, caminho ?? ''); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify(p)); }
 }
-// grava sites/<id>/site.json, estoque.json e (se vier "paginas") os arquivos de sites/<id>/paginas/
+// grava sites-config/<id>/site.json, estoque.json e (se vier "paginas") os arquivos de sites-config/<id>/paginas/
 function criarSite(id, { site = {}, carros = [] } = {}) {
-  const dir = path.join(RAIZ, 'sites', id);
+  const dir = path.join(RAIZ, 'sites-config', id);
   fs.mkdirSync(dir, { recursive: true });
   const { paginas, ...resto } = site;
   const cfg = { nome: `Site ${id}`, slogan: 'Seminovos de teste', motor: 'v2', template: 'teste', url: `https://${id}`, whatsapp: '5511999999999', fotosBase: 'https://fotos.teste/', lojas: LOJAS, ...resto };
@@ -59,11 +59,11 @@ function criarSite(id, { site = {}, carros = [] } = {}) {
   if (paginas) gravarPaginas(id, paginas);
   return cfg;
 }
-const lerSite = (id) => JSON.parse(fs.readFileSync(path.join(RAIZ, 'sites', id, 'site.json'), 'utf8'));
-const gravarSite = (id, cfg) => { const { paginas, ...resto } = cfg; fs.writeFileSync(path.join(RAIZ, 'sites', id, 'site.json'), JSON.stringify(resto, null, 2)); if (paginas) gravarPaginas(id, paginas); };
-const gravarEstoque = (id, carros) => fs.writeFileSync(path.join(RAIZ, 'sites', id, 'estoque.json'), JSON.stringify({ carros }));
+const lerSite = (id) => JSON.parse(fs.readFileSync(path.join(RAIZ, 'sites-config', id, 'site.json'), 'utf8'));
+const gravarSite = (id, cfg) => { const { paginas, ...resto } = cfg; fs.writeFileSync(path.join(RAIZ, 'sites-config', id, 'site.json'), JSON.stringify(resto, null, 2)); if (paginas) gravarPaginas(id, paginas); };
+const gravarEstoque = (id, carros) => fs.writeFileSync(path.join(RAIZ, 'sites-config', id, 'estoque.json'), JSON.stringify({ carros }));
 
-const saida = (id, arq = '', pasta = 'dist') => path.join(RAIZ, pasta, id, arq);
+const saida = (id, arq = '', pasta = 'sites-public') => path.join(RAIZ, pasta, id, arq);
 const existe = (id, arq, pasta) => fs.existsSync(saida(id, arq, pasta));
 const ler = (id, arq, pasta) => fs.readFileSync(saida(id, arq, pasta), 'utf8');
 const lerJSON = (id, arq, pasta) => JSON.parse(ler(id, arq, pasta));
@@ -102,7 +102,7 @@ function linksQuebrados(raizSite, arquivoHtml, html) {
 }
 
 // confere todas as páginas de um site gerado: nada de marcador sobrando nem link local quebrado
-function verificarSiteGerado(id, pasta = 'dist') {
+function verificarSiteGerado(id, pasta = 'sites-public') {
   const dir = saida(id, '', pasta);
   const problemas = [];
   for (const arq of listar(dir).filter((f) => f.endsWith('.html'))) {
@@ -124,9 +124,9 @@ function carregarMotor(dirSite) {
 }
 
 // pendências de publicação de um site
-const pendente = (id, pasta = 'dist') => require('../core/pendentes').ler(pasta, id);
+const pendente = (id, pasta = 'sites-public') => require('../core/pendentes').ler(pasta, id);
 // "finge que já publicou": apaga as pendências de todos os sites
-const limparPendentes = (pasta = 'dist') => fs.rmSync(path.join(RAIZ, '.estado', pasta, 'pendentes'), { recursive: true, force: true });
+const limparPendentes = (pasta = 'sites-public') => fs.rmSync(path.join(RAIZ, '.estado', pasta, 'pendentes'), { recursive: true, force: true });
 
 // silencia console.log/warn do build durante o teste e devolve o que foi impresso
 function silencioso(fn) {

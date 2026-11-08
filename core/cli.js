@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Versões do motor: rascunho → congelar → testar → aplicar em alguns sites → aplicar em todos (→ reverter)
-// Os sites são identificados pelo domínio (nome da pasta em sites/).
+// Os sites são identificados pelo domínio (nome da pasta em sites-config/).
 //   node core/cli.js status
 //   node core/cli.js congelar v2 --nota "texto"         copia core/motor/rascunho para core/motor/v2 (fica imutável)
 //   node core/cli.js testar [--motor v2|rascunho] [--sites a.com.br,b.com.br]
@@ -9,8 +9,9 @@
 //   node core/cli.js historico
 //   node core/cli.js atualizar [a.com.br,b.com.br] [--publicar]   busca o estoque em config/fontes.json e refaz só o que mudou
 //   node core/cli.js publicar                           publica só o que mudou e ainda não foi publicado (config/publicacao.json)
+//   node core/cli.js sitemap [a.com.br,b.com.br]        reconstrói o sitemap.xml (páginas + carros no ar; core/sitemap.js)
 //   node core/cli.js fotos [a.com.br,b.com.br]          baixa e converte as fotos por URL pendentes e refaz os sites (config/fotos.json)
-// Depois de aplicar, gere os sites: node core/build.js --sites a.com.br   e publique as pastas de dist/.
+// Depois de aplicar, gere os sites: node core/build.js --sites a.com.br   e publique as pastas de sites-public/.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -158,7 +159,7 @@ async function testarSite(pasta, id) {
   return falhas;
 }
 
-// gera numa pasta TEMPORÁRIA (.estado/teste-<pid>), testa e apaga: a única saída que fica no projeto é a dist/
+// gera numa pasta TEMPORÁRIA (.estado/teste-<pid>), testa e apaga: a única saída que fica no projeto é a sites-public/
 async function testar({ motor = null, sites = null }) {
   const pasta = path.join('.estado', `teste-${process.pid}`);
   try {
@@ -259,6 +260,12 @@ function mostrarHistorico() {
       const r = await publicarPendentes({});
       process.exit(r.falhas.length ? 2 : 0);
       break;
+    }
+    case 'sitemap': {
+      // node core/cli.js sitemap [dominio1,dominio2]  reconstrói o sitemap.xml a partir do que está gerado
+      const { gerarSitemap } = require('./sitemap.js');
+      for (const d of args._[0] ? args._[0].split(',') : Sites.listar()) { const r = gerarSitemap(d); console.log(`${d}: ${r.status === 'sem_url' ? 'sem "url" no site.json: sem sitemap' : `${r.urls} endereços${r.alterado ? ' (atualizado)' : ' (sem mudança)'}`}`); }
+      return;
     }
     case 'fotos': {
       const Fotos = require('./fotos.js');

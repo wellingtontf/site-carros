@@ -10,7 +10,7 @@ const { atualizar, publicarPendentes } = require('../core/atualizar.js');
 
 const ID = 'loja-a.com.br';
 const OUTRO = 'loja-b.com.br';
-const estoqueDe = (id) => JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites', id, 'estoque.json'), 'utf8'));
+const estoqueDe = (id) => JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites-config', id, 'estoque.json'), 'utf8'));
 const config = (arq, obj) => fs.writeFileSync(path.join(A.raiz(), 'config', arq), JSON.stringify(obj));
 const rodar = (opts) => A.silenciosoAsync(() => atualizar({ log: () => {}, ...opts })).then((x) => x.r);
 
@@ -155,7 +155,7 @@ test('publicar: roda o comando por site com {lista}; só limpa a pendência de q
   assert.deepEqual(r.publicados, [ID]);
   assert.deepEqual(r.falhas, [OUTRO]);
   assert.match(fs.readFileSync(log, 'utf8'), new RegExp(`^${ID.replace(/\./g, '\\.')}:1:`));
-  assert.deepEqual(require('../core/pendentes').listar('dist'), [OUTRO], 'quem falhou continua pendente');
+  assert.deepEqual(require('../core/pendentes').listar('sites-public'), [OUTRO], 'quem falhou continua pendente');
 });
 
 test('publicar: {lista} só com os arquivos que mudaram (publicação incremental)', async () => {
@@ -174,7 +174,7 @@ test('publicar: {lista} só com os arquivos que mudaram (publicação incrementa
 
 test('publicar: nome de arquivo com aspas não injeta comando no shell', async () => {
   A.limparPendentes();
-  require('../core/pendentes').registrar('dist', ID, { escritos: [`${ID}/x'; touch '${path.join(A.raiz(), 'HACK')}'; '.html`], removidos: [] });
+  require('../core/pendentes').registrar('sites-public', ID, { escritos: [`${ID}/x'; touch '${path.join(A.raiz(), 'HACK')}'; '.html`], removidos: [] });
   config('publicacao.json', { comandoSite: 'echo {lista} > /dev/null' });
   await A.silenciosoAsync(() => publicarPendentes({ log: () => {} }));
   assert.ok(!fs.existsSync(path.join(A.raiz(), 'HACK')));
