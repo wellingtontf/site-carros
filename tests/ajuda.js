@@ -83,6 +83,7 @@ function linksQuebrados(raizSite, arquivoHtml, html) {
     let u = m[1].replace(/&amp;/g, '&');
     if (!u || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#|\?)/i.test(u)) continue; // externo, âncora, query, data:, mailto:, tel:
     u = u.split(/[?#]/)[0];
+    try { u = decodeURIComponent(u); } catch (e) { /* deixa como está */ }
     let alvo = u.startsWith('/') ? path.join(raizSite, u) : path.resolve(path.dirname(arquivoHtml), u);
     if (u === '' || u.endsWith('/') || (fs.existsSync(alvo) && fs.statSync(alvo).isDirectory())) alvo = path.join(alvo, 'index.html');
     if (!alvo.startsWith(raizSite)) { quebrados.push(`${m[1]} (sai da pasta do site)`); continue; }

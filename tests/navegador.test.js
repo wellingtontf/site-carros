@@ -22,6 +22,7 @@ before(async () => {
   if (pular) return;
   for (const t of templates) {
     const carros = Array.from({ length: TOTAL }, (_, i) => A.carro({ marca: i % 3 ? 'Toyota' : 'Honda', modelo: i % 3 ? 'Corolla' : 'Civic', loja: i % 2 ? 'sul' : 'centro', ordem: TOTAL - i }));
+    carros[TOTAL - 1].link = `carros/Link/Do/Revenda-Mais/${t}-especial-1.html`; // o primeiro na tela (ordem 1) usa link vindo do estoque
     A.criarSite(`${t}.teste.com.br`, { carros, site: { template: t, fotosBase: '' } });
   }
   A.silencioso(() => construir({}));
@@ -67,6 +68,7 @@ for (const t of templates) {
     const href = semModelo(dom).match(/class="card[^"]*" href="([^"]+)"|<a class="card-foto" href="([^"]+)"/);
     assert.ok(href, 'card com link');
     const alvo = (href[1] || href[2]).replace(/^\.\.\//, '');
+    assert.equal(alvo, `carros/Link/Do/Revenda-Mais/${t}-especial-1.html`, 'o card usa o link vindo do estoque');
     assert.ok(fs.existsSync(path.join(raiz, 'dist', id, alvo)), `link do card aponta para página que existe: ${alvo}`);
   });
 
@@ -74,6 +76,21 @@ for (const t of templates) {
     const { dom } = await abrir(`${base}/${id}/multipla/?marca=Honda`);
     assert.match(dom, /10 carros/);
     assert.equal(cards(dom), 10);
+  });
+
+  test(`[${t}] página fixa de cidade: a URL não ganha ?cidade= repetido; filtro extra vai para a URL`, { skip: pular }, async () => {
+    // o Chrome headless não mostra a URL final no DOM: a página escreve location.href num atributo para o teste ler
+    const ler = async (u) => (await abrir(u)).dom;
+    const url = (dom) => (dom.match(/data-url-final="([^"]*)"/) || [])[1];
+    const pagina = path.join(raiz, 'dist', id, 'multipla', 'cidade', 'porto-alegre', 'index.html');
+    const html = fs.readFileSync(pagina, 'utf8');
+    fs.writeFileSync(pagina, html.replace('</body>', '<script>setTimeout(()=>document.body.setAttribute("data-url-final",location.href),1500)</script></body>'));
+    try {
+      const sem = url(await ler(`${base}/${id}/multipla/cidade/porto-alegre/`));
+      assert.ok(sem && !sem.includes('?'), `URL limpa, veio ${sem}`);
+      const com = url(await ler(`${base}/${id}/multipla/cidade/porto-alegre/?marca=Honda`));
+      assert.ok(com && com.endsWith('/porto-alegre/?marca=Honda'), `só o filtro extra, veio ${com}`);
+    } finally { fs.writeFileSync(pagina, html); }
   });
 
   test(`[${t}] página fixa /multipla/marca/honda/: depois do JS continua só com a marca dela`, { skip: pular }, async () => {

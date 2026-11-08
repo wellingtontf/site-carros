@@ -92,6 +92,7 @@ O GitHub roda tudo a cada push (`.github/workflows/testes.yml`).
     "combustivel": "Flex", "fotos": 6, "opcionais": ["Ar-condicionado"], "descricao": "..." } ]}
 ```
 `loja` é o id de uma loja de `site.json`. Se o site tem uma loja só, pode omitir.
+- `link` (opcional): o endereço da página do carro, ex. `"carros/Toyota/Corolla/Xei-20/Toyota-Corolla-Xei-20-2024-Curitiba-Parana-8644851.html"`. **Mande o link que o Revenda Mais já usa**: a página fica exatamente nele (as URLs indexadas no Google não mudam, sem 301). Sem `link`, vale a regra de `core/ui/link-carro.js`. Precisa começar com `carros/` e terminar com `.html`; `//` vira `/`.
 
 Campos opcionais:
 - `ordem` (inteiro ≥ 0): **ordem de exibição**; menor aparece primeiro. Sem `ordem`, vale a posição no arquivo. É a ordenação padrão do site ("Destaques", motor v2+) e a ordem da vitrine/listagem da home.
@@ -159,7 +160,7 @@ Você só cria **arquivos HTML** numa pasta. Sem JSON, sem configuração, sem p
 - Gerar e ver: `node core/build.js` e abrir `dist/<dominio>/`. Arquivo apagado da pasta some do site no próximo build.
 
 ## Páginas padrão (todo site ganha): `paginas-padrao/`
-`contato`, `politica-de-privacidade`, `politica-de-cookies` e `lgpd` ficam em `paginas-padrao/<nome>.json` (mesmo formato de uma página do `site.json`) e são geradas em **todos** os sites, com os dados de cada um: `{{site.nome}}`, `{{site.dominio}}`, `{{site.url}}`, `{{site.whatsapp}}`, `{{empresa.razaoSocial}}`, `{{empresa.cnpj}}`, `{{empresa.email}}`, `{{empresa.encarregado}}` e `{{rel}}` (prefixo até a raiz, para links internos). O jurídico muda o texto em **um** arquivo e o build atualiza os 2500 sites.
+`contato`, `financiamento`, `avaliacao`, `politica-de-privacidade`, `politica-de-cookies` e `lgpd` ficam em `paginas-padrao/<nome>.json` (mesmo formato de uma página do `site.json`) e são geradas em **todos** os sites, com os dados de cada um: `{{site.nome}}`, `{{site.dominio}}`, `{{site.url}}`, `{{site.whatsapp}}`, `{{empresa.razaoSocial}}`, `{{empresa.cnpj}}`, `{{empresa.email}}`, `{{empresa.encarregado}}` e `{{rel}}` (prefixo até a raiz, para links internos). O jurídico muda o texto em **um** arquivo e o build atualiza os 2500 sites.
 - Dados legais por site: `"empresa": { "razaoSocial": "...", "cnpj": "...", "email": "dpo@...", "encarregado": "Fulano" }` no `site.json` (sem eles, o texto usa o nome do site e a página de contato).
 - O site **substitui** uma página padrão criando em `paginas` uma de mesmo `caminho`, ou **desliga**: `"paginasPadrao": { "lgpd": false }`.
 - Página com `"provisorio": true` gera um aviso no build (uma vez, não um por site) até o texto oficial chegar.
@@ -227,6 +228,7 @@ Tolera erro de digitação: se nenhum carro tem a palavra exata, procura a parec
 ## SEO
 - **Cards no HTML:** a `/multipla` e as páginas de filtro já saem com os primeiros carros (24, ou o `data-pagina` do `#grade`) montados pelo build com o próprio `tpl-card` do template. O Google vê os carros sem rodar JS; no navegador, a `ui-lista` assume.
 - **Páginas fixas de filtro:** `/multipla/marca/toyota/`, `/multipla/cidade/curitiba/`, `/multipla/carroceria/suv/` (título, descrição e canonical próprios, carros no HTML, filtro já aplicado via `<body data-filtro>`). Padrão: marca, cidade e carroceria; `"paginasFiltro": ["marca", "cidade", "carroceria", "combustivel", "modelo"]` no `site.json` muda. Só são criadas para filtros que o motor do site tem e com 2+ valores (1 valor seria conteúdo duplicado). Marca que sai do estoque tem a página apagada. Links de `{{#estoque.marcas}}`, `cidades`, `carrocerias` apontam para elas.
+- **`"formatoUrls": "revendamais"`** (site.json): as páginas de filtro ficam nos endereços do Revenda Mais (`/multipla/marca/caoa chery/`, `/multipla/revenda_cidade_nome/Curitiba/`, `/multipla/carroceria/suv/`, `/multipla/combustivel/Elétrico/`, `/multipla/modelo-marca/COROLLA/`). Espaço e acento vão codificados nos links e no sitemap. Na hospedagem, servir também sem a barra final (`/multipla/marca/toyota` → `/multipla/marca/toyota/`).
 - **Sitemap com `<lastmod>`:** o dia em que cada página mudou de verdade (guardado no estado do build), não o dia do build.
 - Templates: a listagem usa `{{listagem.titulo}}`, `{{listagem.descricao}}`, `{{{listagem.canon}}}`, `{{listagem.h1}}` e `<body ... data-filtro="{{listagem.filtro}}">`.
 

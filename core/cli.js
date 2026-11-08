@@ -109,8 +109,10 @@ async function testarSite(pasta, id) {
   ok(motor.versao === cfg.motor, `versão do motor (${motor.versao}) diferente da configurada (${cfg.motor})`);
   ok(motor.resultado().length === motor.total, 'resultado inicial deveria ter todos os carros');
   ok(fs.existsSync(path.join(dir, 'index.html')), 'index.html não foi gerado');
-  const semPagina = motor.resultado().filter((c) => !fs.existsSync(path.join(dir, LinkCarro.caminho(c))));
-  ok(!semPagina.length, `faltam páginas de carros (${semPagina.length}), ex.: ${semPagina[0] && LinkCarro.caminho(semPagina[0])}`);
+  const linkDe = new Map(lerJSON(path.join(dir, 'carros.json')).filter((d) => d.l).map((d) => [d.i, d.l])); // link vindo do estoque
+  const caminho = (c) => linkDe.get(c.id) || LinkCarro.caminho(c);
+  const semPagina = motor.resultado().filter((c) => !fs.existsSync(path.join(dir, caminho(c))));
+  ok(!semPagina.length, `faltam páginas de carros (${semPagina.length}), ex.: ${semPagina[0] && caminho(semPagina[0])}`);
 
   // ordenação "destaque": a lista sai na ordem do estoque (carros.json já vem nessa ordem; campo r)
   if (motor.ordens[0] && motor.ordens[0].chave === 'destaque') {

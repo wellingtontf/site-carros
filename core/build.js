@@ -52,6 +52,19 @@ const PAGINAS_FILTRO_PADRAO = ['marca', 'cidade', 'carroceria'];
 // filtros que o motor de cada versão conhece sem configuração (a página de filtro só existe se o filtro existir no motor)
 const FILTROS_MOTOR_V1 = ['estado', 'cidade', 'loja', 'marca', 'modelo', 'ano', 'preco', 'km', 'cambio', 'combustivel', 'cor'];
 const CARDS_POR_PAGINA = 24; // padrão da ui-lista (data-pagina no #grade muda)
+// "formatoUrls": "revendamais" no site.json: páginas de filtro nos MESMOS endereços do Revenda Mais (migração sem 301)
+const FILTROS_REVENDAMAIS = {
+  marca: (v) => `marca/${String(v).toLowerCase()}`, // /multipla/marca/caoa chery
+  cidade: (v) => `revenda_cidade_nome/${v}`, // /multipla/revenda_cidade_nome/Curitiba
+  carroceria: (v) => `carroceria/${String(v).toLowerCase()}`,
+  combustivel: (v) => `combustivel/${v}`,
+  modelo: (v) => `modelo-marca/${String(v).toUpperCase()}`,
+};
+// link do carro: o "link" que vem no estoque (o do Revenda Mais, idêntico ao já indexado) ou a regra de core/ui/link-carro.js
+const normalizarLink = (l) => String(l).replace(/^\/+/, '').replace(/\/{2,}/g, '/');
+const caminhoCarro = (c) => c.link || LinkCarro.caminho(c);
+// caminho com espaço/acento (páginas no formato revendamais) precisa ir codificado no href e no sitemap
+const url = (caminho) => caminho.split('/').map(encodeURIComponent).join('/');
 // home de quem não configurou uma (o template precisa ter os blocos "banner" e "vitrine")
 const HOME_PADRAO = (site) => [
   { tipo: 'banner', titulo: site.nome, subtitulo: site.slogan || '' },
@@ -68,7 +81,7 @@ const sha = (s) => crypto.createHash('sha1').update(s).digest('hex');
 // TODOS os sites (com 2500 sites, ~1 milhão de arquivos para publicar), então não amarramos isso ao arquivo inteiro:
 // um comentário ou refatoração não deve refazer nada. O teste tests/snapshot-html.test.js avisa se a saída mudou e a
 // versão não (e vice-versa). Templates, tema, textos e dados do site já entram no hash de cada site por conta própria.
-const VERSAO_HTML = 3; // 2: cards no HTML, páginas de filtro, <lastmod>; 3: páginas padrão (contato, privacidade, cookies, LGPD)
+const VERSAO_HTML = 4; // 2: cards no HTML, filtros, <lastmod>; 3: páginas padrão; 4: link do estoque, URLs codificadas, formato revendamais
 const RENDER_VERSION = `html-${VERSAO_HTML}`;
 
 const lerJSON = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -217,7 +230,7 @@ function juntar(site) {
     const loja = lojas[lid];
     if (!loja) throw new Error(`Site "${site.id}": carro ${c.id} com loja ${lid ? `inexistente "${lid}"` : 'não informada'} (lojas: ${ids.join(', ')})`);
     if (!passa(c, loja, site.restricoes || {})) continue;
-    carros.push({ ...c, opcionais: c.opcionais || [], descricao: c.descricao || '', carroceria: c.carroceria || '', destaque: !!c.destaque, lojaId: lid, loja: loja.nome, cidade: loja.cidade, uf: loja.uf });
+    carros.push({ ...c, ...(c.link ? { link: normalizarLink(c.link) } : {}), opcionais: c.opcionais || [], descricao: c.descricao || '', carroceria: c.carroceria || '', destaque: !!c.destaque, lojaId: lid, loja: loja.nome, cidade: loja.cidade, uf: loja.uf });
   }
   return carros;
 }
@@ -360,7 +373,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     escreverSe(
       path.join(out, 'carros.json'),
       // r = posição na ordem de exibição (ordenação "destaque" do motor); cr = carroceria
-      JSON.stringify(carros.map((c, r) => ({ i: c.id, m: c.marca, o: c.modelo, v: c.versao, a: c.ano, p: c.preco, k: c.km, c: c.cor, b: c.cambio, f: c.combustivel, n: c.fotos, u: c.loja, cd: c.cidade, uf: c.uf, r, ...(c.carroceria ? { cr: c.carroceria } : {}) }))),
+      JSON.stringify(carros.map((c, r) => ({ i: c.id, m: c.marca, o: c.modelo, v: c.versao, a: c.ano, p: c.preco, k: c.km, c: c.cor, b: c.cambio, f: c.combustivel, n: c.fotos, u: c.loja, cd: c.cidade, uf: c.uf, r, ...(c.carroceria ? { cr: c.carroceria } : {}), ...(c.link ? { l: c.link } : {}) }))), // l = link vindo do estoque
       rel('carros.json'), mud
     );
     const usadas = [...new Set(carros.map((c) => c.lojaId))].sort();
@@ -394,18 +407,21 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       const usados = new Set();
       for (const v of valores.sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'))) {
         const slug = LinkCarro.parte(v).toLowerCase();
-        if (usados.has(slug)) { console.warn(`  aviso: site "${site.id}": "${v}" tem o mesmo endereço de outro valor de ${k}; sem página própria`); continue; }
-        usados.add(slug);
-        paginasFiltro.set(`${k}|${v}`, { campo: k, valor: v, caminho: `${CAMINHO_ESTOQUE}/${FILTROS_PAGINA[k]}/${slug}`, total: carros.filter((c) => c[k] === v).length });
+        const chave = site.formatoUrls === 'revendamais' && FILTROS_REVENDAMAIS[k] ? FILTROS_REVENDAMAIS[k](v).toLowerCase() : slug;
+        if (usados.has(chave)) { console.warn(`  aviso: site "${site.id}": "${v}" tem o mesmo endereço de outro valor de ${k}; sem página própria`); continue; }
+        usados.add(chave);
+        const sub = site.formatoUrls === 'revendamais' && FILTROS_REVENDAMAIS[k] ? FILTROS_REVENDAMAIS[k](v) : `${FILTROS_PAGINA[k]}/${slug}`;
+        if (/(^|\/)\.\.?(\/|$)|[?#\\]/.test(sub)) { console.warn(`  aviso: site "${site.id}": "${v}" não vira página de ${k} (caractere inválido em endereço)`); continue; }
+        paginasFiltro.set(`${k}|${v}`, { campo: k, valor: v, caminho: `${CAMINHO_ESTOQUE}/${sub}`, total: carros.filter((c) => c[k] === v).length });
       }
     }
 
     // números e listas do estoque que qualquer página/bloco pode usar (menu de cidades, marcas no rodapé, "1052 veículos"...)
     const contar = (k) => { const m = new Map(); for (const c of carros) if (c[k]) m.set(c[k], (m.get(c[k]) || 0) + 1); return [...m].sort((a, b) => String(a[0]).localeCompare(String(b[0]), 'pt-BR')); };
     const estoqueInfo = (r) => {
-      const url = r + `${CAMINHO_ESTOQUE}/`;
+      const raizEstoque = r + `${CAMINHO_ESTOQUE}/`;
       // link de um filtro: a página fixa, se existir; senão a /multipla com ?campo=valor
-      const q = (k, v) => (paginasFiltro.has(`${k}|${v}`) ? `${r}${paginasFiltro.get(`${k}|${v}`).caminho}/` : `${url}?${k}=${encodeURIComponent(v)}`);
+      const q = (k, v) => (paginasFiltro.has(`${k}|${v}`) ? `${r}${url(paginasFiltro.get(`${k}|${v}`).caminho)}/` : `${raizEstoque}?${k}=${encodeURIComponent(v)}`);
       return {
         total: carros.length, destaques: carros.filter((c) => c.destaque).length,
         // chave = valor sem acento/espaço, em minúsculas (para classes CSS: ic-utilitario, ic-suv...)
@@ -455,7 +471,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
           return {
             id: c.id, lojaId: c.lojaId, nome, versao: c.versao, ano: c.ano, km: `${c.km.toLocaleString('pt-BR')} km`, preco: brl(c.preco),
             cambio: c.cambio, combustivel: c.combustivel, carroceria: c.carroceria, local: `${c.cidade}/${c.uf}`, loja: c.loja,
-            href: r + LinkCarro.caminho(c),
+            href: r + url(caminhoCarro(c)),
             zap: `Olá! Tenho interesse no ${titulo} (ref. ${c.id}). Ainda está disponível?`,
             imgAttrs: base && c.fotos ? `src="${esc(foto(base, c.id, 1, 400))}" data-fb="${esc(nome)}"` : `src="${ph(nome)}"`,
           };
@@ -501,7 +517,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       return {
         id: c.id, nome, versao: c.versao, ano: c.ano, km: `${c.km.toLocaleString('pt-BR')} km`, cambio: c.cambio, cor: c.cor,
         combustivel: c.combustivel, carroceria: c.carroceria || '', preco: brl(c.preco), loja: c.loja, local,
-        lojaLocal: lojasMultiplas ? `${c.loja} · ${local}` : local, href: r + LinkCarro.caminho(c),
+        lojaLocal: lojasMultiplas ? `${c.loja} · ${local}` : local, href: r + url(caminhoCarro(c)),
         zap: `https://wa.me/${loja.whatsapp || site.whatsapp || ''}?text=${encodeURIComponent(`Olá! Tenho interesse no ${nome} ${c.versao} ${c.ano} (ref. ${c.id}). Ainda está disponível?`)}`,
         imgattrs: base && c.fotos
           ? `src="${esc(foto(base, c.id, 1, 400))}" srcset="${esc(foto(base, c.id, 1, 400))} 400w, ${esc(foto(base, c.id, 1, 800))} 800w" sizes="(max-width:600px) 100vw, 300px" data-fb="${esc(nome)}"`
@@ -539,7 +555,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
         descricao: !f ? `${carros.length} veículos à venda no ${site.nome}. ${site.slogan || ''}`.trim()
           : `${lista.length} ${lista.length === 1 ? 'veículo' : 'veículos'}: ${h1.toLowerCase()} à venda no ${site.nome}.`,
         filtro: f ? `${f.campo}=${encodeURIComponent(f.valor)}` : '', // a ui-lista aplica isto ao abrir (data-filtro no <body>)
-        canon: raizUrlSite ? `<link rel="canonical" href="${esc(raizUrlSite)}/${esc(l.caminho)}/">` : '',
+        canon: raizUrlSite ? `<link rel="canonical" href="${esc(raizUrlSite)}/${esc(url(l.caminho))}/">` : '',
       };
       const html = render(tplLista, {
         ...ctx(r), listagem, blocosAntes: renderBlocos(cfgEstoque.blocosAntes, r), blocosDepois: renderBlocos(cfgEstoque.blocosDepois, r),
@@ -583,7 +599,8 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       if (geradas.includes(arqRel)) continue;
       fs.rmSync(path.join(out, arqRel), { force: true });
       mud.removidos.push(rel(arqRel));
-      try { if (path.dirname(arqRel) !== '.') fs.rmdirSync(path.join(out, path.dirname(arqRel))); } catch (e) { /* pasta com outros arquivos: fica */ }
+      // apaga as pastas que ficarem vazias, subindo (multipla/cidade/curitiba → multipla/cidade); para na primeira com conteúdo
+      for (let d = path.dirname(path.join(out, arqRel)); d.startsWith(out + path.sep); d = path.dirname(d)) { try { fs.rmdirSync(d); } catch (e) { break; } }
     }
 
     // páginas dos carros: só refaz as que mudaram
@@ -607,7 +624,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     for (const c of carros) {
       const titulo = `${c.marca} ${c.modelo} ${c.versao} ${c.ano}`;
       titulos[c.id] = titulo;
-      const link = LinkCarro.caminho(c);
+      const link = caminhoCarro(c);
       links[c.id] = link;
       const h = sha(baseHash + JSON.stringify(c) + (lojas[c.lojaId].endereco || ''));
       hashes[c.id] = h;
@@ -615,7 +632,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       const arq = path.join(out, link);
       if (!baseMudou && antes === h && fs.existsSync(arq)) { inalterados++; datar(link, false); continue; }
       if (incremental) { if (antes === undefined) novos++; else alterados++; }
-      const canon = raizUrl ? `<link rel="canonical" href="${esc(raizUrl)}/${esc(link)}"><meta property="og:url" content="${esc(raizUrl)}/${esc(link)}">` : '';
+      const canon = raizUrl ? `<link rel="canonical" href="${esc(raizUrl)}/${esc(url(link))}"><meta property="og:url" content="${esc(raizUrl)}/${esc(url(link))}">` : '';
       const og =
         `<meta property="og:title" content="${esc(titulo)} - ${esc(brl(c.preco))}">` +
         `<meta property="og:description" content="${esc(c.km.toLocaleString('pt-BR'))} km · ${esc(c.cambio)} · ${esc(c.cidade)}/${esc(c.uf)}">` +
@@ -624,7 +641,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
           '@context': 'https://schema.org', '@type': 'Car', name: titulo, brand: { '@type': 'Brand', name: c.marca }, model: c.modelo,
           vehicleModelDate: String(c.ano), mileageFromOdometer: { '@type': 'QuantitativeValue', value: c.km, unitCode: 'KMT' },
           color: c.cor, vehicleTransmission: c.cambio, fuelType: c.combustivel, itemCondition: 'https://schema.org/UsedCondition',
-          ...(raizUrl ? { url: `${raizUrl}/${link}` } : {}),
+          ...(raizUrl ? { url: `${raizUrl}/${url(link)}` } : {}),
           ...(base ? { image: Array.from({ length: Math.min(c.fotos, 5) }, (_, k) => foto(base, c.id, k + 1, 800)) } : {}),
           offers: { '@type': 'Offer', price: c.preco, priceCurrency: 'BRL', availability: 'https://schema.org/InStock', seller: { '@type': 'AutoDealer', name: c.loja } },
         }).replace(/</g, '\\u003c')}</script>`;
@@ -650,7 +667,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     // sitemap e robots: é por aqui que o Google descobre as páginas dos carros (a listagem é montada por JS)
     if (raizUrl) {
       // <lastmod>: dia em que a página mudou de verdade (o Google revisita só o que mudou)
-      const urls = [...geradas.map((g) => [`${raizUrl}/${g.replace(/index\.html$/, '')}`, datas[g]]), ...carros.map((c) => [`${raizUrl}/${links[c.id]}`, datas[links[c.id]]])];
+      const urls = [...geradas.map((g) => [`${raizUrl}/${url(g.replace(/index\.html$/, ''))}`, datas[g]]), ...carros.map((c) => [`${raizUrl}/${url(links[c.id])}`, datas[links[c.id]]])];
       escreverSe(path.join(out, 'sitemap.xml'),
         `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(([u, d]) => `<url><loc>${esc(u)}</loc>${d ? `<lastmod>${d}</lastmod>` : ''}</url>`).join('\n')}\n</urlset>\n`, rel('sitemap.xml'), mud);
       escreverSe(path.join(out, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${raizUrl}/sitemap.xml\n`, rel('robots.txt'), mud);
@@ -691,8 +708,8 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       if (emUso.has(velho)) { delete redirecionados[velho]; continue; } // o endereço voltou a ser de um carro
       const destino = links[r.id] || (vendidos[r.id] && vendidos[r.id].link); // vendido: aponta para a página "indisponível"
       if (!destino || (Date.parse(hoje) - Date.parse(r.desde)) / 86400000 > diasRedir) { remover(velho); delete redirecionados[velho]; continue; }
-      const para = relDe(velho) + destino;
-      const abs = raizUrl ? `${raizUrl}/${destino}` : para;
+      const para = relDe(velho) + url(destino);
+      const abs = raizUrl ? `${raizUrl}/${url(destino)}` : para;
       escreverSe(path.join(out, velho),
         `<!doctype html><meta charset="utf-8"><meta name="robots" content="noindex"><link rel="canonical" href="${esc(abs)}">` +
         `<meta http-equiv="refresh" content="0; url=${esc(para)}"><title>Redirecionando...</title>` +

@@ -27,6 +27,7 @@ function validarEstoque(obj, lojas = []) {
   if (!obj || !Array.isArray(obj.carros)) return ['o JSON precisa ter { "carros": [ ... ] }'];
   const anoMax = new Date().getFullYear() + 2;
   const vistos = new Set();
+  const links = new Map();
   obj.carros.forEach((c, i) => {
     const q = `carro #${i + 1}${c && c.id ? ` (${c.id})` : ''}`;
     const e = (m) => { if (erros.length < 30) erros.push(`${q}: ${m}`); };
@@ -43,6 +44,13 @@ function validarEstoque(obj, lojas = []) {
     if (c.ordem != null && !(int(c.ordem) && c.ordem >= 0)) e('ordem deve ser inteiro >= 0 (posição de exibição; menor aparece primeiro)');
     if (c.destaque != null && typeof c.destaque !== 'boolean') e('destaque deve ser true ou false');
     if (c.carroceria != null && typeof c.carroceria !== 'string') e('carroceria deve ser texto (ex.: Hatch, Sedan, SUV)');
+    // link da página do carro (opcional): o que o Revenda Mais já usa, para manter as URLs indexadas no Google
+    if (c.link != null) {
+      const l = typeof c.link === 'string' ? c.link.replace(/^\/+/, '').replace(/\/{2,}/g, '/') : '';
+      if (!/^carros\/[^\s?#\\]+\.html$/.test(l) || /(^|\/)\.\.?(\/|$)/.test(l)) e('link inválido (precisa ser "carros/.../nome.html", sem espaço, "?", "#" ou "..")');
+      else if (links.has(l)) e(`link repetido (igual ao do carro ${links.get(l)})`);
+      else links.set(l, c.id);
+    }
     if (c.loja != null ? !lojas.includes(c.loja) : lojas.length !== 1) e(c.loja != null ? `loja "${c.loja}" não existe no site (${lojas.join(', ')})` : `"loja" ausente (o site tem ${lojas.length} lojas: ${lojas.join(', ')})`);
   });
   return erros;

@@ -6,8 +6,12 @@
   const { brl, num, esc, foto, placeholder } = Motor.util;
   const BASE = document.body.dataset.base || '';
   const REL = document.body.dataset.rel || ''; // a listagem pode ficar numa subpasta (ex.: /estoque/): REL leva à raiz do site
+  // link de cada carro: o "l" do carros.json (link vindo do estoque, ex.: o do Revenda Mais) ou a regra do link-carro.js.
+  // O motor não repassa campos que não conhece, então os links são guardados aqui ao carregar o carros.json.
+  const linkDe = new Map();
+  const carregar = (u) => fetch(u).then((r) => r.json()).then((j) => { if (Array.isArray(j)) j.forEach((d) => d.l && linkDe.set(d.i, d.l)); return j; });
   const [motor, cfg] = await Promise.all([
-    Motor.criar({ dados: `${REL}carros.json`, config: `${REL}config.json` }),
+    Motor.criar({ dados: `${REL}carros.json`, config: `${REL}config.json`, carregar }),
     Motor.carregarConfig(`${REL}config.json`), // para o WhatsApp de cada card ([[zap]])
   ]);
   const idLoja = Object.fromEntries(Object.entries(cfg.lojas || {}).map(([id, l]) => [l.nome, id]));
@@ -46,7 +50,7 @@
     return {
       id: d.id, carroceria: d.carroceria || '',
       zap: Motor.whatsapp(cfg, `Olá! Tenho interesse no ${titulo} (ref. ${d.id}). Ainda está disponível?`, idLoja[d.loja]),
-      href: REL + LinkCarro.caminho(d), nome, versao: d.versao, ano: d.ano, km: `${num(d.km)} km`, cambio: d.cambio,
+      href: REL + (linkDe.get(d.id) || LinkCarro.caminho(d)).split('/').map(encodeURIComponent).join('/'), nome, versao: d.versao, ano: d.ano, km: `${num(d.km)} km`, cambio: d.cambio,
       cor: d.cor, combustivel: d.combustivel, preco: brl(d.preco), loja: d.loja, local,
       lojaLocal: motor.lojasMultiplas ? `${d.loja} · ${local}` : local, imgattrs,
     };
@@ -68,8 +72,12 @@
     $('#contagem').textContent = lista.length ? `${num(lista.length)} carro${lista.length > 1 ? 's' : ''}${dica}` : 'Nenhum carro encontrado';
   }
 
+  // na página fixa de filtro (/multipla/cidade/ponta-grossa/), o filtro dela não vai para a URL: a própria página já é
+  // a cidade (senão o link compartilhado fica /cidade/ponta-grossa/?cidade=Ponta+Grossa). Só o que a pessoa mudar entra.
+  const filtroPagina = new URLSearchParams(document.body.dataset.filtro || '');
   function salvarURL() {
     const p = new URLSearchParams(motor.query());
+    for (const [k, val] of filtroPagina) if (p.get(k) === val) p.delete(k);
     const v = new URLSearchParams(location.search).get('v');
     if (v) p.set('v', v);
     const s = p.toString();

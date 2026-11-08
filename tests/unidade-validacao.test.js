@@ -57,3 +57,12 @@ test('limita a 30 mensagens (estoque gigante todo errado não estoura a memória
   const e = validarEstoque({ carros: Array.from({ length: 500 }, () => carro({ marca: '' })) }, ['centro']);
   assert.equal(e.length, 30);
 });
+
+test('link (opcional): formato do Revenda Mais; inválido e repetido são recusados', () => {
+  ok([carro({ link: '/carros/Volkswagen/Nivus//Volkswagen-Nivus-2026-So-Jos-Dos-Pinhais-Parana-8442546.html' }), carro({ link: 'carros/Ram/Rampage/R/t-Hurric/x-1.html' })]);
+  erro([carro({ link: 'carros/../etc/x.html' })], /link inválido/);
+  erro([carro({ link: 'outra-pasta/x.html' })], /link inválido/);
+  erro([carro({ link: 'carros/com espaco.html' })], /link inválido/);
+  erro([carro({ link: 'carros/x' })], /link inválido/);
+  erro([carro({ link: 'carros/a.html' }), carro({ link: '/carros/a.html' })], /link repetido/);
+});

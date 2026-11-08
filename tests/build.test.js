@@ -597,3 +597,65 @@ test('designer: prioridade site.json > pasta do site; nome inválido e duplicado
   escrever(pastaLivre('multipla.html'), '<p>x</p>');
   assert.throws(() => build(), /reservado/);
 });
+
+// ---------- compatibilidade com o Revenda Mais ----------
+test('link do estoque: a página do carro fica EXATAMENTE no link informado (incl. "//" normalizado e "R/t")', () => {
+  const a = A.carro({ link: '/carros/Volkswagen/Nivus//Volkswagen-Nivus-2026-So-Jos-Dos-Pinhais-Parana-8442546.html' });
+  const b = A.carro({ link: 'carros/Ram/Rampage/R/t-Hurric/Ram-Rampage-R/t-Hurric-2025-Ponta-Grossa-Parana-8635550.html' });
+  const c = A.carro(); // sem link: regra do core
+  A.criarSite(ID, { carros: [a, b, c] });
+  build();
+  assert.ok(A.existe(ID, 'carros/Volkswagen/Nivus/Volkswagen-Nivus-2026-So-Jos-Dos-Pinhais-Parana-8442546.html'));
+  assert.ok(A.existe(ID, 'carros/Ram/Rampage/R/t-Hurric/Ram-Rampage-R/t-Hurric-2025-Ponta-Grossa-Parana-8635550.html'));
+  assert.ok(A.existe(ID, linkDe(c)));
+  const sm = A.ler(ID, 'sitemap.xml');
+  assert.ok(sm.includes('/carros/Ram/Rampage/R/t-Hurric/Ram-Rampage-R/t-Hurric-2025-Ponta-Grossa-Parana-8635550.html<'));
+  assert.equal(A.lerJSON(ID, 'carros.json').find((x) => x.i === b.id).l, 'carros/Ram/Rampage/R/t-Hurric/Ram-Rampage-R/t-Hurric-2025-Ponta-Grossa-Parana-8635550.html');
+  assert.ok(!('l' in A.lerJSON(ID, 'carros.json').find((x) => x.i === c.id)), 'sem link no estoque: sem "l"');
+  assert.deepEqual(A.verificarSiteGerado(ID), [], 'cards e links apontam para as páginas certas');
+});
+
+test('link do estoque mudou: o antigo redireciona para o novo', () => {
+  const a = A.carro({ link: 'carros/A/B/C/velho-1.html' });
+  A.criarSite(ID, { carros: [a] });
+  build();
+  a.link = 'carros/A/B/C/novo-1.html';
+  A.gravarEstoque(ID, [a]);
+  build();
+  assert.match(A.ler(ID, 'carros/A/B/C/velho-1.html'), /novo-1\.html/);
+});
+
+test('formatoUrls "revendamais": páginas de filtro nos endereços do Revenda Mais, com espaço/acento codificados', () => {
+  const cs = [A.carro({ marca: 'Caoa Chery', modelo: 'Tiggo' }), A.carro({ marca: 'Land Rover', modelo: 'Evoque', loja: 'sul' }), A.carro({ carroceria: 'SUV' }), A.carro({ carroceria: 'Hatch' })];
+  A.criarSite(ID, { carros: cs, site: { formatoUrls: 'revendamais', lojas: { ...A.LOJAS, sul: { ...A.LOJAS.sul, cidade: 'São José dos Pinhais' } } } });
+  build();
+  assert.ok(A.existe(ID, 'multipla/marca/caoa chery/index.html'));
+  assert.ok(A.existe(ID, 'multipla/marca/land rover/index.html'));
+  assert.ok(A.existe(ID, 'multipla/revenda_cidade_nome/São José dos Pinhais/index.html'));
+  assert.ok(A.existe(ID, 'multipla/carroceria/suv/index.html'));
+  const sm = A.ler(ID, 'sitemap.xml');
+  assert.ok(sm.includes('/multipla/marca/caoa%20chery/<'), 'sitemap com espaço codificado');
+  assert.ok(sm.includes('/multipla/revenda_cidade_nome/S%C3%A3o%20Jos%C3%A9%20dos%20Pinhais/<'));
+  assert.match(A.ler(ID, 'multipla/marca/caoa chery/index.html'), /canonical" href="https:\/\/loja-teste\.com\.br\/multipla\/marca\/caoa%20chery\/"/);
+  assert.match(A.ler(ID, 'multipla/marca/caoa chery/index.html'), /data-filtro="marca=Caoa%20Chery"/);
+  assert.deepEqual(A.verificarSiteGerado(ID), []);
+});
+
+test('páginas padrão novas: financiamento e avaliação (com as lojas do site no formulário)', () => {
+  A.criarSite(ID, { carros: [A.carro()] });
+  build();
+  assert.match(A.ler(ID, 'financiamento/index.html'), /js-form-zap/);
+  const av = A.ler(ID, 'avaliacao/index.html');
+  assert.match(av, /<option>Loja Centro<\/option>/);
+  assert.match(A.ler(ID, 'index.html'), /href="avaliacao\/">Avalie seu carro</);
+});
+
+test('troca de formato: as páginas no endereço antigo somem, com as pastas vazias', () => {
+  A.criarSite(ID, { carros: [A.carro(), A.carro({ loja: 'sul' })] });
+  build();
+  assert.ok(A.existe(ID, 'multipla/cidade/curitiba/index.html'));
+  const s = A.lerSite(ID); s.formatoUrls = 'revendamais'; A.gravarSite(ID, s);
+  build();
+  assert.ok(!A.existe(ID, 'multipla/cidade'), 'multipla/cidade/ inteira removida');
+  assert.ok(A.existe(ID, 'multipla/revenda_cidade_nome/Curitiba/index.html'));
+});

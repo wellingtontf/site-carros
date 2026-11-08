@@ -29,7 +29,8 @@ for (const id of reais) {
     const mo = await criar();
     assert.equal(mo.total, feito.total);
     const L = require('../core/ui/link-carro.js');
-    const sem = mo.resultado().filter((c) => !fs.existsSync(path.join(dir, L.caminho(c))));
+    const linkDe = new Map(JSON.parse(fs.readFileSync(path.join(dir, 'carros.json'), 'utf8')).filter((d) => d.l).map((d) => [d.i, d.l]));
+    const sem = mo.resultado().filter((c) => !fs.existsSync(path.join(dir, linkDe.get(c.id) || L.caminho(c))));
     assert.deepEqual(sem.map((c) => c.id), [], 'carros sem página');
     if (mo.total) {
       const c = mo.resultado()[0];
