@@ -41,27 +41,30 @@ const LOJAS = {
   sul: { nome: 'Loja Sul', cidade: 'Porto Alegre', uf: 'RS', endereco: 'Rua B, 2 - Porto Alegre - RS' },
 };
 
-// páginas de um site: cada uma é um ARQUIVO em sites-config/<id>/paginas/ (index.json = home, lojas.json, a/b.json).
+// páginas de um site: cada uma é um ARQUIVO em sites-config/<id>/web/ (web/index.json = home, web/paginas/lojas.json, a/b.json).
 // Os testes descrevem as páginas como lista { caminho, ...página }; isto grava os arquivos (apagando os .json antigos).
-const arqPagina = (id, caminho) => path.join(RAIZ, 'sites-config', id, 'paginas', `${String(caminho).replace(/^\/+|\/+$/g, '') || 'index'}.json`);
+const pastaPaginas = (id, ...p) => path.join(RAIZ, 'sites-config', id, 'web', 'paginas', ...p);
+const arqPagina = (id, caminho) => { const c = String(caminho).replace(/^\/+|\/+$/g, ''); return c ? pastaPaginas(id, `${c}.json`) : path.join(RAIZ, 'sites-config', id, 'web', 'index.json'); };
 function gravarPaginas(id, paginas) {
-  const dir = path.join(RAIZ, 'sites-config', id, 'paginas');
-  for (const f of listar(dir).filter((x) => x.endsWith('.json'))) fs.rmSync(f);
+  for (const f of listar(pastaPaginas(id)).filter((x) => x.endsWith('.json'))) fs.rmSync(f);
+  fs.rmSync(arqPagina(id, ''), { force: true });
   for (const { caminho, ...p } of paginas) { const f = arqPagina(id, caminho ?? ''); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify(p)); }
 }
-// grava sites-config/<id>/site.json, estoque.json e (se vier "paginas") os arquivos de sites-config/<id>/paginas/
+// grava sites-config/<id>/site.json, estoque.json, (se vier "paginas") os arquivos de sites-config/<id>/web/ e (se vier "estoque") web/multipla.json
 function criarSite(id, { site = {}, carros = [] } = {}) {
   const dir = path.join(RAIZ, 'sites-config', id);
   fs.mkdirSync(dir, { recursive: true });
-  const { paginas, componentes, ...resto } = site;
+  const { paginas, componentes, estoque, ...resto } = site;
   const cfg = { nome: `Site ${id}`, slogan: 'Seminovos de teste', motor: 'v2', template: 'teste', url: `https://${id}`, whatsapp: '5511999999999', fotosBase: 'https://fotos.teste/', lojas: LOJAS, ...resto };
   fs.writeFileSync(path.join(dir, 'site.json'), JSON.stringify(cfg, null, 2));
   fs.writeFileSync(path.join(dir, 'estoque.json'), JSON.stringify({ carros }));
   if (paginas) gravarPaginas(id, paginas);
+  if (estoque) gravarMultipla(id, estoque);
   // componentes: { estoque: {...} } → sites-config/<id>/componentes/estoque.json
   for (const [n, op] of Object.entries(componentes || {})) { const d = path.join(dir, 'componentes'); fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, `${n}.json`), JSON.stringify(op)); }
   return cfg;
 }
+const gravarMultipla = (id, cfg) => { const f = path.join(RAIZ, 'sites-config', id, 'web', 'multipla.json'); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, JSON.stringify(cfg)); };
 const lerSite = (id) => JSON.parse(fs.readFileSync(path.join(RAIZ, 'sites-config', id, 'site.json'), 'utf8'));
 const gravarSite = (id, cfg) => { const { paginas, ...resto } = cfg; fs.writeFileSync(path.join(RAIZ, 'sites-config', id, 'site.json'), JSON.stringify(resto, null, 2)); if (paginas) gravarPaginas(id, paginas); };
 const gravarEstoque = (id, carros) => fs.writeFileSync(path.join(RAIZ, 'sites-config', id, 'estoque.json'), JSON.stringify({ carros }));
@@ -98,6 +101,9 @@ function linksQuebrados(raizSite, arquivoHtml, html) {
     try { u = decodeURIComponent(u); } catch (e) { /* deixa como está */ }
     let alvo = u.startsWith('/') ? path.join(raizSite, u) : path.resolve(path.dirname(arquivoHtml), u);
     if (u === '' || u.endsWith('/') || (fs.existsSync(alvo) && fs.statSync(alvo).isDirectory())) alvo = path.join(alvo, 'index.html');
+    // rota da listagem (/multipla/marca/Toyota): a hospedagem entrega multipla/index.html (core/ui/rotas.js)
+    const lst = path.join(raizSite, 'multipla') + path.sep;
+    if (alvo.startsWith(lst)) alvo = path.join(lst, 'index.html'); // só o index.html existe ali (valor pode ter ponto: Onix 1.0)
     if (!alvo.startsWith(raizSite)) { quebrados.push(`${m[1]} (sai da pasta do site)`); continue; }
     if (!fs.existsSync(alvo)) quebrados.push(m[1]);
   }
@@ -148,7 +154,7 @@ async function silenciosoAsync(fn) {
 }
 
 module.exports = {
-  PROJETO, prepararRaiz, raiz, limpar, carro, LOJAS, criarSite, lerSite, gravarSite, gravarEstoque, gravarPaginas, arqPagina,
+  pastaPaginas, gravarMultipla, PROJETO, prepararRaiz, raiz, limpar, carro, LOJAS, criarSite, lerSite, gravarSite, gravarEstoque, gravarPaginas, arqPagina,
   saida, existe, ler, lerJSON, listar, marcadoresSobrando, linksQuebrados, verificarSiteGerado, carregarMotor,
   pendente, limparPendentes, silencioso, silenciosoAsync,
 };

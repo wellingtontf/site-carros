@@ -25,3 +25,17 @@
 .c-filtro--topo .c-filtro__campos { flex: 3 1 460px; flex-direction: row; flex-wrap: wrap; }
 .c-filtro--topo .c-filtro__campos select { flex: 1 1 140px; width: auto; }
 .c-filtro--topo .c-filtro__acoes { flex-direction: row; }
+/* caixas de marcar (opção "checkbox"): um grupo por filtro, com várias escolhas; abre e fecha pelo nome */
+.c-filtro__grupo { border: 1px solid var(--_borda); border-radius: calc(var(--_raio) * .6); background: #fff; }
+.c-filtro__grupo > summary { padding: 10px 12px; cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 8px; }
+.c-filtro__grupo > summary::-webkit-details-marker { display: none; }
+.c-filtro__grupo > summary::after { content: "▾"; opacity: .6; }
+.c-filtro__grupo[open] > summary::after { content: "▴"; }
+.c-filtro__grupo .c-filtro__marcados { margin-left: auto; color: var(--_cor); font-weight: 600; }
+.c-filtro__opcoes { max-height: var(--c-check-altura, 220px); overflow-y: auto; padding: 4px 12px 10px; display: flex; flex-direction: column; gap: 6px; }
+.c-filtro__opcoes label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.c-filtro__opcoes input { accent-color: var(--_cor); width: 16px; height: 16px; margin: 0; }
+.c-filtro__opcoes .c-filtro__qtd { margin-left: auto; opacity: .6; font-size: .85em; }
+.c-filtro--topo .c-filtro__grupo { flex: 1 1 160px; position: relative; }
+.c-filtro--topo .c-filtro__grupo[open] .c-filtro__opcoes { position: absolute; z-index: 5; left: -1px; right: -1px; background: #fff;
+  border: 1px solid var(--_borda); border-top: 0; border-radius: 0 0 calc(var(--_raio) * .6) calc(var(--_raio) * .6); }

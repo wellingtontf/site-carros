@@ -1,0 +1,7 @@
+{
+  "componentes": {
+    "filtro": {
+      "checkbox": "estado,cidade,marca,modelo,carroceria"
+    }
+  }
+}

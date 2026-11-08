@@ -91,6 +91,14 @@ test('1) cria o site, manda arquivos, páginas e estoque, ajusta o cadastro: tud
   const html = await pedir('PUT', `/v1/sites/${D}/paginas/feirao`, '<h1>Feirão</h1><p>Confira as <a href="/lojas/">lojas</a> e o <a href="/multipla/">estoque</a>.</p>', { tipo: 'text/html' });
   assert.equal(html.status, 202, JSON.stringify(html.j));
   assert.equal(html.j.endereco, '/paginas/feirao/');
+  // listagem (/multipla/): blocos antes da lista → web/multipla.json
+  const mul = await pedir('PUT', `/v1/sites/${D}/multipla`, { blocosAntes: [{ tipo: 'texto', html: '<p>OFERTAS-DA-SEMANA</p>' }] });
+  assert.equal(mul.status, 202, JSON.stringify(mul.j));
+  assert.equal(mul.j.endereco, '/multipla/');
+  assert.equal((await pedir('PUT', `/v1/sites/${D}/multipla`, { blocosAntes: [{ tipo: 'nao-existe' }] })).status, 422, 'bloco que o template não tem');
+  assert.equal((await pedir('PUT', `/v1/sites/${D}/multipla`, { titulo: 'x' })).status, 422, 'campo desconhecido');
+  assert.equal((await pedir('PATCH', `/v1/sites/${D}`, { estoque: { blocosAntes: [] } })).status, 422, '"estoque" não vai no cadastro');
+  assert.match(JSON.stringify((await pedir('GET', `/v1/sites/${D}/multipla`)).j), /OFERTAS-DA-SEMANA/);
 
   LINK_RM = 'carros/Toyota/Corolla/Xei-20/Toyota-Corolla-Xei-20-2022-Curitiba-Parana-C1.html';
   const est = await pedir('PUT', `/v1/sites/${D}/estoque?esperar=30`, { carros: [
@@ -119,8 +127,8 @@ test('2) os JSONs da aplicação (sites-config/<dominio>/) são exatamente o que
   const est = JSON.parse(fs.readFileSync(path.join(dir, 'estoque.json'), 'utf8'));
   assert.deepEqual(est.carros.map((c) => c.id), ['C1', 'C2', 'C3']);
   assert.equal(est.carros[0].link, LINK_RM);
-  for (const f of ['paginas/index.json', 'paginas/lojas.json', 'paginas/feirao.html', 'assets/logo.png', 'assets/favicon.ico', 'assets/banners/home.webp']) assert.ok(fs.existsSync(path.join(dir, f)), f);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'paginas', 'lojas.json'), 'utf8')).rotulo, 'Lojas');
+  for (const f of ['web/index.json', 'web/paginas/lojas.json', 'web/paginas/feirao.html', 'web/multipla.json', 'assets/logo.png', 'assets/favicon.ico', 'assets/banners/home.webp']) assert.ok(fs.existsSync(path.join(dir, f)), f);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'web', 'paginas', 'lojas.json'), 'utf8')).rotulo, 'Lojas');
 });
 
 test('3) o site gerado tem tudo: home, estoque, carros (com o link do Revenda Mais), páginas, LGPD, SEO, fotos', () => {
@@ -137,6 +145,7 @@ test('3) o site gerado tem tudo: home, estoque, carros (com o link do Revenda Ma
   assert.match(home, /href="paginas\/lojas\/"/, 'menu "lojas/" do cadastro vai para /paginas/lojas/');
   assert.ok(A.existe(D, 'assets/favicon.ico'));
   assert.match(A.ler(D, 'paginas/lojas/index.html'), /Rua XV, 100/);
+  assert.match(A.ler(D, 'multipla/index.html'), /OFERTAS-DA-SEMANA/, 'web/multipla.json → /multipla/');
   assert.match(A.ler(D, 'paginas/feirao/index.html'), /href="\.\.\/\.\.\/paginas\/lojas\/"/);
   const priv = A.ler(D, 'paginas/politica-de-privacidade/index.html');
   assert.match(priv, /Auto Completo Comércio de Veículos LTDA/, 'LGPD com a razão social');
@@ -195,13 +204,13 @@ test('6) recusas claras: arquivo que não é o que diz, SVG com script, página 
   // página no outro formato substitui (não fica duplicada)
   assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/promo`, { titulo: 'Promo', blocos: [] })).status, 202);
   assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/promo?esperar=30`, '<h1>Promo HTML</h1>', { tipo: 'text/html' })).status, 200);
-  assert.ok(!fs.existsSync(path.join(A.raiz(), 'sites-config', D, 'paginas', 'promo.json')));
+  assert.ok(!fs.existsSync(A.pastaPaginas(D, 'promo.json')));
   assert.match(A.ler(D, 'paginas/promo/index.html'), /Promo HTML/);
 });
 
 test('7) componentes do site pela API: grava sites-config/<d>/componentes/<nome>.json e o site muda; inválido é 422', async () => {
   const lista = await pedir('GET', `/v1/sites/${D}/componentes`);
-  assert.deepEqual(lista.j.componentes.map((c) => c.nome), ['estoque', 'filtro']);
+  assert.deepEqual(lista.j.componentes.map((c) => c.nome), ['estoque', 'filtro', 'filtros-ativos']);
   const r = await pedir('PUT', `/v1/sites/${D}/componentes/estoque?esperar=30`, { preco: '#c00000', porPagina: 2, whatsapp: false });
   assert.equal(r.status, 200, JSON.stringify(r.j));
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites-config', D, 'componentes', 'estoque.json'), 'utf8')), { preco: '#c00000', porPagina: 2, whatsapp: false });

@@ -1,0 +1,17 @@
+/* componente filtros-ativos: etiquetas dos filtros aplicados; cores das opções (--c-*) ou do tema (--cor, --raio, --fonte) */
+.c-ativos {
+  --_cor: var(--c-cor, var(--cor, #0b5fff)); --_fundo: var(--c-fundo, #e4e7ec); --_texto: var(--c-texto, #3a4250);
+  --_raio: var(--c-raio, calc(var(--raio, 10px) * .5));
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 16px; font-family: var(--fonte, inherit);
+}
+.c-ativos[hidden] { display: none; }
+.c-ativos__lista { display: contents; }
+.c-ativos__chip, .c-ativos__limpar {
+  display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px; font: inherit; font-size: .85rem; line-height: 1.2;
+  border: 0; border-radius: var(--_raio); cursor: pointer;
+}
+.c-ativos__chip { background: var(--_fundo); color: var(--_texto); }
+.c-ativos__chip:hover { filter: brightness(.95); }
+.c-ativos__chip span { font-size: 1.05em; opacity: .75; }
+.c-ativos__limpar { background: var(--_cor); color: #fff; }
+.c-ativos--maiusculas .c-ativos__chip, .c-ativos--maiusculas .c-ativos__limpar { text-transform: uppercase; letter-spacing: .02em; }

@@ -188,7 +188,7 @@ test('restrições do site tiram carros', () => {
   assert.equal(build().total, 1);
 });
 
-test('páginas de conteúdo (arquivos em sites-config/<id>/paginas/): criadas, no sitemap, e apagadas quando o arquivo sai', () => {
+test('páginas de conteúdo (arquivos em sites-config/<id>/web/): criadas, no sitemap, e apagadas quando o arquivo sai', () => {
   A.criarSite(ID, { carros: [A.carro()], site: { paginas: [
     { caminho: '', titulo: 'Home', blocos: [{ tipo: 'texto', html: '<p>oi</p>' }] },
     { caminho: 'sobre/nos', titulo: 'Sobre', blocos: [{ tipo: 'texto', html: '<p>quem somos</p>' }] },
@@ -216,7 +216,7 @@ test('bloco lojas e dados globais do estoque (total, cidades, marcas)', () => {
   build();
   const home = A.ler(ID, 'index.html');
   assert.match(home, /Loja Centro/);
-  assert.match(home, /href="multipla\/\?loja=Loja%20Sul"/);
+  assert.match(home, /href="multipla\/loja\/loja%20sul"/);
   assert.match(home, /Estoque \(2\)/);
 });
 
@@ -224,7 +224,7 @@ test('regressão: links do bloco lojas numa subpágina não dobram o "../" (bug 
   A.criarSite(ID, { carros: [A.carro()], site: { paginas: [{ caminho: '', blocos: [] }, { caminho: 'lojas', blocos: [{ tipo: 'lojas' }] }] } });
   build();
   const html = A.ler(ID, 'paginas/lojas/index.html');
-  assert.match(html, /href="\.\.\/\.\.\/multipla\/\?loja=Loja%20Centro"/); // /paginas/lojas/ → 2 níveis
+  assert.match(html, /href="\.\.\/\.\.\/multipla\/loja\/loja%20centro"/); // /paginas/lojas/ → 2 níveis
   assert.doesNotMatch(html, /\.\.\/\.\.\/\.\.\/multipla/);
   assert.deepEqual(A.verificarSiteGerado(ID), []);
 });
@@ -286,7 +286,7 @@ test('"paginas" no site.json é recusado com o caminho para mover; o script de m
   const cfg = A.lerSite(ID);
   cfg.paginas = [{ caminho: '', titulo: 'Home', blocos: [{ tipo: 'texto', html: '<p>home</p>' }] }, { caminho: 'sobre/nos', titulo: 'Sobre', blocos: [] }];
   fs.writeFileSync(path.join(A.raiz(), 'sites-config', ID, 'site.json'), JSON.stringify(cfg)); // direto, sem o ajudante
-  assert.throws(() => build(), /não fica mais no site\.json.*sites-config\/loja-teste\.com\.br\/paginas\//);
+  assert.throws(() => build(), /não fica mais no site\.json.*sites-config\/loja-teste\.com\.br\/web\/paginas\//);
   const r = require('child_process').spawnSync(process.execPath, [path.join(A.PROJETO, 'ferramentas', 'mover-paginas.js'), ID], { env: { ...process.env, SITE_CARROS_RAIZ: A.raiz() }, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   assert.equal(A.lerSite(ID).paginas, undefined);
@@ -294,6 +294,23 @@ test('"paginas" no site.json é recusado com o caminho para mover; o script de m
   assert.ok(fs.existsSync(A.arqPagina(ID, 'sobre/nos')));
   build();
   assert.match(A.ler(ID, 'index.html'), /home/);
+  // pasta antiga sites-config/<d>/paginas/ e "estoque" no site.json: o script leva para web/
+  fs.rmSync(path.join(A.raiz(), 'sites-config', ID, 'web'), { recursive: true });
+  const velha = path.join(A.raiz(), 'sites-config', ID, 'paginas');
+  fs.mkdirSync(path.join(velha, 'promo'), { recursive: true });
+  fs.writeFileSync(path.join(velha, 'index.json'), JSON.stringify({ titulo: 'Home velha', blocos: [] }));
+  fs.writeFileSync(path.join(velha, 'promo', 'index.html'), '<h1>Promo</h1>');
+  const c2 = A.lerSite(ID); c2.estoque = { caminho: 'estoque', blocosAntes: [{ tipo: 'texto', html: '<p>x</p>' }] };
+  fs.writeFileSync(path.join(A.raiz(), 'sites-config', ID, 'site.json'), JSON.stringify(c2));
+  const r2 = require('child_process').spawnSync(process.execPath, [path.join(A.PROJETO, 'ferramentas', 'mover-paginas.js'), ID], { env: { ...process.env, SITE_CARROS_RAIZ: A.raiz() }, encoding: 'utf8' });
+  assert.equal(r2.status, 0, r2.stderr);
+  assert.ok(!fs.existsSync(velha), 'pasta antiga sai');
+  assert.equal(JSON.parse(fs.readFileSync(A.arqPagina(ID, ''), 'utf8')).titulo, 'Home velha');
+  assert.ok(fs.existsSync(A.pastaPaginas(ID, 'promo', 'index.html')));
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites-config', ID, 'web', 'multipla.json'), 'utf8')), { blocosAntes: [{ tipo: 'texto', html: '<p>x</p>' }] });
+  assert.equal(A.lerSite(ID).estoque, undefined);
+  build();
+  assert.ok(A.existe(ID, 'paginas/promo/index.html'));
 });
 
 test('pasta de site precisa ser um domínio', () => {
@@ -302,11 +319,26 @@ test('pasta de site precisa ser um domínio', () => {
   assert.throws(() => A.silencioso(() => construir({ sites: ['nao-existe.com.br'] })), /Site inexistente/);
 });
 
-test('estoque.caminho é ignorado com aviso (a listagem é sempre /multipla)', () => {
-  A.criarSite(ID, { carros: [A.carro()], site: { estoque: { caminho: 'estoque' } } });
-  const { saidas } = A.silencioso(() => construir({ sites: [ID] }));
-  assert.ok(saidas.some((s) => /estoque\.caminho.*ignorado/.test(s)));
-  assert.ok(!A.existe(ID, 'paginas/estoque/index.html'));
+test('sites-config/<d>/web/ é o espelho do site: index.json = /, multipla.json = /multipla/, paginas/ = /paginas/; lugar antigo dá erro claro', () => {
+  A.criarSite(ID, { carros: [A.carro()], site: { estoque: { blocosAntes: [{ tipo: 'texto', html: '<p>ANTES-DA-LISTA</p>' }] }, paginas: [{ caminho: '', titulo: 'Home', blocos: [{ tipo: 'texto', html: '<p>HOME-WEB</p>' }] }] } });
+  build();
+  assert.match(A.ler(ID, 'multipla/index.html'), /ANTES-DA-LISTA/, 'web/multipla.json → /multipla/');
+  assert.match(A.ler(ID, 'index.html'), /HOME-WEB/, 'web/index.json → /');
+  // multipla.json vazio (o designer apagou o conteúdo): sem blocos, sem erro
+  fs.writeFileSync(path.join(A.raiz(), 'sites-config', ID, 'web', 'multipla.json'), '');
+  build();
+  assert.ok(!A.ler(ID, 'multipla/index.html').includes('ANTES-DA-LISTA'));
+  // "estoque" no site.json: erro com o caminho certo
+  const s = A.lerSite(ID); s.estoque = { blocosAntes: [] }; A.gravarSite(ID, s);
+  assert.throws(() => build(), /web\/multipla\.json.*mover-paginas/);
+  delete s.estoque; A.gravarSite(ID, s);
+  // home em web/paginas/index.json: erro
+  fs.mkdirSync(A.pastaPaginas(ID), { recursive: true }); fs.writeFileSync(A.pastaPaginas(ID, 'index.json'), '{"blocos":[]}');
+  assert.throws(() => build(), /a home fica em sites-config\/loja-teste\.com\.br\/web\/index\.json/);
+  fs.rmSync(A.pastaPaginas(ID, 'index.json'));
+  // pasta antiga sites-config/<d>/paginas/: erro com a ferramenta de migração
+  fs.mkdirSync(path.join(A.raiz(), 'sites-config', ID, 'paginas'));
+  assert.throws(() => build(), /mudou para sites-config\/loja-teste\.com\.br\/web\/paginas.*mover-paginas/);
 });
 
 test('motor e filtros: trocar não refaz páginas de carro', () => {
@@ -366,30 +398,34 @@ test('sitemap: <lastmod> é o dia em que a página mudou de verdade (não o dia 
   assert.equal(lm['multipla/'], '2026-03-09', 'listagem mostra o preço: mudou');
 });
 
-test('nada depois de /multipla/: filtros só por parâmetro (/multipla/?marca=Honda), links do estoque também', () => {
+test('nenhum arquivo depois de /multipla/: filtros são ROTAS (/multipla/marca/Honda), links do estoque também', () => {
   const cs = [A.carro({ marca: 'Honda', modelo: 'Civic' }), A.carro({ marca: 'Volkswagen', modelo: 'Gol', loja: 'sul' }), A.carro({ carroceria: 'Moto' }), A.carro({ carroceria: 'SUV' })];
   A.criarSite(ID, { carros: cs, site: { paginas: [{ caminho: '', blocos: [{ tipo: 'lojas' }] }, { caminho: 'a/b', blocos: [{ tipo: 'lojas' }] }] } });
   build();
   assert.deepEqual(fs.readdirSync(A.saida(ID, 'multipla')), ['index.html'], 'só a listagem em /multipla/');
   assert.ok(!/\/multipla\/(marca|cidade|carroceria|revenda_cidade_nome)\//.test(A.ler(ID, 'sitemap.xml')), 'sitemap sem páginas de filtro');
-  assert.match(A.ler(ID, 'paginas/a/b/index.html'), /href="\.\.\/\.\.\/\.\.\/multipla\/\?loja=/);
+  assert.match(A.ler(ID, 'paginas/a/b/index.html'), /href="\.\.\/\.\.\/\.\.\/multipla\/loja\/loja%20centro"/);
+  // a listagem acerta o <base> sozinha quando aberta numa rota funda (css, js e estoque.json relativos continuam certos)
+  assert.match(A.ler(ID, 'multipla/index.html'), /<head>\n<script>\(function\(\)\{var p=location\.pathname,i=p\.indexOf\('\/multipla\/'\)/);
   assert.deepEqual(A.verificarSiteGerado(ID), []);
 });
 
-test('link escrito à mão depois de /multipla/ vira parâmetro (bloco, página livre, endereço do Revenda Mais)', () => {
+test('link de filtro escrito à mão vira a rota canônica (bloco, página livre, query antiga, nomes do Revenda Mais)', () => {
   const { paraFiltro } = require('../core/build.js');
-  assert.equal(paraFiltro('multipla/carroceria/moto/'), 'multipla/?carroceria=moto');
-  assert.equal(paraFiltro('multipla/marca/caoa%20chery/?ord=menor'), 'multipla/?marca=caoa%20chery&ord=menor');
-  assert.equal(paraFiltro('multipla/revenda_cidade_nome/S%C3%A3o%20Paulo'), 'multipla/?cidade=S%C3%A3o%20Paulo');
-  assert.equal(paraFiltro('multipla/?marca=Fiat'), 'multipla/?marca=Fiat');
+  assert.equal(paraFiltro('multipla/carroceria/moto/'), 'multipla/carroceria/moto');
+  assert.equal(paraFiltro('multipla/marca/caoa%20chery/?ord=menor'), 'multipla/marca/caoa%20chery?ord=menor');
+  assert.equal(paraFiltro('multipla/revenda_cidade_nome/S%C3%A3o%20Paulo'), 'multipla/revenda-cidade-nome/s%C3%A3o%20paulo');
+  assert.equal(paraFiltro('multipla/?cidade=Curitiba&ano=2024'), 'multipla/revenda-cidade-nome/curitiba/veic-anomodelo/2024');
+  assert.equal(paraFiltro('multipla/?marca=Fiat&q=uno'), 'multipla/marca/fiat?q=uno');
+  assert.equal(paraFiltro('multipla/'), 'multipla/');
   assert.equal(paraFiltro('multipla/index.html'), 'multipla/index.html');
   A.criarSite(ID, { carros: [A.carro({ marca: 'Honda' }), A.carro({ marca: 'Fiat' })] });
-  const dir = path.join(A.raiz(), 'sites-config', ID, 'paginas');
+  const dir = A.pastaPaginas(ID);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'ofertas.html'), '<h1>Ofertas</h1><a href="/multipla/marca/honda/">Honda</a>');
   build();
   const html = A.ler(ID, 'paginas/ofertas/index.html');
-  assert.match(html, /href="\.\.\/\.\.\/multipla\/\?marca=honda"/);
+  assert.match(html, /href="\.\.\/\.\.\/multipla\/marca\/honda"/);
   assert.deepEqual(A.verificarSiteGerado(ID), []);
 });
 
@@ -488,7 +524,7 @@ test('template sem os blocos obrigatórios é recusado com mensagem clara', () =
 });
 
 // ---------- páginas livres dos web designers (core/paginas-livres.js) ----------
-const pastaLivre = (...p) => path.join(A.raiz(), 'sites-config', ID, 'paginas', ...p);
+const pastaLivre = (...p) => A.pastaPaginas(ID, ...p);
 const escrever = (arq, txt) => { fs.mkdirSync(path.dirname(arq), { recursive: true }); fs.writeFileSync(arq, txt); };
 
 test('designer: arquivo só com conteúdo entra no cabeçalho/rodapé; título do <h1>; links "/" viram relativos; variáveis funcionam', () => {
@@ -558,7 +594,7 @@ test('designer: página do template vale para todos os sites; o site troca ou de
     A.criarSite(ID, { carros: [A.carro()], site: { template: 'com-extras' } });
     A.criarSite('outro.com.br', { carros: [A.carro()], site: { template: 'com-extras', paginasPadrao: { financiamento: false } } });
     A.criarSite('terceiro.com.br', { carros: [A.carro()], site: { template: 'com-extras' } });
-    escrever(path.join(A.raiz(), 'sites-config', 'terceiro.com.br', 'paginas', 'financiamento.html'), '<h1>Financiamento do terceiro</h1>');
+    escrever(A.pastaPaginas('terceiro.com.br', 'financiamento.html'), '<h1>Financiamento do terceiro</h1>');
     A.silencioso(() => construir({}));
     assert.match(A.ler(ID, 'paginas/financiamento/index.html'), /Financiamento padrão/);
     assert.ok(!A.existe('outro.com.br', 'paginas/financiamento/index.html'), 'desligado pelo site');
@@ -666,7 +702,7 @@ test('páginas padrão vêm do TEMPLATE: editar o texto atualiza a página sem r
 test('páginas ficam em /paginas/<nome>/; links simples ("contato/", "/lojas/") são ajustados', () => {
   A.criarSite(ID, { carros: [A.carro()], site: { cabecalho: { menu: [{ rotulo: 'Lojas', link: 'lojas/' }, { rotulo: 'Estoque', link: 'multipla/' }] },
     paginas: [{ caminho: 'lojas', titulo: 'Lojas', blocos: [{ tipo: 'lojas' }] }] } });
-  const pasta = path.join(A.raiz(), 'sites-config', ID, 'paginas');
+  const pasta = A.pastaPaginas(ID);
   fs.writeFileSync(path.join(pasta, 'feirao.html'), '<h1>Feirão</h1><a href="/lojas/">lojas</a> <a href="/multipla/">estoque</a>');
   build();
   assert.ok(A.existe(ID, 'paginas/lojas/index.html') && A.existe(ID, 'paginas/lgpd/index.html') && A.existe(ID, 'paginas/feirao/index.html'));

@@ -93,7 +93,7 @@ function registrarRascunho(d) {
 // campos que a plataforma usa no site.json. Campo fora da lista não é erro (o site gera do mesmo jeito), mas volta como
 // AVISO: "whatsap" escrito errado gravaria sem efeito e o site ficaria sem WhatsApp sem ninguém perceber.
 const CAMPOS_SITE = new Set(['inquilino', 'nome', 'slogan', 'template', 'motor', 'url', 'whatsapp', 'fotosBase', 'cor', 'tema', 'textos',
-  'cabecalho', 'rodape', 'lojas', 'empresa', 'vendedores', 'busca', 'filtros', 'ordenacao', 'restricoes', 'estoque',
+  'cabecalho', 'rodape', 'lojas', 'empresa', 'vendedores', 'busca', 'filtros', 'ordenacao', 'restricoes',
   'avisoCookies', 'paginasPadrao', 'pagina404', 'retencaoVendidosDias', 'retencaoRedirecionamentoDias', 'robots', 'formatoEstoque', 'rascunho']);
 const avisosSite = (s) => (s && typeof s === 'object' ? Object.keys(s).filter((k) => !CAMPOS_SITE.has(k)).map((k) => `campo "${k}" não é usado pela plataforma (erro de digitação?)`) : []);
 
@@ -112,6 +112,24 @@ function validarPagina(dominio, caminho, pagina) {
       if (!b || !/^[a-z0-9-]+$/.test(String(b.tipo)) || !fs.existsSync(path.join(dir, 'blocos', `${b.tipo}.html`))) erros.push(`bloco ${i + 1}: tipo "${b && b.tipo}" não existe no template "${s.template}"`);
     });
     if (pagina.blocos.filter((b) => b && b.tipo === 'listagem').length > 1) erros.push('só pode ter um bloco "listagem" por página');
+  }
+  return erros;
+}
+
+// web/multipla.json (listagem do estoque): { "blocosAntes": [...], "blocosDepois": [...] }, blocos do template do site
+function validarMultipla(dominio, cfg) {
+  if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) return ['a multipla precisa ser um objeto { "blocosAntes": [...], "blocosDepois": [...] }'];
+  const fora = Object.keys(cfg).filter((k) => !['blocosAntes', 'blocosDepois', 'componentes'].includes(k));
+  const erros = fora.map((k) => `campo "${k}" não existe na multipla (use blocosAntes, blocosDepois e componentes)`);
+  // opções dos componentes SÓ desta página (valem mais que as do template e as do site): { "filtro": { "checkbox": "marca,cidade" } }
+  if (cfg.componentes != null) {
+    if (typeof cfg.componentes !== 'object' || Array.isArray(cfg.componentes)) erros.push('"componentes" deve ser um objeto { "<componente>": { opções } }');
+    else for (const [n, op] of Object.entries(cfg.componentes)) erros.push(...require('./componentes').validar(n, op, `componentes.${n}`));
+  }
+  for (const k of ['blocosAntes', 'blocosDepois']) {
+    if (cfg[k] == null) continue;
+    if (!Array.isArray(cfg[k])) { erros.push(`"${k}" deve ser lista de blocos`); continue; }
+    erros.push(...validarPagina(dominio, '', { blocos: cfg[k] }).map((x) => `${k}: ${x}`));
   }
   return erros;
 }
@@ -136,7 +154,8 @@ function validarSite(s, dominio) {
   if (s.fotosBase != null && !(typeof s.fotosBase === 'string' && /^https?:\/\/\S+\/$/i.test(s.fotosBase))) e('"fotosBase" precisa ser uma URL terminada em "/"');
   if (s.whatsapp != null && !/^\d{10,15}$/.test(String(s.whatsapp))) e('"whatsapp" só com números, com DDI e DDD (ex.: 5541999990000)');
   for (const k of ['filtros', 'ordenacao']) if (s[k] != null && !Array.isArray(s[k])) e(`"${k}" deve ser lista`);
-  if (s.paginas != null) e('"paginas" não vai no cadastro: cada página é um arquivo em sites-config/<dominio>/paginas/ (index.json = home, lojas.json...)');
+  if (s.paginas != null) e('"paginas" não vai no cadastro: cada página é um arquivo em sites-config/<dominio>/web/ (web/index.json = home, web/paginas/lojas.json...)');
+  if (s.estoque != null) e('"estoque" não vai no cadastro: a listagem (/multipla/) é configurada em sites-config/<dominio>/web/multipla.json; pela API, PUT /v1/sites/<dominio>/multipla');
   if (s.rascunho != null && typeof s.rascunho !== 'boolean') e('"rascunho" deve ser true ou false');
   // opções de componente não ficam no cadastro: cada uma é um arquivo em sites-config/<dominio>/componentes/<nome>.json
   if (s.componentes != null) e('"componentes" não vai no cadastro: as opções de cada componente ficam em sites-config/<dominio>/componentes/<nome>.json (ex.: estoque.json); pela API, PUT /v1/sites/<dominio>/componentes/<nome>');
@@ -149,11 +168,14 @@ function validarSite(s, dominio) {
     if (!ID_LOJA.test(id)) e(`loja "${id}": id só com minúsculas, números e hífen`);
     if (!l || !txt(l.nome) || !txt(l.cidade) || !/^[A-Z]{2}$/.test(String(l && l.uf))) e(`loja "${id}": precisa de "nome", "cidade" e "uf" (2 letras maiúsculas)`);
   }
-  // trocar de template: os blocos das páginas do site (sites-config/<dominio>/paginas/*.json) precisam existir no template novo
+  // trocar de template: os blocos das páginas do site (sites-config/<dominio>/web/) precisam existir no template novo
   if (txt(s.template) && ID_SITE.test(String(dominio))) {
-    for (const p of require('./paginas-livres').lerPaginasJson(C.paginasLivresSite(dominio))) {
+    let pags = [];
+    try { pags = require('./paginas-livres').paginasJsonDoSite(C, dominio); } catch (x) { e(x.message); }
+    if (fs.existsSync(C.multipla(dominio))) pags.push({ caminho: 'multipla', arquivo: C.multipla(dominio), multipla: true });
+    for (const p of pags) {
       const j = lerJSON(p.arquivo, {});
-      for (const b of Array.isArray(j.blocos) ? j.blocos : []) {
+      for (const b of p.multipla ? [...(j.blocosAntes || []), ...(j.blocosDepois || [])] : Array.isArray(j.blocos) ? j.blocos : []) {
         if (!b || !/^[a-z0-9-]+$/.test(String(b.tipo)) || !fs.existsSync(path.join(Inq.dirTemplate(inq, s.template), 'blocos', `${b.tipo}.html`))) e(`página "${p.caminho || '(home)'}": bloco "${b && b.tipo}" não existe no template "${s.template}"`);
       }
     }
@@ -216,7 +238,7 @@ function removerComponenteSite(d, nome) {
   return true;
 }
 
-// estrutura de um site novo: sites-config/<dominio>/{site.json, estoque.json vazio, assets/, paginas/, componentes/}
+// estrutura de um site novo: sites-config/<dominio>/{site.json, estoque.json vazio, assets/, web/paginas/, componentes/}
 function criarArquivos(dominio, cadastro) {
   if (existe(dominio)) throw new Error(`site "${dominio}" já existe`);
   fs.mkdirSync(C.assets(dominio), { recursive: true });
@@ -275,4 +297,4 @@ function arquivarArquivos(dominio, { pasta = C.PUBLICO } = {}) {
   return { arquivo: path.relative(C.ROOT, destino) };
 }
 
-module.exports = { componentesDoSite, gravarComponenteSite, removerComponenteSite, avisosSite, validarPagina, CAMPOS_SITE, mesclar, arquivarArquivos, proximoRascunho, ehDominioRascunho, inquilinoDoRascunho, padraoRascunho, ID_SITE, listar, existe, carregar, carregarTodos, lojas, estoque, resumo, resumos, validarSite, cadastroNovo, gravarSite, criarArquivos, renomearArquivos };
+module.exports = { validarMultipla, componentesDoSite, gravarComponenteSite, removerComponenteSite, avisosSite, validarPagina, CAMPOS_SITE, mesclar, arquivarArquivos, proximoRascunho, ehDominioRascunho, inquilinoDoRascunho, padraoRascunho, ID_SITE, listar, existe, carregar, carregarTodos, lojas, estoque, resumo, resumos, validarSite, cadastroNovo, gravarSite, criarArquivos, renomearArquivos };

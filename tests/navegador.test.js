@@ -6,7 +6,6 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const http = require('http');
 const { execFileSync, spawn } = require('child_process');
 const { construir } = require('../core/build.js');
 const L = require('../core/ui/link-carro.js');
@@ -23,17 +22,13 @@ before(async () => {
   for (const t of templates) {
     const carros = Array.from({ length: TOTAL }, (_, i) => A.carro({ marca: i % 3 ? 'Toyota' : 'Honda', modelo: i % 3 ? 'Corolla' : 'Civic', loja: i % 2 ? 'sul' : 'centro', ordem: TOTAL - i }));
     carros[TOTAL - 1].link = `carros/Link/Do/Revenda-Mais/${t}-especial-1.html`; // o primeiro na tela (ordem 1) usa link vindo do estoque
-    A.criarSite(`${t}.teste.com.br`, { carros, site: { template: t, fotosBase: '' } });
+    A.criarSite(`${t}.teste.com.br`, { carros, site: { template: t, fotosBase: '', motor: 'v3' } });
+    // estado em caixas de marcar (opção "checkbox" do componente filtro, configurada na PÁGINA: web/multipla.json)
+    A.gravarMultipla(`${t}.teste.com.br`, { componentes: { filtro: { checkbox: 'estado' } } });
   }
   A.silencioso(() => construir({}));
-  const tipos = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json', '.css': 'text/css' };
-  srv = http.createServer((req, res) => {
-    let p = path.join(raiz, 'sites-public', decodeURIComponent(new URL(req.url, 'http://x').pathname));
-    if (fs.existsSync(p) && fs.statSync(p).isDirectory()) p = path.join(p, 'index.html');
-    if (!p.startsWith(path.join(raiz, 'sites-public')) || !fs.existsSync(p)) { res.writeHead(404); return res.end(); }
-    res.writeHead(200, { 'content-type': tipos[path.extname(p)] || 'application/octet-stream' });
-    res.end(fs.readFileSync(p));
-  }).listen(0);
+  // o servidor local usa as regras da hospedagem (infra/cloudfront/roteador.js): rotas da listagem, 301, 404.html
+  srv = require('../ferramentas/servidor-local.js').criar(path.join(raiz, 'sites-public')).listen(0);
   await new Promise((ok) => srv.on('listening', ok));
   base = `http://127.0.0.1:${srv.address().port}`;
 });
@@ -77,6 +72,63 @@ for (const t of templates) {
     const { dom } = await abrir(`${base}/${id}/multipla/?marca=Honda`);
     assert.match(dom, /10 carros/);
     assert.equal(cards(dom), 10);
+  });
+
+  test(`[${t}] ROTA: /multipla/<campo>/<valor> em qualquer ordem, vários valores com |, nomes do Revenda Mais; canonical na ordem do site`, { skip: pular }, async () => {
+    const canon = (dom) => (dom.match(/rel="canonical" href="([^"]*)"/) || [])[1];
+    let r = await abrir(`${base}/${id}/multipla/marca/honda`);
+    assert.deepEqual(r.erros, []);
+    assert.match(r.dom, /10 carros/);
+    assert.equal(cards(r.dom), 10, 'css/js/estoque.json carregados com o <base> da rota');
+    assert.equal(canon(r.dom), `https://${id}/multipla/marca/honda`);
+    r = await abrir(`${base}/${id}/multipla/marca/Honda%7CToyota/revenda_cidade_nome/Porto%20Alegre?ord=menor`);
+    assert.deepEqual(r.erros, []);
+    assert.match(r.dom, /15 carros/, 'Honda ou Toyota, só Porto Alegre');
+    assert.equal(canon(r.dom), `https://${id}/multipla/revenda-cidade-nome/porto%20alegre/marca/honda|toyota`, 'mesmo filtro = mesmo endereço, nomes do Revenda Mais com "-"');
+    assert.match(r.dom, /<option value="Honda\|Toyota"[^>]*>Honda, Toyota</, 'o select mostra o grupo escolhido');
+    const href = semModelo(r.dom).match(/<a class="(?:c-)?card(?:-foto|__foto)?" href="([^"]+)"|class="card[^"]*" href="([^"]+)"/);
+    assert.ok(href && fs.existsSync(path.join(raiz, 'sites-public', id, (href[1] || href[2]).replace(/^\.\.\//, ''))), 'link do card certo numa rota funda');
+  });
+
+  test(`[${t}] caixas de marcar (checkbox="estado"): vêm marcadas do link e cada clique filtra e reescreve a rota`, { skip: pular }, async () => {
+    // página de teste no mesmo site: abre a listagem num iframe, clica nas caixas e escreve o que aconteceu
+    const arq = path.join(raiz, 'sites-public', id, 'teste-clique.html');
+    fs.writeFileSync(arq, `<!doctype html><body><pre id="r"></pre><iframe id="f" src="multipla/revenda-estado-cod/rs"></iframe><script>
+      const f = document.getElementById('f'), log = (x) => (document.getElementById('r').textContent += x + ';');
+      f.onload = () => setTimeout(() => { const d = f.contentDocument, w = f.contentWindow, n = () => d.getElementById('contagem').textContent.trim();
+        try {
+          log('inicio=' + n() + '|' + d.querySelectorAll('#f-estado input:checked').length);
+          d.querySelector('#f-estado input[value="PR"]').click(); log('pr+rs=' + n() + '|' + w.location.pathname.split('/multipla/')[1]);
+          d.querySelector('#f-estado input[value="RS"]').click(); log('pr=' + n() + '|' + w.location.pathname.split('/multipla/')[1]);
+        } catch (e) { log('ERRO ' + e.message); } }, 2000);
+    </script>`);
+    try {
+      const { dom, erros } = await abrir(`${base}/${id}/teste-clique.html`);
+      assert.deepEqual(erros, []);
+      const r = (dom.match(/<pre id="r">([^<]*)/) || [])[1] || '';
+      assert.equal(r, 'inicio=15 carros|1;pr+rs=30 carros|revenda-estado-cod/pr%7Crs;pr=15 carros|revenda-estado-cod/pr;', r);
+    } finally { fs.rmSync(arq); }
+  });
+
+  test(`[${t}] filtros ativos: uma etiqueta por filtro (com a busca), X tira só aquele, "Limpar busca" tira todos e esconde`, { skip: pular }, async () => {
+    const arq = path.join(raiz, 'sites-public', id, 'teste-chips.html');
+    fs.writeFileSync(arq, `<!doctype html><body><pre id="r"></pre><iframe id="f" src="multipla/marca/honda%7Ctoyota/revenda-estado-cod/rs?q=civic"></iframe><script>
+      const f = document.getElementById('f'), log = (x) => (document.getElementById('r').textContent += x + ';');
+      f.onload = () => setTimeout(() => { const d = f.contentDocument, n = () => d.getElementById('contagem').textContent.trim();
+        const chips = () => [...d.querySelectorAll('.c-ativos__chip')].map((b) => b.dataset.valor).join(',');
+        try {
+          log(n() + '|' + chips());
+          d.querySelector('.c-ativos__chip[data-campo="q"]').click(); log(n() + '|' + chips());
+          d.querySelector('.c-ativos__chip[data-valor="Toyota"]').click(); log(n() + '|' + chips());
+          d.querySelector('.c-ativos__limpar').click(); log(n() + '|' + chips() + '|' + d.getElementById('filtros-ativos').hidden);
+        } catch (e) { log('ERRO ' + e.message); } }, 2000);
+    </script>`);
+    try {
+      const { dom, erros } = await abrir(`${base}/${id}/teste-chips.html`);
+      assert.deepEqual(erros, []);
+      const r = (dom.match(/<pre id="r">([^<]*)/) || [])[1] || '';
+      assert.equal(r, '5 carros|civic,RS,Honda,Toyota;15 carros|RS,Honda,Toyota;5 carros|RS,Honda;30 carros||true;', r);
+    } finally { fs.rmSync(arq); }
   });
 
   test(`[${t}] filtro por parâmetro sem diferença de maiúscula/acento (como chega pelo 301 de /multipla/marca/honda/)`, { skip: pular }, async () => {

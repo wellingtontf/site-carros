@@ -1,5 +1,5 @@
 // Arquivos próprios de um site (sites-config/<dominio>/assets/: logo, favicon, banners, fontes) e páginas
-// (sites-config/<dominio>/paginas/), gravados por quem não mexe no disco: a API. O build copia/gera como sempre.
+// (sites-config/<dominio>/web/: index.json = home, multipla.json = listagem, paginas/ = páginas de conteúdo), gravados por quem não mexe no disco: a API. O build copia/gera como sempre.
 //
 // Arquivos: o tipo é conferido pelo CONTEÚDO (os primeiros bytes), não só pelo nome: um "logo.png" que é um HTML ou um
 // executável é recusado. SVG passa só sem código (script, on*=, javascript:, foreignObject...): ele é servido no domínio
@@ -67,10 +67,12 @@ function validarNomePagina(nome) {
   if (RESERVADAS.has(nome.split('/')[0])) return [`"${nome.split('/')[0]}" é reservado`];
   return [];
 }
-const arqPagina = (d, nome, formato) => path.join(C.paginasLivresSite(d), `${nome}.${formato === 'html' ? 'html' : 'json'}`);
+// "index" (a home) = web/index.json; o resto em web/paginas/
+const arqPagina = (d, nome, formato) => (nome === 'index' ? (formato === 'html' ? path.join(C.web(d), 'index.html') : C.home(d))
+  : path.join(C.paginasLivresSite(d), `${nome}.${formato === 'html' ? 'html' : 'json'}`));
 function listarPaginas(d) {
   const raiz = C.paginasLivresSite(d);
-  const json = PL.lerPaginasJson(raiz).map((p) => ({ nome: p.caminho || 'index', formato: 'blocos' }));
+  const json = PL.paginasJsonDoSite(C, d).map((p) => ({ nome: p.caminho || 'index', formato: 'blocos' }));
   const html = PL.lerPaginasLivres(raiz).map((p) => ({ nome: p.caminho, formato: p.assets.size || path.basename(p.arquivo) === 'index.html' ? 'html (pasta)' : 'html' }));
   return [...json, ...html].map((p) => ({ ...p, endereco: p.nome === 'index' ? '/' : `/paginas/${p.nome}/` })).sort((a, b) => a.nome.localeCompare(b.nome));
 }
@@ -81,6 +83,7 @@ function lerPagina(d, nome) {
 }
 // grava a página; o outro formato de mesmo nome sai (senão o build acusaria página duplicada)
 function gravarPagina(d, nome, formato, conteudo) {
+  if (nome === 'index' && formato === 'html') throw new Error('a home (index) é página de blocos (web/index.json)');
   const pastaPagina = path.join(C.paginasLivresSite(d), nome);
   if (fs.existsSync(path.join(pastaPagina, 'index.html'))) throw Object.assign(new Error(`a página "${nome}" é uma pasta do designer (${nome}/index.html com arquivos): apague a pasta antes de gravar pela API`), { conflito: true });
   const arq = arqPagina(d, nome, formato);
@@ -95,4 +98,13 @@ function removerPagina(d, nome) {
   return saiu;
 }
 
-module.exports = { validarArquivo, gravarAsset, removerAsset, listarAssets, MAX_ARQUIVO, validarNomePagina, listarPaginas, lerPagina, gravarPagina, removerPagina, validarPagina: Sites.validarPagina };
+// listagem do estoque (/multipla/): web/multipla.json
+const lerMultipla = (d) => { const t = fs.existsSync(C.multipla(d)) ? fs.readFileSync(C.multipla(d), 'utf8').trim() : ''; return t ? JSON.parse(t) : null; }; // vazio = sem configuração
+function gravarMultipla(d, conteudo) {
+  fs.mkdirSync(C.web(d), { recursive: true });
+  fs.writeFileSync(`${C.multipla(d)}.tmp`, JSON.stringify(conteudo, null, 2) + '\n');
+  fs.renameSync(`${C.multipla(d)}.tmp`, C.multipla(d));
+}
+const removerMultipla = (d) => { if (!fs.existsSync(C.multipla(d))) return false; fs.rmSync(C.multipla(d)); return true; };
+
+module.exports = { lerMultipla, gravarMultipla, removerMultipla, validarMultipla: Sites.validarMultipla, validarArquivo, gravarAsset, removerAsset, listarAssets, MAX_ARQUIVO, validarNomePagina, listarPaginas, lerPagina, gravarPagina, removerPagina, validarPagina: Sites.validarPagina };

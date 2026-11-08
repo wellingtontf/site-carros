@@ -51,16 +51,14 @@ test('página fora de /paginas/ (endereço antigo) → 301 para /paginas/, mante
   assert.equal(R.handler(ev('/')).uri, '/index.html');
 });
 
-test('nada depois de /multipla/: endereço antigo de filtro (Revenda Mais e páginas fixas) → 301 /multipla/?campo=valor', () => {
-  const para = (u, o) => { const r = R.handler(ev(u, o)); assert.equal(r.statusCode, 301, u); return r.headers.location.value; };
-  assert.equal(para('/multipla/marca/caoa%20chery/'), '/multipla/?marca=caoa%20chery');
-  assert.equal(para('/multipla/marca/TOYOTA'), '/multipla/?marca=TOYOTA');
-  assert.equal(para('/multipla/revenda_cidade_nome/S%C3%A3o%20Jos%C3%A9'), '/multipla/?cidade=S%C3%A3o%20Jos%C3%A9');
-  assert.equal(para('/multipla/cidade/porto-alegre/'), '/multipla/?cidade=porto-alegre');
-  assert.equal(para('/multipla/carroceria/moto/', { qs: { v: { value: 'carlos' } } }), '/multipla/?carroceria=moto&v=carlos');
-  assert.equal(para('/multipla/modelo-marca/COROLLA'), '/multipla/?modelo=COROLLA');
-  assert.equal(para('/multipla/qualquer/coisa/'), '/multipla/', 'pasta desconhecida: a listagem inteira');
-  assert.equal(para('/multipla/marca'), '/multipla/');
-  assert.equal(R.handler(ev('/multipla/')).uri, '/multipla/index.html');
-  assert.equal(R.handler(ev('/multipla/index.html')).uri, '/multipla/index.html');
+test('rota da listagem: qualquer /multipla/... entrega multipla/index.html (sem redirecionar), inclusive endereços do Revenda Mais', () => {
+  const uri = (u, o) => { const r = R.handler(ev(u, o)); assert.equal(r.statusCode, undefined, u); return r.uri; };
+  for (const u of ['/multipla/marca/caoa%20chery/', '/multipla/marca/TOYOTA', '/multipla/revenda_estado_cod/PR/revenda_cidade_nome/Canoas%7CCascavel',
+    '/multipla/modelo/Onix%201.0', '/multipla//marca/Fiat', '/multipla/qualquer/coisa/']) assert.equal(uri(u), '/multipla/index.html', u);
+  assert.equal(uri('/multipla/'), '/multipla/index.html');
+  assert.equal(uri('/multipla/index.html'), '/multipla/index.html');
+  assert.equal(R.handler(ev('/multipla')).statusCode, 301);
+  assert.equal(R.handler(ev('/multipla/a/../x')).statusCode, 400);
+  R._definirPrefixo(true);
+  try { assert.equal(uri('/multipla/marca/Fiat', { host: 'www.loja.com.br' }), '/loja.com.br/multipla/index.html'); } finally { R._definirPrefixo(false); }
 });

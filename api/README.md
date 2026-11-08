@@ -38,6 +38,7 @@ O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da
 | PUT | `/v1/sites/{dominio}` | **grava o `site.json` inteiro**: cria o site, se não existir, ou substitui o cadastro (ver "Cadastro do site"), e gera o site |
 | PATCH | `/v1/sites/{dominio}` | **grava só os campos enviados** do `site.json`; o resto fica como está (ver "Cadastro do site") |
 | GET / PUT / DELETE | `/v1/sites/{dominio}/paginas/{nome}` | **páginas do site** (home, lojas, empresa, feirão...): blocos em JSON ou HTML (ver "Páginas e arquivos") |
+| GET / PUT / DELETE | `/v1/sites/{dominio}/multipla` | **listagem do estoque** (`/multipla/`): `{ "blocosAntes": [...], "blocosDepois": [...] }` (arquivo `web/multipla.json`) |
 | GET / PUT / DELETE | `/v1/sites/{dominio}/componentes/{nome}` | **opções de um componente no site inteiro** (`filtro`, `estoque`): cores, layout, campos do card... |
 | GET / PUT / DELETE | `/v1/sites/{dominio}/assets/{arquivo}` | **arquivos do site** (logo, favicon, banners, fontes) (ver "Páginas e arquivos") |
 | POST | `/v1/sites/{dominio}/promover` | **rascunho → site definitivo**: `{"dominio": "lojafinal.com.br"}` (ver "Rascunho e promoção") |
@@ -79,7 +80,7 @@ Parâmetros das rotas que alteram dados:
 
 Tudo o que forma um site entra pela API e fica em `sites-config/<dominio>/`. São cinco partes: cadastro (`site.json`), estoque, **páginas**, **componentes** e **arquivos**.
 
-**Páginas:** `PUT /v1/sites/{dominio}/paginas/{nome}` grava a página `{nome}`, que fica no ar em `/paginas/{nome}/`. O nome `index` é a home (`/`). Dois formatos:
+**Páginas:** `PUT /v1/sites/{dominio}/paginas/{nome}` grava a página `{nome}`, que fica no ar em `/paginas/{nome}/`. O nome `index` é a home (`/`). Os arquivos ficam em `sites-config/<dominio>/web/` (espelho do site: `web/index.json` = home, `web/paginas/<nome>.json|.html`, `web/multipla.json` = listagem). Dois formatos:
 
 ```
 PUT /v1/sites/loja1.com.br/paginas/lojas            content-type: application/json
@@ -170,7 +171,7 @@ O `PATCH` segue o JSON Merge Patch (RFC 7396): objeto mescla campo a campo (no e
 }
 ```
 
-Obrigatórios: `nome`, `template` e `motor`. As `lojas` são opcionais num site novo (cada uma com `nome`, `cidade` e `uf`); sem loja, o site não aceita estoque. Os opcionais (`cabecalho`, `rodape`, `filtros`, `tema`...) seguem o mesmo formato do `site.json` (README do projeto). As **páginas não vão no cadastro**: cada página é um arquivo em `sites-config/<dominio>/paginas/`, criado pelo web designer (um cadastro com `"paginas"` volta 422). A API recusa (422, nada gravado): template ou motor inexistente, bloco que o template não tem, `url` sem https e loja removida que ainda tem carros no estoque. O cadastro anterior fica guardado como cópia de segurança.
+Obrigatórios: `nome`, `template` e `motor`. As `lojas` são opcionais num site novo (cada uma com `nome`, `cidade` e `uf`); sem loja, o site não aceita estoque. Os opcionais (`cabecalho`, `rodape`, `filtros`, `tema`...) seguem o mesmo formato do `site.json` (README do projeto). As **páginas não vão no cadastro**: cada página é um arquivo em `sites-config/<dominio>/web/` (`web/index.json` = home, `web/paginas/...`), criado pelo web designer (um cadastro com `"paginas"` ou `"estoque"` volta 422; a listagem é `PUT /v1/sites/{dominio}/multipla`). A API recusa (422, nada gravado): template ou motor inexistente, bloco que o template não tem, `url` sem https e loja removida que ainda tem carros no estoque. O cadastro anterior fica guardado como cópia de segurança.
 
 ## Vários sites numa chamada
 

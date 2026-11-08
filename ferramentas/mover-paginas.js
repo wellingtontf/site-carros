@@ -1,7 +1,10 @@
 #!/usr/bin/env node
-// Tira do site.json o que agora é arquivo: "paginas" → sites-config/<dominio>/paginas/<nome>.json e "componentes" →
-// sites-config/<dominio>/componentes/<nome>.json. Tira a lista "paginas" do site.json e grava cada página como arquivo em sites-config/<dominio>/paginas/
-// (index.json = home, lojas.json, sobre/nos.json). Roda uma vez por site; não sobrescreve arquivo que já existe.
+// Leva para o lugar de hoje o que mudou de lugar (roda uma vez por site; não sobrescreve arquivo que já existe):
+//   sites-config/<d>/paginas/index.json      → sites-config/<d>/web/index.json   (home)
+//   sites-config/<d>/paginas/<resto>         → sites-config/<d>/web/paginas/<resto>
+//   site.json "estoque" {blocosAntes...}     → sites-config/<d>/web/multipla.json
+//   site.json "paginas" [...]                → web/index.json e web/paginas/<nome>.json
+//   site.json "componentes" {...}            → sites-config/<d>/componentes/<nome>.json
 //   node ferramentas/mover-paginas.js [dominio1,dominio2]   (sem argumento: todos os sites)
 const fs = require('fs');
 const path = require('path');
@@ -13,6 +16,32 @@ let erro = false;
 for (const d of alvo) {
   const arq = C.siteJson(d);
   const cfg = JSON.parse(fs.readFileSync(arq, 'utf8'));
+  // pasta antiga sites-config/<d>/paginas/ → web/ (index.json = home na raiz de web/, o resto em web/paginas/)
+  const antiga = C.paginasAntigasSite(d);
+  if (fs.existsSync(antiga)) {
+    const itens = fs.readdirSync(antiga);
+    const destino = (n) => (n === 'index.json' ? C.home(d) : path.join(C.paginasLivresSite(d), n));
+    const ja = itens.find((n) => fs.existsSync(destino(n)));
+    if (ja) { console.error(`${d}: ${path.relative(C.ROOT, destino(ja))} já existe; paginas/ não mexida`); erro = true; }
+    else {
+      fs.mkdirSync(C.paginasLivresSite(d), { recursive: true });
+      for (const n of itens) fs.renameSync(path.join(antiga, n), destino(n));
+      fs.rmdirSync(antiga);
+      console.log(`${d}: paginas/ → web/ (${itens.map((n) => path.relative(C.site(d), destino(n))).join(', ') || 'vazia'})`);
+    }
+  }
+  // "estoque" no site.json → web/multipla.json ("caminho" sai: a listagem é sempre /multipla/)
+  if (cfg.estoque && typeof cfg.estoque === 'object') {
+    if (fs.existsSync(C.multipla(d))) { console.error(`${d}: web/multipla.json já existe; "estoque" não mexido`); erro = true; }
+    else {
+      const { caminho, ...m } = cfg.estoque;
+      fs.mkdirSync(C.web(d), { recursive: true });
+      fs.writeFileSync(C.multipla(d), JSON.stringify(m, null, 2) + '\n');
+      delete cfg.estoque;
+      fs.writeFileSync(arq, JSON.stringify(cfg, null, 2) + '\n');
+      console.log(`${d}: "estoque" do site.json → web/multipla.json`);
+    }
+  }
   // "componentes" no site.json → sites-config/<d>/componentes/<nome>.json
   if (cfg.componentes && typeof cfg.componentes === 'object') {
     const dirC = C.componentesSite(d);
@@ -26,11 +55,11 @@ for (const d of alvo) {
       if (!Array.isArray(cfg.paginas)) fs.writeFileSync(arq, JSON.stringify(cfg, null, 2) + '\n');
     }
   }
-  if (!Array.isArray(cfg.paginas)) { console.log(`${d}: nenhuma página a mover`); continue; }
+  if (!Array.isArray(cfg.paginas)) { console.log(`${d}: nada (mais) a mover`); continue; }
   const destinos = cfg.paginas.map((p) => {
     const caminho = String(p.caminho ?? '').replace(/^\/+|\/+$/g, '');
     const { caminho: _, ...resto } = p;
-    return [path.join(C.paginasLivresSite(d), `${caminho || 'index'}.json`), resto];
+    return [caminho ? path.join(C.paginasLivresSite(d), `${caminho}.json`) : C.home(d), resto];
   });
   const existe = destinos.find(([f]) => fs.existsSync(f));
   if (existe) { console.error(`${d}: ${path.relative(C.ROOT, existe[0])} já existe; nada foi mexido neste site`); erro = true; continue; }

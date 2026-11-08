@@ -2,7 +2,7 @@
   "inquilino": "revenda-mais",
   "nome": "Prime Seminovos",
   "slogan": "A partir de R$ 90 mil, em São Paulo e Rio",
-  "motor": "v2",
+  "motor": "v3",
   "template": "template-basico",
   "tema": {
     "cor": "#111827",

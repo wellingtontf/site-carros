@@ -2,7 +2,7 @@
   "inquilino": "revenda-mais",
   "nome": "lojateste.com.br",
   "slogan": "O maior estoque de seminovos do Sul do Brasil",
-  "motor": "v2",
+  "motor": "v3",
   "template": "template-basico",
   "formatoEstoque": "compacto",
   "url": "https://lojateste.com.br",
@@ -35,10 +35,6 @@
       {
         "rotulo": "Ofertas",
         "link": "multipla/?ord=menor"
-      },
-      {
-        "rotulo": "Avaliação",
-        "link": "https://tradein.autoavaliar.com.br/group/servopa-compra/8781zBABjC/5261zAwjAL?c=6775zPB"
       }
     ],
     "sobre": [
@@ -320,14 +316,5 @@
     "recentes",
     "km"
   ],
-  "vendedores": {},
-  "estoque": {
-    "blocosAntes": [
-      {
-        "tipo": "banner",
-        "imagem": "assets/banner-2.webp",
-        "alt": "O maior estoque do Sul do Brasil"
-      }
-    ]
-  }
+  "vendedores": {}
 }

@@ -243,7 +243,7 @@ function criarRotas({ fila }) {
     const d = site(dominio);
     const refazer = () => fila.adicionar({ tipo: 'build', site: d, cliente: cliente.nome });
 
-    // PÁGINAS do site (sites-config/<dominio>/paginas/): o que o web designer faz na pasta, um sistema faz por aqui.
+    // PÁGINAS do site (sites-config/<dominio>/web/: index = web/index.json, o resto em web/paginas/): o que o web designer faz na pasta, um sistema faz por aqui.
     //   GET    /v1/sites/<d>/paginas              lista (nome, formato, endereço público)
     //   GET    /v1/sites/<d>/paginas/<nome>       uma (JSON de blocos ou o HTML)
     //   PUT    /v1/sites/<d>/paginas/<nome>       grava: JSON { titulo, blocos } ou HTML (content-type text/html). "index" = home
@@ -277,6 +277,23 @@ function criarRotas({ fila }) {
       }
       if (m === 'DELETE') {
         if (!Arq.removerPagina(d, nome)) throw new Erro(404, `página "${nome}" não existe`);
+        return responderPedido(res, url, refazer());
+      }
+    }
+
+    // LISTAGEM do estoque (sites-config/<dominio>/web/multipla.json → /multipla/): blocos antes/depois da lista
+    //   GET|PUT|DELETE /v1/sites/<d>/multipla   corpo do PUT: { "blocosAntes": [...], "blocosDepois": [...] }
+    if (resto === '/multipla') {
+      if (m === 'GET') return enviar(res, 200, Arq.lerMultipla(d) || {});
+      if (m === 'PUT') {
+        const cfg = await corpoJSON(req, LIMITE.site);
+        const erros = Arq.validarMultipla(d, cfg);
+        if (erros.length) throw new Erro(422, 'multipla inválida: nada foi gravado', { erros });
+        Arq.gravarMultipla(d, cfg);
+        return responderPedido(res, url, refazer(), 202, 200, { endereco: '/multipla/' });
+      }
+      if (m === 'DELETE') {
+        if (!Arq.removerMultipla(d)) throw new Erro(404, 'o site não tem web/multipla.json');
         return responderPedido(res, url, refazer());
       }
     }

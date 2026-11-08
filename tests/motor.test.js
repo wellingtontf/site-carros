@@ -70,7 +70,8 @@ for (const v of versoes) {
   });
 
   test(`[${v}] filtros: lista, mínimo (ano), máximo (preço/km)`, async () => {
-    const mo = await criar(M);
+    // v3+: o ano é exato por padrão; "a partir de" continua com { campo: 'ano', tipo: 'minimo' }
+    const mo = await criar(M, numero(v) >= 3 ? { filtros: ['marca', { campo: 'ano', tipo: 'minimo' }, 'preco', 'km'] } : {});
     mo.definir('marca', 'Honda'); assert.equal(ids(mo), 'ab');
     mo.limpar();
     mo.definir('ano', '2022'); assert.equal(ids(mo), 'bde');
@@ -103,8 +104,15 @@ for (const v of versoes) {
     assert.equal(ids(outro), ids(mo));
     assert.equal(outro.estado().ord, 'menor');
     outro.aplicarQuery('marca=Ferrari&preco=123&ord=hackeado&estado=<script>');
-    assert.equal(ids(outro), 'abcde');
-    assert.deepEqual(Object.values(outro.estado().valores).filter(Boolean), []);
+    if (numero(v) >= 3) {
+      // v3+: valor de lista que veio do link fica (sem carro → "nenhum carro"); preço fora da lista e ordem inválida saem
+      assert.equal(ids(outro), '');
+      assert.deepEqual(outro.estado().valores, { ...outro.estado().valores, marca: 'Ferrari', estado: '<script>', preco: '' });
+      assert.equal(outro.estado().ord, outro.ordens[0].chave);
+    } else {
+      assert.equal(ids(outro), 'abcde');
+      assert.deepEqual(Object.values(outro.estado().valores).filter(Boolean), []);
+    }
   });
 
   test(`[${v}] filtros configurados pelo site: ordem, rótulo, opções; lista com 1 valor some (sempre: true mantém)`, async () => {
@@ -150,6 +158,33 @@ for (const v of versoes) {
     torto.buscar('fiat');
     assert.equal(torto.resultado().length, 1);
   });
+
+  if (numero(v) >= 3) {
+    test(`[${v}] vários valores por filtro (OU) e ano exato, do mais novo ao mais velho (como veic-anomodelo/2022|2024)`, async () => {
+      const mo = await criar(M);
+      const f = (c) => mo.filtros.find((x) => x.campo === c);
+      assert.deepEqual(f('ano').opcoes().map((o) => o.valor), ['2024', '2023', '2022', '2020', '2018']);
+      mo.aplicarQuery('ano=2022|2024|1999');
+      assert.equal(ids(mo), 'bd');
+      assert.equal(f('ano').valor(), '2022|2024|1999', 'valor do link fica como veio');
+      mo.aplicarQuery('marca=Honda&ano=1999');
+      assert.equal(ids(mo), '', 'valor sem carro no estoque: nenhum carro (não esconde o filtro)');
+      mo.definir('marca', 'Toyota');
+      assert.equal(ids(mo), '', 'mexer em outro filtro mantém o do link');
+      mo.definir('ano', '2018');
+      assert.equal(ids(mo), 'c');
+      mo.definir('ano', '1999');
+      assert.equal(f('ano').valor(), '', 'pela tela (definir) só vale o que existe');
+      mo.aplicarQuery('marca=Honda|Toyota&estado=PR');
+      assert.equal(ids(mo), 'ac');
+      mo.aplicarQuery('estado=PR|RS&cidade=Curitiba|Porto Alegre|Londrina');
+      assert.equal(ids(mo), 'abcd');
+      mo.aplicarQuery('estado=RS&cidade=Curitiba|Porto Alegre');
+      assert.equal(ids(mo), 'b', 'cidade de outro estado não dá resultado (cascata)');
+      mo.definir('estado', 'PR');
+      assert.equal(f('cidade').valor(), 'Curitiba', 'trocar o pai pela tela limpa o filho que não existe mais');
+    });
+  }
 
   if (numero(v) >= 2) {
     test(`[${v}] ordem "destaque" (padrão): a ordem do estoque (campo r ou posição)`, async () => {

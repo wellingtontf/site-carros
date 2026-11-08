@@ -44,7 +44,7 @@ test('css/js com ?v=<hash> em tudo, estável entre builds (não refaz página à
 
 test('página livre do designer (HTML completo) ganha canonical sozinha', () => {
   A.criarSite(ID, { carros: [A.carro()] });
-  const dir = path.join(A.raiz(), 'sites-config', ID, 'paginas', 'promo');
+  const dir = A.pastaPaginas(ID, 'promo');
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'index.html'), '<!doctype html><html><head><title>Promo</title><link rel="stylesheet" href="promo.css"></head><body><h1>Promo</h1></body></html>');
   fs.writeFileSync(path.join(dir, 'promo.css'), 'h1{color:red}');

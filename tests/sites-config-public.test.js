@@ -35,18 +35,18 @@ test('cada parte de sites-config/<dominio>/ aparece em sites-public/<dominio>/ (
   assert.ok(!A.lerJSON(ID, 'estoque.json').some((c) => c.i === 'K2'), 'carro que saiu da fonte sai da lista');
 
   // paginas/ (blocos e HTML)
-  escreve(fonte('paginas', 'promocoes.json'), JSON.stringify({ titulo: 'Promoções', blocos: [{ tipo: 'texto', html: '<p>PROMO</p>' }] }));
-  escreve(fonte('paginas', 'feirao.html'), '<h1>Feirão</h1>');
+  escreve(fonte('web', 'paginas', 'promocoes.json'), JSON.stringify({ titulo: 'Promoções', blocos: [{ tipo: 'texto', html: '<p>PROMO</p>' }] }));
+  escreve(fonte('web', 'paginas', 'feirao.html'), '<h1>Feirão</h1>');
   build();
   assert.match(pub('paginas/promocoes/index.html'), /PROMO/, 'paginas/<nome>.json → /paginas/<nome>/');
   assert.match(pub('paginas/feirao/index.html'), /Feirão/);
-  fs.rmSync(fonte('paginas', 'promocoes.json'));
+  fs.rmSync(fonte('web', 'paginas', 'promocoes.json'));
   build();
   assert.ok(!A.existe(ID, 'paginas/promocoes/index.html'), 'página apagada da fonte some da saída');
 
   // componentes/
   escreve(fonte('componentes', 'estoque.json'), JSON.stringify({ preco: '#123456' }));
-  escreve(fonte('paginas', 'index.json'), JSON.stringify({ titulo: 'Home', blocos: [{ tipo: 'componente', nome: 'estoque', opcoes: { porPagina: 1 } }] }));
+  escreve(fonte('web', 'index.json'), JSON.stringify({ titulo: 'Home', blocos: [{ tipo: 'componente', nome: 'estoque', opcoes: { porPagina: 1 } }] }));
   build();
   assert.match(pub('index.html'), /--c-preco:#123456/, 'componentes/<nome>.json → componente no site');
   assert.match(pub('index.html'), /data-pagina="1"/, 'opção da página vale mais');

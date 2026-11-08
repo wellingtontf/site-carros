@@ -26,12 +26,14 @@ ferramentas/               gerar-exemplo.js, importar-trokey.py
 ```
 Gerados (fora do git): `sites-public/<dominio>/` (pronto para publicar), `.estado/` (build incremental), `s3-local/` (simulação do bucket de fotos).
 
+> **Como o build gera os sites, passo a passo:** [docs/como-o-build-funciona.md](docs/como-o-build-funciona.md)
+
 ## Rodar
 ```
 node ferramentas/gerar-exemplo.js   # estoques de teste dos 3 sites de exemplo
 node core/build.js                  # gera todos os sites em sites-public/
 node core/cli.js testar             # testa todos os sites
-python3 -m http.server 8080 --directory sites-public
+node ferramentas/servidor-local.js 8080   # http://localhost:8080/<dominio>/ (mesmas regras da hospedagem: rotas, 301, 404)
 node core/cli.js status             # versões do motor e o que cada site usa
 ```
 Os mesmos comandos existem como `npm run build`, `npm run testar`, `npm run status`, `npm run cli -- <comando>`.
@@ -64,8 +66,8 @@ O GitHub roda tudo a cada push (`.github/workflows/testes.yml`).
 | `motor/engine.js`, `motor/ui-*.js` | `core/motor/<versao do site>/` e `core/ui/` |
 | `css/`, `js/`, `img/`... | `templates/<nome>/` (tudo menos `paginas/` e `template.json`) |
 | `assets/` | `sites-config/<dominio>/assets/` |
-| `index.html` (home institucional) | `templates/<nome>/paginas/home.html` + `sites-config/<dominio>/paginas/index.json` (sem ela, o core usa a home padrão: banner + vitrine) |
-| `multipla/index.html` (listagem do estoque, **sempre** em `/multipla`) | `templates/<nome>/paginas/multipla.html` + blocos de `estoque.blocosAntes/blocosDepois` |
+| `index.html` (home institucional) | `templates/<nome>/paginas/home.html` + `sites-config/<dominio>/web/index.json` (sem ela, o core usa a home padrão: banner + vitrine) |
+| `multipla/index.html` (listagem do estoque, **sempre** em `/multipla`) | `templates/<nome>/paginas/multipla.html` + blocos de `sites-config/<dominio>/web/multipla.json` (`blocosAntes`/`blocosDepois`) |
 | `carros/<Marca>/<Modelo>/<Versao>/<...>-<id>.html` | `templates/<nome>/paginas/carro.html` (e `vendido.html`) |
 | `<caminho>/index.html` de cada página de conteúdo | `templates/<nome>/paginas/pagina.html` + `blocos/<tipo>.html` |
 | `estoque.json` (os carros que o motor lê, no formato curto; `"formatoEstoque": "compacto"` no site.json deixa ~4x menor), `config.json`, `sitemap.xml`, `robots.txt` | gerados pelo build |
@@ -106,36 +108,39 @@ Campos opcionais:
 - `carroceria` (texto: Hatch, Sedan, SUV, Utilitário, Moto...): vira filtro `carroceria` e os atalhos por tipo da home.
 
 ## Páginas de conteúdo e blocos
-Além da listagem e das páginas dos carros, um site pode ter páginas de conteúdo (home institucional, "quero vender", lojas, política...). **Toda página que não é padrão do template é um arquivo em `sites-config/<dominio>/paginas/`**: é ali que o web designer cria uma página nova, sem mexer no `site.json` (que não tem lista de páginas). O endereço vem do nome do arquivo:
+Além da listagem e das páginas dos carros, um site pode ter páginas de conteúdo (home institucional, "quero vender", lojas, política...). **`sites-config/<dominio>/web/` é o espelho do site publicado**: cada arquivo ali é um endereço. Toda página que não é padrão do template é um arquivo em `web/paginas/`: é ali que o web designer cria uma página nova, sem mexer no `site.json` (que não tem lista de páginas). O endereço vem do nome do arquivo:
 
 ```
-sites-config/<dominio>/paginas/           (fonte)       →  site publicado
+sites-config/<dominio>/web/               (fonte)       →  site publicado (sites-public/<dominio>/)
   index.json                                     →  /                       (a home)
-  lojas.json            (página de BLOCOS)       →  /paginas/lojas/
-  sobre/nos.json                                 →  /paginas/sobre/nos/
-  feirao.html           (HTML livre do designer) →  /paginas/feirao/
-  feirao/index.html     (com imagens/css junto)  →  /paginas/feirao/
+  multipla.json         (blocos antes/depois)    →  /multipla/              (a listagem do estoque)
+  paginas/lojas.json    (página de BLOCOS)       →  /paginas/lojas/
+  paginas/sobre/nos.json                         →  /paginas/sobre/nos/
+  paginas/feirao.html   (HTML livre do designer) →  /paginas/feirao/
+  paginas/feirao/index.html (com imagens/css)    →  /paginas/feirao/
 ```
 No site publicado, **toda página de conteúdo fica em `/paginas/<nome>/`** (as padrão também: `/paginas/lgpd/`, `/paginas/contato/`). Só a home fica na raiz, com `/multipla/` (estoque) e `/carros/...`. Links escritos do jeito simples continuam valendo: `"link": "contato/"` no cadastro ou nos blocos e `href="/lojas/"` no HTML do designer são ajustados para `/paginas/...` pelo build. O build **nunca** gera página fora de `/paginas/`: a raiz do site tem só a home, `multipla/`, `carros/`, `paginas/` e arquivos. Endereço antigo de página (`/contato`, `/financiamento`, do site do Revenda Mais ou de antes da mudança) recebe **301 da hospedagem** para `/paginas/...` (função de borda `infra/cloudfront/roteador.js`), sem arquivo de redirecionamento no site. No servidor local de teste (Python) esses endereços antigos dão 404, porque ele não redireciona.
 
-Uma página de blocos é `{ "titulo", "descricao", "rotulo", "blocos": [...] }`; cada tipo de bloco é um HTML do template (`templates/<nome>/blocos/<tipo>.html`). Exemplos em `sites-config/trokey.com.br/paginas/`. O `site.json` guarda só o resto (cabeçalho, rodapé, estoque):
+Uma página de blocos é `{ "titulo", "descricao", "rotulo", "blocos": [...] }`; cada tipo de bloco é um HTML do template (`templates/<nome>/blocos/<tipo>.html`). Exemplos em `sites-config/lojateste.com.br/web/`. O `site.json` guarda só o resto (cabeçalho, rodapé):
 ```json
 "cabecalho": { "menu": [ { "rotulo": "ESTOQUE", "link": "estoque/" }, { "rotulo": "FRANQUIA", "link": "https://..." } ],
                "botao": { "rotulo": "SEJA UM AUTO BROKER", "link": "https://..." } },
 "rodape":    { "descricao": "...", "endereco": "...", "telefone": "...", "email": "...",
-               "sociais": [ { "rede": "Instagram", "link": "https://..." } ], "copyright": "..." },
-"estoque":   { "caminho": "estoque",
-               "blocosAntes":  [ { "tipo": "banner", "imagem": "assets/banner-estoque.webp", "alt": "..." } ],
-               "blocosDepois": [ { "tipo": "chamada", "titulo": "...", "botao": "...", "mensagem": "..." } ] }
+               "sociais": [ { "rede": "Instagram", "link": "https://..." } ], "copyright": "..." }
 ```
-E `sites-config/trokey.com.br/paginas/index.json` (a home):
+A listagem (`/multipla/`) fica em `sites-config/<dominio>/web/multipla.json` (pela API: `PUT /v1/sites/<dominio>/multipla`):
+```json
+{ "blocosAntes":  [ { "tipo": "banner", "imagem": "assets/banner-estoque.webp", "alt": "..." } ],
+  "blocosDepois": [ { "tipo": "chamada", "titulo": "...", "botao": "...", "mensagem": "..." } ] }
+```
+E `sites-config/<dominio>/web/index.json` (a home):
 ```json
 { "titulo": "Trokey Motors", "descricao": "...", "blocos": [
     { "tipo": "banner", "imagem": "assets/home-hero.webp", "alt": "..." },
     { "tipo": "vitrine", "titulo": "NOSSO ESTOQUE", "quantidade": 4, "botao": "VER ESTOQUE COMPLETO" } ] }
 ```
-Site antigo com `"paginas"` no `site.json`: o build recusa e explica; `node ferramentas/mover-paginas.js` move cada página para um arquivo.
-- A listagem do estoque fica **sempre** em `/multipla/` (`multipla` é reservado). A raiz é a home institucional: `paginas/index.json`; se o site não tiver uma, o core gera a home padrão.
+Site antigo (`"paginas"` ou `"estoque"` no `site.json`, ou a pasta `sites-config/<dominio>/web/paginas/` de antes): o build recusa e explica; `node ferramentas/mover-paginas.js` leva tudo para `web/`.
+- A listagem do estoque fica **sempre** em `/multipla/` (`multipla` é reservado). A raiz é a home institucional: `web/index.json`; se o site não tiver uma, o core gera a home padrão.
 - Um template pode mostrar o estoque já na home com o bloco `listagem` (o estoque interativo, com ou sem filtros, na ordem do estoque; os primeiros cards já saem no HTML). Só um por página.
 - Dados do estoque disponíveis em qualquer página/bloco: `{{estoque.total}}`, `{{estoque.destaques}}`, `{{#estoque.cidades}}`, `{{#estoque.marcas}}`, `{{#estoque.carrocerias}}`, `{{#estoque.combustiveis}}` (cada item: `valor`, `total`, `link` para `/multipla/?campo=valor`, `chave` sem acento) e `{{#estoque.lojas}}`. Os nomes entram no hash das páginas de carro; as **contagens não**: nas páginas de carro use `.js-total` (o `config.json` traz `total`).
 - Links e imagens relativos (`link`, `imagem`, `foto`, `logo`...) são relativos à raiz do site; o build ajusta para cada página.
@@ -161,10 +166,10 @@ Você só cria **arquivos HTML** numa pasta. Sem JSON, sem configuração, sem p
 
 | Quero uma página... | Onde coloco | Vira |
 |---|---|---|
-| só para **um site** | `sites-config/<dominio>/paginas/feirao.html` | `/feirao/` |
+| só para **um site** | `sites-config/<dominio>/web/paginas/feirao.html` | `/paginas/feirao/` |
 | para **todos os sites** de um template | `templates/<template>/paginas-extras/financiamento.html` | `/financiamento/` em cada site |
-| com imagens e CSS próprios | uma pasta: `sites-config/<dominio>/paginas/feirao/index.html` + `faixa.jpg`, `estilo.css`… | `/feirao/` (a pasta vai inteira) |
-| dentro de uma seção | `sites-config/<dominio>/paginas/promocoes/feirao/index.html` | `/promocoes/feirao/` |
+| com imagens e CSS próprios | uma pasta: `sites-config/<dominio>/web/paginas/feirao/index.html` + `faixa.jpg`, `estilo.css`… | `/feirao/` (a pasta vai inteira) |
+| dentro de uma seção | `sites-config/<dominio>/web/paginas/promocoes/feirao/index.html` | `/promocoes/feirao/` |
 
 - **Escreveu só o conteúdo** (sem `<html>`)? A página entra com o **cabeçalho e o rodapé do site**.
 - **Escreveu o documento inteiro** (`<html>…</html>`)? Vira página **100% livre** (landing de campanha). O sistema só acrescenta o aviso de cookies e o que faltar para funcionar no celular.
@@ -174,14 +179,14 @@ Você só cria **arquivos HTML** numa pasta. Sem JSON, sem configuração, sem p
 - **Opcional**, comentários no começo do arquivo: `<!-- titulo: ... -->`, `<!-- descricao: ... -->`, `<!-- rotulo: Feirão -->` (põe um link no rodapé), `<!-- moldura: nenhuma -->` (página livre mesmo sem `<html>`).
 - **Opcional**, dados do site: `{{site.nome}}`, `{{estoque.total}}`, `{{#estoque.marcas}}<a href="{{link}}">{{valor}}</a>{{/estoque.marcas}}`.
 - Nome do arquivo: letras minúsculas, números e hífen (`feirao-de-novembro.html`). Não use `multipla`, `carros`, `motor`, `css`, `js`, `img`, `assets` (são do sistema).
-- Um site **troca** a página do template criando uma com o mesmo nome em `sites-config/<dominio>/paginas/`, ou **desliga**: `"paginasPadrao": { "financiamento": false }` no `site.json`.
+- Um site **troca** a página do template criando uma com o mesmo nome em `sites-config/<dominio>/web/paginas/`, ou **desliga**: `"paginasPadrao": { "financiamento": false }` no `site.json`.
 - Exemplo pronto: `templates/barra-topo/paginas-extras/financiamento.html`. (Os exemplos de página de site, feirão com imagem e Black Friday livre, estavam no site `autocentral.exemplo.com.br`, removido em 2026-11-08; continuam no histórico do git.)
 - Gerar e ver: `node core/build.js` e abrir `sites-public/<dominio>/`. Arquivo apagado da pasta some do site no próximo build.
 
 ## Páginas padrão (todo site ganha): `templates/<nome>/paginas-padrao/`
 `contato`, `financiamento`, `avaliacao`, `politica-de-privacidade`, `politica-de-cookies` e `lgpd` ficam **no template**, em `templates/<nome>/paginas-padrao/<nome>.json` (mesmo formato de uma página do `site.json`). Cada template é autocontido e traz as suas; templates próprios de inquilino (`inquilinos/<id>/templates/`) também. Todo template precisa ter pelo menos contato, privacidade, cookies e LGPD (um teste cobra). Elas são geradas em **todos** os sites do template, com os dados de cada um: `{{site.nome}}`, `{{site.dominio}}`, `{{site.url}}`, `{{site.whatsapp}}`, `{{empresa.razaoSocial}}`, `{{empresa.cnpj}}`, `{{empresa.email}}`, `{{empresa.encarregado}}` e `{{rel}}` (prefixo até a raiz, para links internos). O jurídico muda o texto no `paginas-padrao/` de cada template e o build atualiza os sites dele, sem refazer as páginas de carro (essa pasta fica fora do hash do template).
 - Dados legais por site: `"empresa": { "razaoSocial": "...", "cnpj": "...", "email": "dpo@...", "encarregado": "Fulano" }` no `site.json` (sem eles, o texto usa o nome do site e a página de contato).
-- O site **substitui** uma página padrão criando em `sites-config/<dominio>/paginas/` uma de mesmo nome (ex.: `contato.json`), ou **desliga**: `"paginasPadrao": { "lgpd": false }`.
+- O site **substitui** uma página padrão criando em `sites-config/<dominio>/web/paginas/` uma de mesmo nome (ex.: `contato.json`), ou **desliga**: `"paginasPadrao": { "lgpd": false }`.
 - Página com `"provisorio": true` gera um aviso no build (uma vez, não um por site) até o texto oficial chegar.
 - Formulário: campo `"opcoesDe": "lojas"` lista as lojas do site.
 - Páginas com `"rotulo"` entram em `{{#site.links}}` (rodapé de todos os templates).
@@ -209,7 +214,7 @@ Cada template fica inteiro em `templates/<nome>/`, com **um arquivo por tipo de 
 
 | Arquivo | Página do site |
 |---|---|
-| `home.html` | a página principal (`/`), com os blocos de `sites-config/<dominio>/paginas/index.json` em `{{{conteudo}}}` |
+| `home.html` | a página principal (`/`), com os blocos de `sites-config/<dominio>/web/paginas/index.json` em `{{{conteudo}}}` |
 | `multipla.html` | a listagem do estoque (`/multipla/`; filtros sempre por parâmetro: `/multipla/?marca=Toyota`) |
 | `carro.html` | a página de cada carro |
 | `vendido.html` | o carro que saiu ("não está mais disponível") |
@@ -295,6 +300,12 @@ POST   /v1/build                          refaz os sites da lista, ou TODOS (vaz
 GET    /v1/pedidos/<id>                   andamento    (?esperar=30 nas rotas acima responde já com o resultado)
 ```
 A plataforma é agnóstica: não conhece o sistema de origem, cada um converte para o mesmo formato. Cada token só mexe nos sites dele (criar site novo e refazer todos exigem `*`). Chamadas em sequência viram um build só (`ATRASO_MS`, padrão 3 s), na ordem em que chegaram; a fila fica em disco (`.estado/api/`) e sobrevive a reinício. Fotos por URL são baixadas, convertidas e enviadas para a S3 em segundo plano (`config/fotos.json`; em produção nada fica no servidor).
+
+**Rotas da listagem:** os filtros ficam no caminho, em qualquer ordem, com os nomes do Revenda Mais trocando `_` por `-`: `/multipla/revenda-estado-cod/PR|RS/revenda-cidade-nome/Curitiba|Londrina/marca/AUDI|BMW/veic-anomodelo/2027?ord=menor` (`|` = vários valores, motor v3). Links antigos do Revenda Mais (`/multipla/revenda_estado_cod/PR/revenda_cidade_nome/Canoas%7CCascavel`) abrem direto; o site reescreve no formato com `-`. Nenhum arquivo é gerado para isso: a hospedagem entrega `multipla/index.html` para qualquer `/multipla/...` (CloudFront: `infra/cloudfront/roteador.js`). Em outro servidor, a regra equivalente:
+```
+nginx:   location /multipla/ { try_files $uri /multipla/index.html; }
+Apache:  RewriteRule ^multipla/.+ /multipla/index.html [L]      (com RewriteEngine On, no .htaccess da raiz do site)
+```
 
 **Sem feed XML:** a plataforma não gera mais `estoque.xml`; o build apaga e despublica o que tiver sobrado.
 

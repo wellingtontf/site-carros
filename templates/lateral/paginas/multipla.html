@@ -17,10 +17,12 @@
   <a class="marca" href="{{inicioUrl}}">{{site.nome}}</a>
   <span class="slogan">{{site.slogan}}</span>
 </header>
+{{{blocosAntes}}}
 <main class="layout">
   {{componente filtro layout="lateral" titulo="Filtrar"}}
-  <section>{{componente estoque titulo="{{listagem.h1}}" tituloTag="h1" campos="ano,km,cor" botaoDetalhes="" whatsapp=false}}</section>
+  <section>{{componente filtros-ativos}}{{componente estoque titulo="{{listagem.h1}}" tituloTag="h1" campos="ano,km,cor" botaoDetalhes="" whatsapp=false}}</section>
 </main>
+{{{blocosDepois}}}
 {{#site.textos.rodape}}<footer class="rodape">{{site.textos.rodape}}</footer>{{/site.textos.rodape}}
 
 

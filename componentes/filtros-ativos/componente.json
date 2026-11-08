@@ -1,0 +1,57 @@
+{
+  "nome": "filtros-ativos",
+  "descricao": "Filtros ativos (\"chips\"): cada filtro aplicado vira uma etiqueta com X para tirar só ele, e um botão limpa todos. Fica sincronizado com o componente filtro (tirar a etiqueta desmarca o filtro e vice-versa). Some quando não há filtro.",
+  "scripts": [
+    "motor/engine.js",
+    "motor/ui-util.js",
+    "motor/link-carro.js",
+    "motor/ui-lista.js"
+  ],
+  "opcoes": {
+    "mostrar": {
+      "padrao": true,
+      "descricao": "false tira o componente da página (ex.: web/multipla.json de um site que não quer)"
+    },
+    "rotulos": {
+      "padrao": false,
+      "descricao": "mostra o nome do filtro na etiqueta (\"Marca: Audi\") em vez de só o valor (\"Audi\")"
+    },
+    "maiusculas": {
+      "padrao": true,
+      "descricao": "etiquetas em letras maiúsculas"
+    },
+    "busca": {
+      "padrao": true,
+      "descricao": "o texto buscado também vira etiqueta"
+    },
+    "textoLimpar": {
+      "padrao": "Limpar busca",
+      "descricao": "texto do botão que tira todos os filtros (\"\" esconde)"
+    },
+    "cor": {
+      "padrao": "",
+      "tipo": "cor",
+      "css": "--c-cor",
+      "descricao": "botão de limpar (vazio = cor do tema)"
+    },
+    "fundo": {
+      "padrao": "",
+      "tipo": "cor",
+      "css": "--c-fundo",
+      "descricao": "fundo das etiquetas"
+    },
+    "texto": {
+      "padrao": "",
+      "tipo": "cor",
+      "css": "--c-texto",
+      "descricao": "texto das etiquetas"
+    },
+    "raio": {
+      "padrao": null,
+      "tipo": "numero",
+      "css": "--c-raio",
+      "unidade": "px",
+      "descricao": "arredondamento das etiquetas, em px (vazio = do tema)"
+    }
+  }
+}

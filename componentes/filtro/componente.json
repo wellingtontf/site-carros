@@ -24,6 +24,34 @@
       "padrao": true,
       "descricao": "campo de busca por texto"
     },
+    "checkbox": {
+      "padrao": "",
+      "tipo": "lista",
+      "valores": [
+        "estado",
+        "cidade",
+        "loja",
+        "marca",
+        "modelo",
+        "carroceria",
+        "ano",
+        "cambio",
+        "combustivel",
+        "cor"
+      ],
+      "descricao": "campos que viram caixas de marcar (escolher mais de um), separados por vírgula: \"estado,cidade,marca\". Precisa do motor v3; com motor antigo o campo continua um combo"
+    },
+    "checkboxAberto": {
+      "padrao": false,
+      "descricao": "caixas de marcar já abertas (true) ou fechadas até clicar no nome do filtro (false)"
+    },
+    "checkboxAltura": {
+      "padrao": null,
+      "tipo": "numero",
+      "css": "--c-check-altura",
+      "unidade": "px",
+      "descricao": "altura máxima de cada lista de caixas, em px (vazio = 220; rola quando passa)"
+    },
     "textoBusca": {
       "padrao": "",
       "descricao": "texto de dica da busca (vazio = textos.busca do site)"

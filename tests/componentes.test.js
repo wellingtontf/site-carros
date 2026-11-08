@@ -22,8 +22,8 @@ function templateComComponentes(nome, multipla) {
   return nome;
 }
 
-test('a pasta componentes/ tem filtro e estoque, com opções documentadas', () => {
-  assert.deepEqual(Comp.listar(), ['estoque', 'filtro']);
+test('a pasta componentes/ tem filtro, estoque e filtros-ativos, com opções documentadas', () => {
+  assert.deepEqual(Comp.listar(), ['estoque', 'filtro', 'filtros-ativos']);
   for (const n of Comp.listar()) for (const [k, d] of Object.entries(Comp.carregar(n).opcoes)) assert.ok('padrao' in d, `${n}.${k} sem padrão`);
 });
 
@@ -94,4 +94,22 @@ test('todos os templates do projeto usam os componentes na listagem', () => {
     assert.match(h, /\{\{componente filtro/, `${t}: filtro`);
     assert.match(h, /\{\{componente estoque/, `${t}: estoque`);
   }
+});
+
+test('filtro: opção "checkbox" (campos com várias escolhas) no template, no site ou na PÁGINA (web/multipla.json "componentes")', () => {
+  const ID2 = 'checkbox.teste.com.br';
+  A.criarSite(ID2, { carros: [A.carro(), A.carro({ loja: 'sul' })], site: { motor: 'v3', template: 'barra-topo' } });
+  const { construir } = require('../core/build.js');
+  const gerar = () => A.silencioso(() => construir({ sites: [ID2] }));
+  gerar();
+  assert.match(A.ler(ID2, 'multipla/index.html'), /id="filtros-dinamicos" data-checkbox="" data-checkbox-aberto="false"/, 'padrão: combos');
+  A.gravarMultipla(ID2, { componentes: { filtro: { checkbox: 'estado,cidade,marca', checkboxAberto: true } } });
+  gerar();
+  assert.match(A.ler(ID2, 'multipla/index.html'), /data-checkbox="estado,cidade,marca" data-checkbox-aberto="true"/, 'página vale');
+  assert.ok(!/data-checkbox="estado/.test(A.ler(ID2, 'index.html')), 'só na página configurada');
+  A.gravarMultipla(ID2, { componentes: { filtro: { checkbox: 'estado,preco' } } });
+  assert.throws(gerar, /multipla\.json.*"preco" não vale/, 'preço não é lista: não vira caixa');
+  A.gravarMultipla(ID2, { componentes: { filtrp: {} } });
+  assert.throws(gerar, /multipla\.json.*componente "filtrp" não existe/);
+  A.gravarMultipla(ID2, {});
 });

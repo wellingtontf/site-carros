@@ -13,38 +13,56 @@
   const linkDe = new Map();
   // estoque.json compacto ("formatoEstoque": "compacto"): carrega motor/formato-estoque.js na hora e desempacota para a
   // lista de sempre (o motor recebe os mesmos dados; funciona com HTML antigo, sem o template precisar do script)
-  const formato = () => window.FormatoEstoque ? Promise.resolve(window.FormatoEstoque) : new Promise((ok, erro) => {
-    const s = document.createElement('script'); s.src = `${REL}motor/formato-estoque.js`;
-    s.onload = () => ok(window.FormatoEstoque); s.onerror = erro; document.head.appendChild(s);
+  // scripts do core que só esta página precisa: carregados na hora (o template não precisa listar)
+  const script = (arq, nome) => window[nome] ? Promise.resolve(window[nome]) : new Promise((ok, erro) => {
+    const s = document.createElement('script'); s.src = `${REL}motor/${arq}`;
+    s.onload = () => ok(window[nome]); s.onerror = erro; document.head.appendChild(s);
   });
+  const formato = () => script('formato-estoque.js', 'FormatoEstoque');
   const lista = (j) => (Array.isArray(j) ? j : formato().then((F) => F.descompactar(j)));
   const carregar = (u) => fetch(u).then((r) => r.json()).then(lista).then((j) => { if (Array.isArray(j)) j.forEach((d) => d.l && linkDe.set(d.i, d.l)); return j; });
-  const [motor, cfg] = await Promise.all([
+  const [motor, cfg, Rotas] = await Promise.all([
     Motor.criar({ dados: `${REL}estoque.json`, config: `${REL}config.json`, carregar }),
     Motor.carregarConfig(`${REL}config.json`), // para o WhatsApp de cada card ([[zap]])
+    script('rotas.js', 'Rotas').catch(() => null), // core/ui/rotas.js: filtros no caminho (/multipla/marca/Toyota/cidade/A|B)
   ]);
+  // ROTA: na listagem (/multipla/...), os filtros ficam no caminho, em qualquer ordem; fora dela (home com o componente
+  // "estoque"), na query como sempre. A hospedagem entrega multipla/index.html para qualquer /multipla/... (site estático).
+  const rota = Rotas && Rotas.separar(location.pathname);
   // valor do filtro sem diferença de maiúscula/acento/espaço/hífen (?marca=caoa-chery → "CAOA Chery"; ?cidade=Maring →
   // "Maringá" quando só uma opção começa assim): é o que chega pelo 301 dos endereços antigos do Revenda Mais
   const chave = (x) => String(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
   function ajustarQuery(texto) {
     const p = new URLSearchParams(texto);
-    for (let passo = 0; passo < 3; passo++) { // cascata (estado → cidade → loja; marca → modelo): cada passo libera o próximo nível
+    for (let passo = 0; passo < 4; passo++) { // cascata (estado → cidade → loja; marca → modelo): cada passo acerta um nível
       motor.aplicarQuery(p.toString());
       let mudou = false;
       for (const f of motor.filtros) {
         const v = p.get(f.campo);
-        if (!v || f.valor() === v || !f.opcoes) continue;
-        const ops = f.opcoes().map((o) => String(o.valor)), k = chave(v);
-        const achou = ops.find((o) => chave(o) === k) || (k.length >= 4 && ops.filter((o) => chave(o).startsWith(k)).length === 1 ? ops.find((o) => chave(o).startsWith(k)) : null);
-        if (achou && achou !== v) { p.set(f.campo, achou); mudou = true; }
+        if (!v || !f.opcoes) continue;
+        const ops = f.opcoes().map((o) => String(o.valor));
+        const acertar = (x) => { const k = chave(x); const comeca = ops.filter((o) => chave(o).startsWith(k));
+          return ops.find((o) => chave(o) === k) || (k.length >= 4 && comeca.length === 1 ? comeca[0] : x); };
+        const novo = v.split('|').map(acertar).join('|'); // vários valores: cada um acertado
+        if (novo !== v) { p.set(f.campo, novo); mudou = true; }
       }
       if (!mudou) break;
     }
     return p.toString();
   }
   const idLoja = Object.fromEntries(Object.entries(cfg.lojas || {}).map(([id, l]) => [l.nome, id]));
-  // filtros vêm só da URL (/multipla/?marca=Toyota). data-filtro no <body>: HTML antigo das páginas fixas de filtro.
-  motor.aplicarQuery(ajustarQuery(location.search || document.body.dataset.filtro || ''));
+  // filtros da URL: caminho (rota) + query (?marca=Toyota, links antigos; a query vale mais). data-filtro no <body>: HTML
+  // antigo das páginas fixas de filtro.
+  function queryInicial() {
+    if (!rota) return location.search || document.body.dataset.filtro || '';
+    const p = new URLSearchParams();
+    for (const [k, v] of Rotas.ler(rota.resto)) p.set(k, v);
+    const daQ = Rotas.daQuery(location.search);
+    for (const [k, v] of daQ.pares) p.set(k, v);
+    for (const [k, v] of new URLSearchParams(daQ.resto)) p.set(k, v);
+    return p.toString();
+  }
+  motor.aplicarQuery(ajustarQuery(queryInicial()));
   Motor.vendedor(); // guarda ?v= se existir
 
   // busca e ordenação
@@ -56,10 +74,24 @@
     ord.addEventListener('change', (e) => motor.ordenar(e.target.value));
   }
 
-  // um select por filtro configurado no site
-  const selects = {};
+  // um select por filtro configurado no site; os campos de data-checkbox (opção "checkbox" do componente filtro) viram
+  // caixas de marcar com várias escolhas (motor v3+: valores()). Motor antigo: continua select.
+  const selects = {}, grupos = {};
   const caixaFiltros = $('#filtros-dinamicos');
+  const comCaixas = new Set(((caixaFiltros && caixaFiltros.dataset.checkbox) || '').split(',').map((x) => x.trim()).filter(Boolean));
+  const abertos = !!caixaFiltros && caixaFiltros.dataset.checkboxAberto === 'true';
   if (caixaFiltros) motor.filtros.forEach((f) => {
+    if (comCaixas.has(f.campo) && f.tipo === 'lista' && f.valores) {
+      const g = document.createElement('details');
+      g.className = 'c-filtro__grupo';
+      g.id = `f-${f.campo}`;
+      g.open = abertos;
+      g.innerHTML = `<summary><span>${esc(f.rotulo)}</span><span class="c-filtro__marcados"></span></summary><div class="c-filtro__opcoes" role="group" aria-label="${esc(f.rotulo)}"></div>`;
+      g.addEventListener('change', () => motor.definir(f.campo, [...g.querySelectorAll('input:checked')].map((i) => i.value)));
+      caixaFiltros.appendChild(g);
+      grupos[f.campo] = g;
+      return;
+    }
     const sel = document.createElement('select');
     sel.id = `f-${f.campo}`;
     sel.setAttribute('aria-label', f.rotulo);
@@ -112,20 +144,88 @@
     const v = new URLSearchParams(location.search).get('v');
     if (v) p.set('v', v);
     const s = p.toString();
-    try { history.replaceState(null, '', s ? `?${s}` : location.pathname); } catch (e) { /* ambientes sem histórico */ }
+    try {
+      if (rota) history.replaceState(null, '', urlDaRota(p));
+      else history.replaceState(null, '', s ? `?${s}` : location.pathname);
+    } catch (e) { /* ambientes sem histórico */ }
   }
+  // /<...>/multipla/<campo>/<valor>/... na ORDEM dos filtros do site (o mesmo filtro = o mesmo endereço) + ?q=&ord=&v=
+  const canonical = document.querySelector('link[rel="canonical"]');
+  const canonBase = canonical && canonical.getAttribute('href');
+  function urlDaRota(p) {
+    const pares = motor.filtros.filter((f) => p.get(f.campo)).map((f) => [f.campo, p.get(f.campo)]);
+    pares.forEach(([k]) => p.delete(k));
+    const caminho = Rotas.montar(pares);
+    if (canonBase) canonical.setAttribute('href', canonBase.replace(/\/?$/, '/') + caminho); // cada combinação de filtros é um endereço
+    const s = p.toString();
+    return rota.base + caminho + (s ? `?${s}` : '');
+  }
+
+  // FILTROS ATIVOS (componente filtros-ativos): uma etiqueta por filtro aplicado, com X; o botão limpa todos
+  const ativos = $('#filtros-ativos');
+  function desenharAtivos() {
+    if (!ativos) return;
+    const comRotulo = ativos.dataset.rotulos === 'true';
+    const etiquetas = [];
+    const e = motor.estado();
+    if (ativos.dataset.busca !== 'false' && e.q) etiquetas.push({ campo: 'q', valor: e.q, texto: `“${e.q}”` });
+    motor.filtros.forEach((f) => {
+      const vs = f.valores ? f.valores() : (f.valor() ? [f.valor()] : []);
+      for (const v of vs) {
+        const op = f.tipo === 'lista' ? null : f.opcoes().find((o) => o.valor === v); // "até R$ 80.000", "a partir de 2020"
+        const t = op ? op.rotulo : v;
+        etiquetas.push({ campo: f.campo, valor: v, texto: comRotulo ? `${f.rotulo}: ${t}` : t });
+      }
+    });
+    ativos.querySelector('.c-ativos__lista').innerHTML = etiquetas.map((x) =>
+      `<button type="button" class="c-ativos__chip" data-campo="${esc(x.campo)}" data-valor="${esc(x.valor)}" aria-label="Tirar ${esc(x.texto)}">${esc(x.texto)} <span aria-hidden="true">✕</span></button>`).join('');
+    ativos.hidden = !etiquetas.length;
+  }
+  if (ativos) ativos.addEventListener('click', (ev) => {
+    if (ev.target.closest('.c-ativos__limpar')) return motor.limpar();
+    const b = ev.target.closest('.c-ativos__chip');
+    if (!b) return;
+    const { campo, valor } = b.dataset;
+    if (campo === 'q') return motor.buscar('');
+    const f = motor.filtros.find((x) => x.campo === campo);
+    if (f && f.valores) motor.definir(campo, f.valores().filter((v) => v !== valor)); // tira só este valor
+    else motor.definir(campo, '');
+  });
 
   function sincronizar() {
     const e = motor.estado();
     if (q && q !== document.activeElement) q.value = e.q;
     if (ord) ord.value = e.ord;
     motor.filtros.forEach((f) => {
+      const g = grupos[f.campo];
+      if (g) {
+        // opções do estoque + o valor do link que não tem carro (fica marcado: a lista mostra "nenhum carro")
+        const vs = f.valores();
+        const ops = f.opcoes().map((o) => o.valor);
+        const todas = [...ops, ...vs.filter((v) => !ops.includes(v))];
+        const sig = todas.join('|');
+        const box = g.querySelector('.c-filtro__opcoes');
+        if (g.dataset.sig !== sig) {
+          box.innerHTML = todas.map((v) => `<label><input type="checkbox" name="${esc(f.campo)}" value="${esc(v)}"><span>${esc(v)}</span></label>`).join('');
+          g.dataset.sig = sig;
+        }
+        box.querySelectorAll('input').forEach((i) => { i.checked = vs.includes(i.value); });
+        g.querySelector('.c-filtro__marcados').textContent = vs.length ? String(vs.length) : '';
+        if (vs.length && !abertos && !g.dataset.abriu) { g.open = true; g.dataset.abriu = '1'; } // chegou pelo link já marcado: mostra
+        return;
+      }
       const sel = selects[f.campo];
       if (!sel) return;
-      const html = `<option value="">${esc(f.rotulo)}</option>` + f.opcoes().map((o) => `<option value="${esc(o.valor)}">${esc(o.rotulo)}</option>`).join('');
+      // vários valores (vindos do link: cidade/Canoas|Cascavel): uma opção a mais com o grupo escolhido
+      // ...e o valor do link que não tem carro no estoque (a lista mostra "nenhum carro"; o select não fica em branco)
+      const vs = f.valores ? f.valores() : [];
+      const existe = vs.length === 1 && f.opcoes().some((o) => o.valor === vs[0]);
+      const grupo = vs.length && !existe ? `<option value="${esc(f.valor())}">${esc(vs.slice(0, 2).join(', '))}${vs.length > 2 ? ` +${vs.length - 2}` : ''}</option>` : '';
+      const html = `<option value="">${esc(f.rotulo)}</option>` + grupo + f.opcoes().map((o) => `<option value="${esc(o.valor)}">${esc(o.rotulo)}</option>`).join('');
       if (sel.dataset.sig !== html) { sel.innerHTML = html; sel.dataset.sig = html; }
       sel.value = f.valor();
     });
+    desenharAtivos();
     desenhar(true);
     salvarURL();
   }

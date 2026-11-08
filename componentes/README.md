@@ -21,13 +21,27 @@ Para ver **todas as opções** de cada um, com padrão e valores aceitos: `node 
 
 Texto vai entre aspas e pode usar dados do site (`"{{site.nome}}"`). Número e `true`/`false` vão sem aspas.
 
-**Numa página** (`sites-config/<dominio>/paginas/<nome>.json`, ou `PUT /v1/sites/<d>/paginas/<nome>` pela API):
+**Numa página** (`sites-config/<dominio>/web/paginas/<nome>.json` (a home: `web/index.json`), ou `PUT /v1/sites/<d>/paginas/<nome>` pela API):
 
 ```json
 { "titulo": "Home", "blocos": [
   { "tipo": "componente", "nome": "estoque", "opcoes": { "titulo": "Destaques", "porPagina": 8, "ordenacao": false, "botaoEstoque": "Ver estoque completo" } }
 ] }
 ```
+
+**Na listagem (`/multipla/`)**: os componentes que o template põe na página (filtro, estoque) recebem opções só desta página
+em `sites-config/<dominio>/web/multipla.json` (pela API: `PUT /v1/sites/<d>/multipla`):
+
+```json
+// sites-config/lojateste.com.br/web/multipla.json: estes filtros viram caixas de marcar (várias escolhas)
+{ "componentes": { "filtro": { "checkbox": "estado,cidade,marca,modelo,carroceria" } } }
+```
+
+**Filtro com caixas de marcar:** a opção `checkbox` do componente `filtro` lista os campos que deixam de ser combo e viram
+caixas de marcar (escolher mais de um: Audi **e** BMW). Vale para estado, cidade, loja, marca, modelo, carroceria, ano,
+câmbio, combustível e cor (preço e km continuam "até X"). Precisa do motor v3 (com motor antigo o campo continua combo).
+`checkboxAberto: true` deixa as listas abertas; `checkboxAltura` (px) limita a altura de cada lista. As escolhas vão para o
+endereço como rota (`/multipla/marca/audi|bmw`), e quem chega por um link assim vê as caixas já marcadas.
 
 **No site inteiro**: um arquivo por componente em `sites-config/<dominio>/componentes/<nome>.json` (pela API: `PUT /v1/sites/<d>/componentes/<nome>`):
 
@@ -36,12 +50,19 @@ Texto vai entre aspas e pode usar dados do site (`"{{site.nome}}"`). Número e `
 { "preco": "#0533ce", "whatsapp": false }
 ```
 
-**Quem vale mais:** padrão do componente < template < `sites-config/<dominio>/componentes/<nome>.json` < página. Exemplo: o template pede 24 carros por vez, o site
+**Quem vale mais:** padrão do componente < template < `sites-config/<dominio>/componentes/<nome>.json` < página (bloco da página, ou `componentes` do `web/multipla.json`). Exemplo: o template pede 24 carros por vez, o site
 pede 6 e a home pede 2 → a listagem mostra 6 e a home mostra 2.
 
 O build sozinho: põe o CSS do componente no `<head>`, põe os scripts que ele precisa (o motor do estoque) no fim do `<body>`
 sem repetir, e para com mensagem clara se uma opção não existe, se um valor é inválido (cor errada, layout que não existe)
 ou se a página ficou com dois componentes que não podem se repetir (dois `estoque`, por exemplo).
+
+## Filtros ativos ("chips")
+O componente `filtros-ativos` mostra uma etiqueta para cada filtro aplicado (e para o texto buscado), com um X que tira só
+aquele, e o botão "Limpar busca" que tira todos. Fica sincronizado com o `filtro`: tirar a etiqueta desmarca a caixa/zera o
+combo, e mexer no filtro atualiza as etiquetas e o endereço. Some quando não há filtro. Os 4 templates já o põem logo acima
+do estoque na `/multipla/`. Opções: `rotulos` ("Marca: Audi"), `maiusculas`, `busca`, `textoLimpar`, cores (`cor`,
+`fundo`, `texto`, `raio`) e `mostrar: false` para tirar (ex.: no `web/multipla.json` de um site).
 
 ## Criar um componente
 

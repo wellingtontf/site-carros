@@ -123,4 +123,14 @@ function lerPaginasJson(raiz) {
   return paginas;
 }
 
-module.exports = { lerPaginasJson, lerPaginasLivres, metadados, linksRelativos, completarLivre };
+// páginas de blocos de um site: web/index.json (home) + web/paginas/**/*.json. A home NÃO fica em web/paginas/index.json
+// (o endereço /paginas/ não é página): isso e a pasta antiga sites-config/<d>/paginas/ dão erro claro.
+function paginasJsonDoSite(C, id) {
+  if (fs.existsSync(C.paginasAntigasSite(id))) throw new Error(`sites-config/${id}/paginas/ mudou para sites-config/${id}/web/paginas/ (e a home para web/index.json). Para mover: node ferramentas/mover-paginas.js ${id}`);
+  const lista = lerPaginasJson(C.paginasLivresSite(id));
+  const errada = lista.find((p) => p.caminho === '');
+  if (errada) throw new Error(`sites-config/${id}/web/paginas/index.json: a home fica em sites-config/${id}/web/index.json`);
+  return [...(fs.existsSync(C.home(id)) ? [{ caminho: '', arquivo: C.home(id) }] : []), ...lista];
+}
+
+module.exports = { paginasJsonDoSite, lerPaginasJson, lerPaginasLivres, metadados, linksRelativos, completarLivre };

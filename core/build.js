@@ -22,20 +22,22 @@
 //   estoque.json (os carros que o motor lê; era carros.json), config.json, sitemap.xml (com <lastmod> = quando cada página
 //   mudou de verdade), robots.txt (core/robots.js)
 //
-// Páginas de conteúdo (home institucional, lojas, "quero vender"...) são ARQUIVOS em sites-config/<dominio>/paginas/:
-//   index.json (home), lojas.json, sobre/nos.json → { "titulo": "...", "blocos": [ { "tipo": "banner", "imagem": "assets/x.webp" }, ... ] }
-//   feirao.html, feirao/index.html → HTML livre do designer (core/paginas-livres.js)
+// sites-config/<dominio>/web/ é o ESPELHO do site público: cada arquivo é um endereço.
+//   web/index.json → /  (home)          web/multipla.json → /multipla/  ({ "blocosAntes": [...], "blocosDepois": [...] })
+//   web/paginas/lojas.json, web/paginas/sobre/nos.json → /paginas/lojas/ ... { "titulo": "...", "blocos": [ { "tipo": "banner", ... } ] }
+//   web/paginas/feirao.html, web/paginas/feirao/index.html → HTML livre do designer (core/paginas-livres.js)
 // Cada tipo de bloco é um HTML do template (templates/<nome>/blocos/<tipo>.html). O site.json NÃO tem lista de páginas.
 // Páginas que TODO site ganha (contato, privacidade, cookies, LGPD...) vêm do TEMPLATE do site:
 // templates/<nome>/paginas-padrao/<nome>.json (cada template é autocontido; o texto legal muda num lugar só por template), com
 // {{site.nome}}, {{site.dominio}}, {{empresa.cnpj}}, {{rel}}... preenchidos por site. O site substitui uma delas com uma
-// página de mesmo nome em sites-config/<dominio>/paginas/ (ex.: contato.json), ou desliga com "paginasPadrao": { "<nome>": false }. Campos de link/imagem com caminho
+// página de mesmo nome em sites-config/<dominio>/web/paginas/ (ex.: contato.json), ou desliga com "paginasPadrao": { "<nome>": false }. Campos de link/imagem com caminho
 // relativo (link, imagem, foto, logo...) recebem o prefixo certo para a página onde aparecem.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const C = require('./caminhos');
 const LinkCarro = require('./ui/link-carro.js'); // regra do link da página do carro (a mesma usada no navegador)
+const Rotas = require('./ui/rotas.js'); // filtros no caminho da listagem (o mesmo arquivo roda no navegador)
 const FormatoEstoque = require('./ui/formato-estoque.js'); // "formatoEstoque": "compacto" no site.json (mesmo arquivo desempacota no navegador)
 const PL = require('./paginas-livres'); // páginas livres dos web designers (HTML normal)
 const Fotos = require('./fotos'); // fotos por URL: quantas já estão prontas
@@ -70,22 +72,22 @@ const htmlRedirecionamento = (para, abs, texto) =>
   `<meta http-equiv="refresh" content="0; url=${esc(para)}"><title>Redirecionando...</title>` +
   `<script>location.replace(${JSON.stringify(para)} + location.search + location.hash)</script>` +
   `<p>${esc(texto)}: <a href="${esc(para)}">clique aqui</a>.</p>`;
-// nada depois de /multipla/: link escrito à mão como "multipla/carroceria/moto/" (ou endereço do Revenda Mais,
-// "multipla/revenda_cidade_nome/Curitiba") vira "multipla/?carroceria=moto"; a ui-lista acerta maiúscula/acento.
-// MESMA tabela de infra/cloudfront/roteador.js (FILTRO_DA_PASTA), que faz o 301 dos endereços antigos.
-const FILTRO_DA_PASTA = { marca: 'marca', modelo: 'modelo', 'modelo-marca': 'modelo', cidade: 'cidade', revenda_cidade_nome: 'cidade',
-  estado: 'estado', carroceria: 'carroceria', combustivel: 'combustivel', cambio: 'cambio', cor: 'cor', loja: 'loja' };
+// link de filtro escrito à mão ou de outro sistema vira a ROTA canônica (core/ui/rotas.js), com os nomes do motor:
+//   "multipla/?carroceria=Moto" → "multipla/carroceria/Moto"; "multipla/revenda_cidade_nome/Curitiba" → "multipla/cidade/Curitiba"
+// (q, ord e v continuam na query). Nenhum arquivo existe depois de /multipla/: a hospedagem entrega a listagem.
 function paraFiltro(v) {
-  const m = /^multipla\/([^?#]+?)\/?(?:\?([^#]*))?(#.*)?$/.exec(String(v));
-  if (!m) return v;
-  const [pasta, ...resto] = m[1].split('/').filter(Boolean);
-  if (pasta && pasta.includes('.')) return v; // arquivo (multipla/index.html)
-  let valor = resto.join(' ');
-  try { valor = decodeURIComponent(valor); } catch (e) { /* fica como veio */ }
-  const campo = FILTRO_DA_PASTA[pasta];
-  const q = [campo && valor ? `${campo}=${encodeURIComponent(valor)}` : '', m[2] || ''].filter(Boolean).join('&');
-  return `${CAMINHO_ESTOQUE}/${q ? `?${q}` : ''}${m[3] || ''}`;
+  const m = new RegExp(`^${CAMINHO_ESTOQUE}/([^?#]*)(?:\\?([^#]*))?(#.*)?$`).exec(String(v));
+  if (!m || /\.[a-z0-9]+$/i.test(m[1])) return v; // não é a listagem, ou é arquivo (multipla/index.html)
+  const daQ = Rotas.daQuery(m[2] || '');
+  const pares = [...Rotas.ler(m[1]), ...daQ.pares];
+  return `${CAMINHO_ESTOQUE}/${Rotas.montar(pares)}${daQ.resto ? `?${daQ.resto}` : ''}${m[3] || ''}`;
 }
+// ROTAS da listagem (core/ui/rotas.js): /multipla/marca/Toyota/cidade/A|B entrega o MESMO multipla/index.html (a
+// hospedagem reescreve). Os caminhos da página são relativos a /multipla/: este script, o 1º do <head>, põe um <base> na
+// pasta da listagem quando o endereço é mais fundo, e css, js, estoque.json e links continuam certos em qualquer rota.
+const BASE_DA_ROTA = `<script>(function(){var p=location.pathname,i=p.indexOf('/${CAMINHO_ESTOQUE}/'),b=i<0?'':p.slice(0,i+${CAMINHO_ESTOQUE.length + 2});` +
+  `if(b&&p!==b&&p!==b+'index.html')document.write('<base href="'+b+'">')})()</script>`;
+const comBaseDaRota = (html) => html.replace(/<head[^>]*>/i, (m) => `${m}\n${BASE_DA_ROTA}`);
 const CARDS_POR_PAGINA = 24; // padrão da ui-lista (data-pagina no #grade muda)
 // link do carro: o "link" que vem no estoque (o do Revenda Mais, idêntico ao já indexado) ou a regra de core/ui/link-carro.js
 const normalizarLink = (l) => String(l).replace(/^\/+/, '').replace(/\/{2,}/g, '/');
@@ -131,7 +133,7 @@ const OBSOLETOS = ['carros.json', 'estoque.xml'];
 // TODOS os sites (com 2500 sites, ~1 milhão de arquivos para publicar), então não amarramos isso ao arquivo inteiro:
 // um comentário ou refatoração não deve refazer nada. O teste tests/snapshot-html.test.js avisa se a saída mudou e a
 // versão não (e vice-versa). Templates, tema, textos e dados do site já entram no hash de cada site por conta própria.
-const VERSAO_HTML = 10; // 10: sem páginas de filtro (/multipla/marca/x/...): filtro só por parâmetro; 9: estoque.json (era carros.json), sem estoque.xml; 8: componentes (filtro, estoque) nos templates; 7: páginas de conteúdo em /paginas/<nome>/ (endereço antigo redireciona); 6: estoque.xml; 2: cards no HTML, filtros, <lastmod>; 3: páginas padrão; 4: link do estoque, URLs codificadas, formato revendamais; 5: 404.html, ?v= nos css/js, canonical nas páginas livres
+const VERSAO_HTML = 11; // 11: rotas da listagem (/multipla/marca/toyota, minúsculas), <base> da rota; 10: sem páginas de filtro (/multipla/marca/x/...): filtro só por parâmetro; 9: estoque.json (era carros.json), sem estoque.xml; 8: componentes (filtro, estoque) nos templates; 7: páginas de conteúdo em /paginas/<nome>/ (endereço antigo redireciona); 6: estoque.xml; 2: cards no HTML, filtros, <lastmod>; 3: páginas padrão; 4: link do estoque, URLs codificadas, formato revendamais; 5: 404.html, ?v= nos css/js, canonical nas páginas livres
 const RENDER_VERSION = `html-${VERSAO_HTML}`;
 
 const lerJSON = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -338,16 +340,23 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     if (faltam.length) throw new Error(`Template "${nomeTpl}" incompleto: falta ${faltam.join(', ')}`);
 
     // páginas de conteúdo; a home ("") é obrigatória: sem ela no site.json, o core usa HOME_PADRAO
-    const cfgEstoque = site.estoque || {};
-    if (cfgEstoque.caminho != null && limparCaminho(cfgEstoque.caminho) !== CAMINHO_ESTOQUE)
-      console.warn(`  aviso: site "${site.id}": "estoque.caminho" foi ignorado (a listagem fica sempre em /${CAMINHO_ESTOQUE}/)`);
+    // a listagem (/multipla/) é configurada em sites-config/<dominio>/web/multipla.json: { "blocosAntes": [...], "blocosDepois": [...] }
+    if (site.estoque != null) throw new Error(`Site "${site.id}": "estoque" não fica mais no site.json: a listagem é configurada em sites-config/${site.id}/web/multipla.json ({ "blocosAntes", "blocosDepois" }). Para mover: node ferramentas/mover-paginas.js ${site.id}`);
+    let cfgEstoque = {};
+    // arquivo vazio = sem configuração (o designer apaga o conteúdo para tirar o banner, por exemplo)
+    if (fs.existsSync(C.multipla(site.id)) && fs.readFileSync(C.multipla(site.id), 'utf8').trim() !== '') {
+      try { cfgEstoque = lerJSON(C.multipla(site.id)); } catch (e) { throw new Error(`sites-config/${site.id}/web/multipla.json: JSON inválido (${e.message})`); }
+      if (!cfgEstoque || typeof cfgEstoque !== 'object' || Array.isArray(cfgEstoque)) throw new Error(`sites-config/${site.id}/web/multipla.json: precisa ser um objeto { "blocosAntes": [...], "blocosDepois": [...] }`);
+      const erros = Sites.validarMultipla(site.id, cfgEstoque);
+      if (erros.length) throw new Error(`sites-config/${site.id}/web/multipla.json: ${erros.join('; ')}`);
+    }
     const caminhoEstoque = CAMINHO_ESTOQUE;
-    // páginas do site: ARQUIVOS em sites-config/<dominio>/paginas/ (lojas.json, index.json = home, feirao.html...). O site.json
-    // não tem mais lista de páginas: o designer cria uma página nova criando um arquivo, sem mexer no cadastro.
-    if (site.paginas != null) throw new Error(`Site "${site.id}": "paginas" não fica mais no site.json: cada página é um arquivo em sites-config/${site.id}/paginas/ (index.json = home, lojas.json, feirao.html...). Para mover: node ferramentas/mover-paginas.js`);
-    const dirPagSite = C.paginasLivresSite(site.id);
-    const paginasSite = PL.lerPaginasJson(dirPagSite).map((p) => {
-      const onde = `sites-config/${site.id}/paginas/${path.relative(dirPagSite, p.arquivo)}`;
+    // páginas do site: ARQUIVOS em sites-config/<dominio>/web/ (espelho do site público): web/index.json = home,
+    // web/paginas/lojas.json, web/paginas/feirao.html... O designer cria uma página nova criando um arquivo, sem mexer no cadastro.
+    if (site.paginas != null) throw new Error(`Site "${site.id}": "paginas" não fica mais no site.json: cada página é um arquivo em sites-config/${site.id}/web/paginas/ (a home em web/index.json). Para mover: node ferramentas/mover-paginas.js`);
+    const dirWeb = C.web(site.id);
+    const paginasSite = PL.paginasJsonDoSite(C, site.id).map((p) => {
+      const onde = `sites-config/${site.id}/web/${path.relative(dirWeb, p.arquivo)}`;
       let j;
       try { j = lerJSON(p.arquivo); } catch (e) { throw new Error(`${onde}: JSON inválido (${e.message})`); }
       if (!j || typeof j !== 'object' || Array.isArray(j)) throw new Error(`${onde}: precisa ser um objeto { "titulo", "blocos": [...] }`);
@@ -356,9 +365,9 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     });
     const desligadas = site.paginasPadrao || {};
     // páginas livres dos designers (HTML normal). Prioridade de quem tem o mesmo caminho:
-    //   site.json "paginas" > sites-config/<dominio>/paginas/ > templates/<nome>/paginas-extras/ > templates/<nome>/paginas-padrao/
+    //   sites-config/<dominio>/web/paginas/ > templates/<nome>/paginas-extras/ > templates/<nome>/paginas-padrao/
     const livres = [
-      ...PL.lerPaginasLivres(C.paginasLivresSite(site.id)).map((p) => ({ ...p, origem: `sites-config/${site.id}/paginas` })),
+      ...PL.lerPaginasLivres(C.paginasLivresSite(site.id)).map((p) => ({ ...p, origem: `sites-config/${site.id}/web/paginas` })),
       ...PL.lerPaginasLivres(path.join(dirTpl, 'paginas-extras')).map((p) => ({ ...p, origem: `templates/${nomeTpl}/paginas-extras`, doTemplate: true })),
     ];
     const vistosLivres = new Map();
@@ -508,8 +517,8 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     const contar = (k) => { const m = new Map(); for (const c of carros) if (c[k]) m.set(c[k], (m.get(c[k]) || 0) + 1); return [...m].sort((a, b) => String(a[0]).localeCompare(String(b[0]), 'pt-BR')); };
     const estoqueInfo = (r) => {
       const raizEstoque = r + `${CAMINHO_ESTOQUE}/`;
-      // link de um filtro: sempre a /multipla com ?campo=valor (o build não gera nada depois de /multipla/)
-      const q = (k, v) => `${raizEstoque}?${k}=${encodeURIComponent(v)}`;
+      // link de um filtro: a rota da listagem (/multipla/marca/Toyota; core/ui/rotas.js)
+      const q = (k, v) => `${raizEstoque}${Rotas.montar([[k, v]])}`;
       return {
         total: carros.length, destaques: carros.filter((c) => c.destaque).length,
         // chave = valor sem acento/espaço, em minúsculas (para classes CSS: ic-utilitario, ic-suv...)
@@ -595,9 +604,9 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     }).join('\n');
     // página inteira: expande {{componente x}} do template, renderiza, põe o css/js dos componentes usados e confere que
     // os ids que o motor usa não se repetem (ex.: dois componentes "estoque" na mesma página)
-    const IDS_UNICOS = ['filtros', 'q', 'filtros-dinamicos', 'ord', 'contagem', 'grade', 'mais', 'limpar', 'copiar', 'tpl-card'];
-    const renderPagina = (tpl, c, onde, usados = new Set()) => {
-      const { texto, usados: doTemplate } = Comp.expandir(tpl, c, render, { opcoesSite, onde });
+    const IDS_UNICOS = ['filtros', 'filtros-ativos', 'q', 'filtros-dinamicos', 'ord', 'contagem', 'grade', 'mais', 'limpar', 'copiar', 'tpl-card'];
+    const renderPagina = (tpl, c, onde, usados = new Set(), pagina = {}) => {
+      const { texto, usados: doTemplate } = Comp.expandir(tpl, c, render, { opcoesSite, onde, opcoesPagina: pagina.opcoes || {}, ondePagina: pagina.onde });
       doTemplate.forEach((x) => usados.add(x));
       let html = render(texto, c);
       if (usados.size) {
@@ -674,8 +683,8 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       const ondeL = `Site "${site.id}", templates/${nomeTpl}/paginas/multipla.html`;
       const html = renderPagina(tplLista, {
         ...ctx(r), listagem, blocosAntes: renderBlocos(cfgEstoque.blocosAntes, r, usados, ondeL), blocosDepois: renderBlocos(cfgEstoque.blocosDepois, r, usados, ondeL),
-      }, ondeL, usados);
-      datar(arqRel, escreverHtml(arqRel, comCards(html, lista, r)));
+      }, ondeL, usados, { opcoes: cfgEstoque.componentes, onde: `sites-config/${site.id}/web/multipla.json` });
+      datar(arqRel, escreverHtml(arqRel, comCards(comBaseDaRota(html), lista, r)));
     }
     // páginas de conteúdo
     const tplPagina = pagina('pagina.html');

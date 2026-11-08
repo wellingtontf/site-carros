@@ -103,18 +103,21 @@ function renderizar(nome, camadas, ctx, render, onde) {
     const itens = String(op[k] || '').split(',').map((x) => x.trim()).filter(Boolean);
     opRender[k] = itens;
     opRender[`${k}Tem`] = Object.fromEntries(itens.map((x) => [x, true]));
+    opRender[`${k}Texto`] = itens.join(','); // a lista como texto (para data-* que o JS lê)
   }
   return render(c.html, { ...ctx, op: opRender, componente: { nome, estilo } });
 }
 
 // troca cada {{componente ...}} do texto do template pelo HTML do componente → { texto, usados }
 const TAG = /\{\{componente\s+([a-z0-9-]+)((?:\s+[a-zA-Z]\w*=(?:"[^"]*"|'[^']*'|[^\s"'}]+))*)\s*\}\}/g;
-function expandir(texto, ctx, render, { opcoesSite = {}, onde = 'template' } = {}) {
+// camadas: template (atributos) < site (componentes/<nome>.json) < página (opcoesPagina: ex. web/multipla.json "componentes")
+function expandir(texto, ctx, render, { opcoesSite = {}, opcoesPagina = {}, ondePagina = 'página', onde = 'template' } = {}) {
   const usados = new Set();
   const saida = texto.replace(TAG, (_, nome, atributos) => {
     usados.add(nome);
     const doTemplate = lerAtributos(atributos, (t) => render(t, ctx));
-    return renderizar(nome, [{ origem: onde, opcoes: doTemplate }, { origem: `componentes/${nome}.json do site`, opcoes: opcoesSite[nome] }], ctx, render, onde);
+    return renderizar(nome, [{ origem: onde, opcoes: doTemplate }, { origem: `componentes/${nome}.json do site`, opcoes: opcoesSite[nome] },
+      { origem: ondePagina, opcoes: opcoesPagina[nome] }], ctx, render, onde);
   });
   return { texto: saida, usados };
 }

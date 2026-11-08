@@ -1,7 +1,7 @@
 <form id="filtros" class="c-filtro c-filtro--{{op.layout}}" autocomplete="off" style="{{{componente.estilo}}}">
   {{#op.titulo}}<h2 class="c-filtro__titulo">{{op.titulo}}</h2>{{/op.titulo}}
   {{#op.busca}}<input type="search" id="q" class="c-filtro__busca" placeholder="{{#op.textoBusca}}{{op.textoBusca}}{{/op.textoBusca}}{{^op.textoBusca}}{{site.textos.busca}}{{/op.textoBusca}}" aria-label="Buscar">{{/op.busca}}
-  <div class="c-filtro__campos" id="filtros-dinamicos"></div>
+  <div class="c-filtro__campos" id="filtros-dinamicos" data-checkbox="{{op.checkboxTexto}}" data-checkbox-aberto="{{op.checkboxAberto}}"></div>
   <div class="c-filtro__acoes">
     {{#op.botaoLimpar}}<button type="button" id="limpar" class="c-filtro__limpar">{{op.botaoLimpar}}</button>{{/op.botaoLimpar}}
     {{#op.botaoCopiar}}<button type="button" id="copiar" class="c-filtro__copiar">{{op.botaoCopiar}}</button>{{/op.botaoCopiar}}

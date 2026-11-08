@@ -47,7 +47,9 @@
     loja: { k: 'loja', rotulo: 'Loja', dep: 'cidade' },
     marca: { k: 'marca', rotulo: 'Marca' },
     modelo: { k: 'modelo', rotulo: 'Modelo', dep: 'marca' },
-    ano: { k: 'ano', rotulo: 'Ano', tipo: 'minimo', opcoes: [2024, 2022, 2020, 2018, 2016, 2014], fmt: (v) => `a partir de ${v}` },
+    // ano: o ano exato, um ou vários (veic-anomodelo/2026|2027, como no Revenda Mais), do mais novo para o mais velho.
+    // "a partir de" continua possível por site: { "campo": "ano", "tipo": "minimo" } no site.json
+    ano: { k: 'ano', rotulo: 'Ano', desc: true, opcoes: [2024, 2022, 2020, 2018, 2016, 2014], fmt: (v) => `a partir de ${v}` },
     preco: { k: 'preco', rotulo: 'Preço', tipo: 'maximo', opcoes: [40000, 60000, 80000, 100000, 150000, 200000, 300000], fmt: (v) => `até ${brl(v)}` },
     km: { k: 'km', rotulo: 'Km', tipo: 'maximo', opcoes: [20000, 50000, 80000, 120000], fmt: (v) => `até ${num(v)} km` },
     cambio: { k: 'cambio', rotulo: 'Câmbio' },
@@ -99,13 +101,28 @@
     const descendentes = (f) => defs.filter((c) => ancestrais(c).includes(f));
     const porProfundidade = [...defs].sort((a, b) => ancestrais(a).length - ancestrais(b).length);
 
+    // filtro de lista aceita VÁRIOS valores ("Canoas|Cascavel" = Canoas OU Cascavel); mínimo/máximo, um só
+    const valores = (f) => (f.valor ? (f.tipo === 'lista' ? f.valor.split('|') : [f.valor]) : []);
+    const casa = (f, d) => valores(f).includes(String(d[f.k]));
     const opcoesDe = (f) => {
       if (f.tipo !== 'lista') return f.opcoes.map((v) => ({ valor: String(v), rotulo: f.fmt(v) }));
       const pais = ancestrais(f).filter((p) => p.valor);
-      const base = pais.length ? dados.filter((d) => pais.every((p) => String(d[p.k]) === p.valor)) : dados;
-      return unicos(f.k, base).filter((v) => v !== '' && v != null).map((v) => ({ valor: String(v), rotulo: String(v) })); // campo vazio não vira opção
+      const base = pais.length ? dados.filter((d) => pais.every((p) => casa(p, d))) : dados;
+      const vs = unicos(f.k, base).filter((v) => v !== '' && v != null); // campo vazio não vira opção
+      return (f.desc ? vs.reverse() : vs).map((v) => ({ valor: String(v), rotulo: String(v) }));
     };
-    const validar = () => porProfundidade.forEach((f) => { if (f.valor && !opcoesDe(f).some((o) => o.valor === f.valor)) f.valor = ''; });
+    // fica só com os valores que existem (nas opções que os filtros pais deixam); nada sobrando = filtro limpo
+    const ajustar = (f, valor) => {
+      const ops = new Set(opcoesDe(f).map((o) => o.valor));
+      const lista = String(valor == null ? '' : Array.isArray(valor) ? valor.join('|') : valor).split(f.tipo === 'lista' ? '|' : /$^/)
+        .filter((v, i, a) => v !== '' && ops.has(v) && a.indexOf(v) === i);
+      return f.tipo === 'lista' ? lista.join('|') : lista[0] || '';
+    };
+    const doLink = (f, valor) => {
+      const vs = String(valor == null ? '' : valor).split(f.tipo === 'lista' ? '|' : /$^/).filter((v, i, a) => v !== '' && a.indexOf(v) === i);
+      if (f.tipo !== 'lista') return vs[0] && opcoesDe(f).some((o) => o.valor === vs[0]) ? vs[0] : ''; // mínimo/máximo: só os da lista
+      return vs.join('|');
+    };
 
     const ordens = (cfg.ordenacao && cfg.ordenacao.length ? cfg.ordenacao : Object.keys(ORDENS)).filter((k) => ORDENS[k]);
     const estado = { q: '', ord: ordens[0] };
@@ -163,7 +180,7 @@
           ativos.every((f) => {
             if (f.tipo === 'minimo') return d[f.k] >= +f.valor;
             if (f.tipo === 'maximo') return d[f.k] <= +f.valor;
-            return String(d[f.k]) === f.valor;
+            return casa(f, d);
           }) && casam.every((m) => m(d))
         )
         .sort(ORDENS[estado.ord][1]);
@@ -179,16 +196,18 @@
       buscaAtiva,
       lojasMultiplas: unicos('loja').length > 1,
       ordens: ordens.map((k) => ({ chave: k, rotulo: ORDENS[k][0] })),
-      filtros: defs.map((f) => ({ campo: f.campo, rotulo: f.rotulo, tipo: f.tipo, valor: () => f.valor, opcoes: () => opcoesDe(f) })),
+      filtros: defs.map((f) => ({ campo: f.campo, rotulo: f.rotulo, tipo: f.tipo, valor: () => f.valor, valores: () => valores(f), opcoes: () => opcoesDe(f) })),
       estado: () => ({ q: estado.q, ord: estado.ord, valores: Object.fromEntries(defs.map((f) => [f.campo, f.valor])) }),
       resultado: () => resultado,
       // palavras em que a busca aproximada trocou o que foi digitado ("" quando não houve troca)
       dica: () => (corrigidos.length && resultado.length ? corrigidos.join(' ') : ''),
+      // valor: "Canoas", "Canoas|Cascavel" ou ["Canoas", "Cascavel"]
       definir(campo, valor) {
         const f = defs.find((x) => x.campo === campo);
         if (!f) return;
-        f.valor = String(valor || '');
-        validar(); // trocar o estado limpa a cidade/loja que não existem mais
+        f.valor = ajustar(f, valor);
+        // trocar o estado limpa a cidade/loja que não existem mais nele; os outros filtros (inclusive os do link) ficam
+        porProfundidade.filter((x) => descendentes(f).includes(x)).forEach((x) => { if (x.valor) x.valor = ajustar(x, x.valor); });
         mudou();
       },
       buscar(q) { estado.q = String(q || ''); mudou(); },
@@ -205,7 +224,9 @@
       aplicarQuery(texto) {
         const p = new URLSearchParams(texto);
         estado.q = buscaAtiva ? p.get('q') || '' : '';
-        porProfundidade.forEach((f) => { const v = p.get(f.campo); f.valor = v && opcoesDe(f).some((o) => o.valor === v) ? v : ''; });
+        // valor do LINK fica como veio, mesmo sem carro no estoque (carro vendido, ano que não tem): o resultado mostra
+        // "nenhum carro" em vez de esconder o filtro e mostrar outra coisa. Só repetido e vazio saem.
+        porProfundidade.forEach((f) => { f.valor = doLink(f, p.get(f.campo)); });
         estado.ord = ordens.includes(p.get('ord')) ? p.get('ord') : ordens[0];
         mudou();
       },
