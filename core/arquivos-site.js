@@ -107,4 +107,5 @@ function gravarMultipla(d, conteudo) {
 }
 const removerMultipla = (d) => { if (!fs.existsSync(C.multipla(d))) return false; fs.rmSync(C.multipla(d)); return true; };
 
-module.exports = { lerMultipla, gravarMultipla, removerMultipla, validarMultipla: Sites.validarMultipla, validarArquivo, gravarAsset, removerAsset, listarAssets, MAX_ARQUIVO, validarNomePagina, listarPaginas, lerPagina, gravarPagina, removerPagina, validarPagina: Sites.validarPagina };
+const Codigos = require('./codigos');
+module.exports = { lerCodigo: Codigos.lerSite, gravarCodigo: Codigos.gravarSite, removerCodigo: Codigos.removerSite, validarCodigo: Codigos.validarCodigo, lerMultipla, gravarMultipla, removerMultipla, validarMultipla: Sites.validarMultipla, validarArquivo, gravarAsset, removerAsset, listarAssets, MAX_ARQUIVO, validarNomePagina, listarPaginas, lerPagina, gravarPagina, removerPagina, validarPagina: Sites.validarPagina };

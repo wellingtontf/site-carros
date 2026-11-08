@@ -213,6 +213,21 @@ test('6) recusas claras: arquivo que não é o que diz, SVG com script, página 
   const bt = await pedir('GET', '/v1/temas/barra-topo');
   assert.deepEqual([bt.j.configuracoes.cor.tipo, bt.j.configuracoes.cor.padrao, bt.j.textos.voltar], ['cor', '#0b5fff', 'Voltar ao estoque']);
   assert.equal((await pedir('GET', '/v1/temas/nao-existe')).status, 404);
+  // scripts do site (codigos/head e body): gravados, devolvidos, recusados se quebrariam a página, apagados
+  const html = () => ({ tipo: "text/html" });
+  assert.equal((await pedir('PUT', `/v1/sites/${D}/codigos/head?esperar=30`, '<script>/*CHAT-API*/</script>', html())).status, 200);
+  assert.equal(fs.readFileSync(path.join(A.raiz(), 'sites-config', D, 'codigos', 'head.html'), 'utf8'), '<script>/*CHAT-API*/</script>');
+  assert.match(A.ler(D, 'index.html'), /<template data-lgpd="head">\s*<script>\/\*CHAT-API\*\/<\/script>\s*<\/template>/);
+  const ruimCod = await pedir('PUT', `/v1/sites/${D}/codigos/body`, '<script>a</script></template>', html());
+  assert.equal(ruimCod.status, 422);
+  assert.match(ruimCod.j.erros.join(' '), /<\/template>/);
+  assert.equal((await pedir('PUT', `/v1/sites/${D}/codigos/rodape`, '<script></script>', html())).status, 404, 'só head e body');
+  assert.equal((await pedir('DELETE', `/v1/sites/${D}/codigos/head?esperar=30`)).status, 200);
+  assert.doesNotMatch(A.ler(D, 'index.html'), /data-lgpd/);
+  assert.equal((await pedir('GET', `/v1/sites/${D}/codigos/head`)).status, 404);
+  const integ = await pedir('PATCH', `/v1/sites/${D}`, { integracoes: { gtm: 'gtm-errado' } });
+  assert.equal(integ.status, 422);
+  assert.match(integ.j.erros.join(' '), /"integracoes\.gtm"/);
   // página no outro formato substitui (não fica duplicada)
   assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/promo`, { titulo: 'Promo', secoes: [] })).status, 202);
   assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/promo?esperar=30`, '<h1>Promo HTML</h1>', { tipo: 'text/html' })).status, 200);

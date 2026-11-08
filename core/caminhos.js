@@ -9,6 +9,7 @@
 //     assets/                    imagens próprias do site (logo, banner...) → <site>/assets/
 //     web/                       espelho do site público: index.json (home), multipla.json, paginas/ (<nome>.json de seções, <nome>.html livre)
 //     componentes/               opções dos componentes no site inteiro (<nome>.json, ex.: estoque.json)
+//     codigos/                   scripts do site (GTM, chat...): head.html e body.html; só rodam depois do aceite de cookies
 //   componentes/<nome>/      componentes (filtro, estoque...) que todo tema e toda página usam: {{componente nome}}
 //   temas/<nome>/             o TEMA (visual; estrutura no padrão Shopify; o web designer só mexe aqui)
 //     config/settings_schema.json  nome, descrição e opções do tema
@@ -57,6 +58,8 @@ module.exports = {
   multipla: (id) => path.join(SITES, id, 'web', 'multipla.json'), // → /multipla/ (secoesAntes, secoesDepois)
   paginasLivresSite: (id) => path.join(SITES, id, 'web', 'paginas'), // → /paginas/<nome>/ (.json de blocos ou .html livre)
   paginasAntigasSite: (id) => path.join(SITES, id, 'paginas'), // lugar antigo (ferramentas/mover-paginas.js leva para web/)
+  codigosSite: (id) => path.join(SITES, id, 'codigos'), // scripts do site: head.html e body.html (core/codigos.js)
+  codigosInquilino: (id) => path.join(INQUILINOS, id, 'codigos'), // scripts de todos os sites do inquilino
   componentesSite: (id) => path.join(SITES, id, 'componentes'), // opções dos componentes no site inteiro: <nome>.json
   tema: (nome) => path.join(TEMAS, nome),
   // estrutura de um tema (padrão Shopify): o resto do core usa estes nomes, nunca o texto da pasta

@@ -26,6 +26,12 @@ before(async () => {
     // estado em caixas de marcar (opção "checkbox" do componente filtro, configurada na PÁGINA: web/multipla.json)
     A.gravarMultipla(`${t}.teste.com.br`, { componentes: { filtro: { checkbox: 'estado' } } });
   }
+  // site com scripts de terceiros (core/codigos.js): só podem rodar depois do "Aceitar" do aviso de cookies
+  A.criarSite('lgpd.teste.com.br', { carros: [A.carro()], site: { tema: 'template-basico', fotosBase: '', motor: 'v3' } });
+  const cod = path.join(raiz, 'sites-config', 'lgpd.teste.com.br', 'codigos');
+  fs.mkdirSync(cod, { recursive: true });
+  fs.writeFileSync(path.join(cod, 'head.html'), '<script>window.terceiroHead = (window.terceiroHead || 0) + 1;</script>');
+  fs.writeFileSync(path.join(cod, 'body.html'), '<script src="data:text/javascript,window.terceiroSrc=1"></script><script>document.body.dataset.terceiro = "body";</script>');
   A.silencioso(() => construir({}));
   // o servidor local usa as regras da hospedagem (infra/cloudfront/roteador.js): rotas da listagem, 301, 404.html
   srv = require('../ferramentas/servidor-local.js').criar(path.join(raiz, 'sites-public')).listen(0);
@@ -164,3 +170,30 @@ for (const t of templates) {
     assert.ok(cards(dom) >= 1, 'vitrine da home com carros');
   });
 }
+
+test('LGPD: scripts de terceiros só rodam depois do "Aceitar"; "Recusar" nunca roda; a escolha vale nas próximas páginas', { skip: pular }, async () => {
+  const id = 'lgpd.teste.com.br';
+  const arq = path.join(raiz, 'sites-public', id, 'teste-lgpd.html');
+  // passos: 1) primeira visita: nada rodou, aviso com Aceitar/Recusar → Aceitar; 2) recarrega: roda direto, sem aviso;
+  // 3) apaga a escolha, recarrega → Recusar; 4) recarrega: não roda e o aviso não volta
+  fs.writeFileSync(arq, `<!doctype html><body><pre id="r"></pre><iframe id="f" src="index.html"></iframe><script>
+    localStorage.removeItem('cookies-ok');
+    const f = document.getElementById('f'), log = (x) => (document.getElementById('r').textContent += x + ';');
+    const estado = () => { const w = f.contentWindow, d = f.contentDocument, av = d.querySelector('.aviso-cookies');
+      return [w.terceiroHead || 0, w.terceiroSrc || 0, d.body.dataset.terceiro || '-', av ? [...av.querySelectorAll('button')].map((b) => b.textContent).join('/') : 'sem-aviso',
+        d.querySelectorAll('template[data-lgpd]').length].join(','); };
+    let passo = 0;
+    f.onload = () => setTimeout(() => { const d = f.contentDocument; try {
+      passo++; log(passo + ':' + estado());
+      if (passo === 1) { d.querySelector('.aviso-cookies-ok').click(); setTimeout(() => { log('aceitou:' + estado()); f.contentWindow.location.reload(); }, 300); }
+      else if (passo === 2) { localStorage.removeItem('cookies-ok'); f.contentWindow.location.reload(); }
+      else if (passo === 3) { d.querySelector('.aviso-cookies-recusar').click(); log('recusou:' + estado()); f.contentWindow.location.reload(); }
+    } catch (e) { log('ERRO ' + e.message); } }, 800);
+  </script>`);
+  try {
+    const { dom, erros } = await abrir(`${base}/${id}/teste-lgpd.html`);
+    assert.deepEqual(erros, []);
+    const r = (dom.match(/<pre id="r">([^<]*)/) || [])[1] || '';
+    assert.equal(r, '1:0,0,-,Aceitar/Recusar,2;aceitou:1,1,body,sem-aviso,0;2:1,1,body,sem-aviso,0;3:0,0,-,Aceitar/Recusar,2;recusou:0,0,-,sem-aviso,2;4:0,0,-,sem-aviso,2;', r);
+  } finally { fs.rmSync(arq); }
+});

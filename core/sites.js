@@ -95,7 +95,7 @@ function registrarRascunho(d) {
 // AVISO: "whatsap" escrito errado gravaria sem efeito e o site ficaria sem WhatsApp sem ninguém perceber.
 const CAMPOS_SITE = new Set(['inquilino', 'nome', 'slogan', 'tema', 'motor', 'url', 'whatsapp', 'fotosBase', 'cor', 'configuracoes', 'textos',
   'cabecalho', 'rodape', 'lojas', 'empresa', 'vendedores', 'busca', 'filtros', 'ordenacao', 'restricoes',
-  'avisoCookies', 'paginasPadrao', 'pagina404', 'retencaoVendidosDias', 'retencaoRedirecionamentoDias', 'robots', 'formatoEstoque', 'rascunho']);
+  'avisoCookies', 'paginasPadrao', 'pagina404', 'retencaoVendidosDias', 'retencaoRedirecionamentoDias', 'robots', 'formatoEstoque', 'rascunho', 'integracoes']);
 // tema do cadastro (null se o tema não existe ou o inquilino não pode usar: o validarSite já acusa)
 function temaDoCadastro(s) {
   const inq = s && s.inquilino && Inq.existe(s.inquilino) ? s.inquilino : Inq.PADRAO;
@@ -186,6 +186,7 @@ function validarSite(s, dominio) {
   if (s.rascunho != null && typeof s.rascunho !== 'boolean') e('"rascunho" deve ser true ou false');
   // opções de componente não ficam no cadastro: cada uma é um arquivo em sites-config/<dominio>/componentes/<nome>.json
   if (s.componentes != null) e('"componentes" não vai no cadastro: as opções de cada componente ficam em sites-config/<dominio>/componentes/<nome>.json (ex.: estoque.json); pela API, PUT /v1/sites/<dominio>/componentes/<nome>');
+  require('./codigos').validarIntegracoes(s.integracoes).forEach(e);
   if (s.robots != null) { const r = require('./robots').validarRobots(s.robots); r.erros.forEach((x) => e(`robots: ${x}`)); }
   if (s.formatoEstoque != null && !['lista', 'compacto'].includes(s.formatoEstoque)) e('"formatoEstoque" (formato do estoque.json gerado) deve ser "lista" (padrão) ou "compacto"');
   // lojas: opcionais num site novo (sem lojas, o site sobe sem estoque); se vierem, cada uma completa

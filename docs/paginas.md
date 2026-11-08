@@ -126,7 +126,9 @@ LGPD (um teste cobra).
 - `"provisorio": true` na página gera um aviso no build até o texto oficial chegar. **Hoje os textos legais são modelo
   provisório.**
 - **Aviso de cookies** e formulários `.js-form-zap` (enviam pelo WhatsApp) ficam no core (`core/ui/ui-site.js`), em todas
-  as páginas de todos os temas. Texto em `textos.avisoCookies`; `"avisoCookies": false` desliga.
+  as páginas de todos os temas. Texto em `textos.avisoCookies`; `"avisoCookies": false` desliga. Quando o site tem
+  scripts de terceiros (GTM, GA4, Pixel, `codigos/`), o aviso pede **Aceitar** ou **Recusar** e eles só rodam depois do
+  aceite ([configurar-um-site.md](configurar-um-site.md#scripts-gtm-ga4-pixel-da-meta-chat-corecodigosjs)).
 
 ## Migração de sites antigos
 

@@ -47,7 +47,8 @@ const Robots = require('./robots');
 const Sitemap = require('./sitemap');
 const Comp = require('./componentes'); // componentes (componentes/<nome>/): {{componente x}} nos templates, bloco "componente" nas páginas // sitemap.xml: páginas + carros no ar (core/sitemap.js; gerarSitemap(dominio) também roda sozinho)
 const Inq = require('./inquilinos'); // inquilino do site: tema próprio dele, se houver
-const Temas = require('./temas'); // o que o tema declara (config/settings_schema.json) e os textos padrão dele (locales/pt-BR.json)
+const Temas = require('./temas');
+const Codigos = require('./codigos'); // GTM, GA4, Pixel e código livre (site e inquilino), só depois do aceite de cookies // o que o tema declara (config/settings_schema.json) e os textos padrão dele (locales/pt-BR.json)
 const Sites = require('./sites'); // repositório de sites: o único que lê a pasta sites-config/
 const Pendentes = require('./pendentes'); // o que falta publicar, um arquivo por site
 const { renovarMinhas } = require('./trava'); // build longo: mantém as travas do trabalhador vivas // modelo do robots.txt (um para todos os sites; o site pode ter o seu)
@@ -478,8 +479,11 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     // componente que nenhuma página usa: erro de digitação não pode ficar escondido)
     if (site.componentes != null) throw new Error(`Site "${site.id}": "componentes" não fica mais no site.json: cada componente é um arquivo em sites-config/${site.id}/componentes/<nome>.json (ex.: estoque.json). Para mover: node ferramentas/mover-paginas.js`);
     const opcoesSite = Sites.componentesDoSite(site.id);
+    // scripts (integracoes + codigos/ do inquilino e do site): entram no hash, então mudar um refaz as páginas
+    { const e = Codigos.validarIntegracoes(site.integracoes); if (e.length) throw new Error(`Site "${site.id}": ${e.join('; ')}`); }
+    const codigos = Codigos.doSite(site, Inq.doSite(site) !== Inq.PADRAO ? Inq.doSite(site) : null);
     for (const [n, op] of Object.entries(opcoesSite)) { const er = Comp.validar(n, op, `sites-config/${site.id}/componentes/${n}.json`); if (er.length) throw new Error(er.join('; ')); }
-    const baseHash = sha(JSON.stringify([RENDER_VERSION, tplHash(dirTpl), hashComponentes, opcoesSite, site.nome, site.slogan, site.url, site.cor, site.configuracoes, site.textos, site.fotosBase, site.cabecalho, site.rodape, site.lojas, nomesEstoque,
+    const baseHash = sha(JSON.stringify([RENDER_VERSION, tplHash(dirTpl), hashComponentes, opcoesSite, codigos, site.nome, site.slogan, site.url, site.cor, site.configuracoes, site.textos, site.fotosBase, site.cabecalho, site.rodape, site.lojas, nomesEstoque,
       paginasSite.filter((p) => p.rotulo).map((p) => [p.rotulo, p.caminho]), // links legais aparecem no rodapé das páginas de carro
       ...(site.rascunho ? ['rascunho'] : [])])); // só entra quando é rascunho: os sites definitivos não refazem nada por causa disso
     const estadoAnt = completo || efemero ? null : lerEstado(pasta, site.id);
@@ -515,7 +519,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     // noindex em toda página + robots.txt "Disallow: /" (core/robots.js). Promover (core/operacoes.js) tira os dois.
     const rascunho = (html) => (!site.rascunho || /<meta[^>]+name=["']robots["'][^>]+noindex/i.test(html) ? html
       : html.replace(/<head([^>]*)>/i, '<head$1>\n<meta name="robots" content="noindex, nofollow">'));
-    const escreverHtml = (arqRel, html) => escreverSe(path.join(out, arqRel), rascunho(versionar(html, arqRel)), rel(arqRel), mud);
+    const escreverHtml = (arqRel, html) => escreverSe(path.join(out, arqRel), rascunho(versionar(Codigos.injetar(html, codigos), arqRel)), rel(arqRel), mud);
     // {{> nome}} inclui temas/<nome>/snippets/<nome>.html (cabeçalho, rodapé... escritos uma vez só)
     const parciais = (txt, nivel = 0) => txt.replace(/\{\{>\s*([a-z0-9-]+)\s*\}\}/g, (_, n) => {
       const arq = path.join(dirTpl, C.TEMA.snippets, `${n}.html`);

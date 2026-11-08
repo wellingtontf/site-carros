@@ -50,6 +50,7 @@ sites-config/<dominio>/    A FONTE de cada site (o nome da pasta é o domínio e
   estoque.json               o ÚNICO arquivo de carros do site
   web/                       ESPELHO do site público: index.json (home), multipla.json (listagem), paginas/
   componentes/               opções dos componentes no site inteiro (<nome>.json)
+  codigos/                   scripts do site (head.html, body.html): GTM, chat...; só depois do aceite de cookies
   assets/                    logo, banners, favicon, fontes
 temas/<nome>/              UM TEMA, autocontido, estrutura do Shopify (barra-topo, lateral, template-basico)
 componentes/<nome>/        peças usadas por todos os temas e páginas (filtro, estoque, filtros-ativos)

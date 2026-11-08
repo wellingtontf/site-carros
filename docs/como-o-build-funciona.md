@@ -185,6 +185,13 @@ A do site (`pagina404` no `site.json`) ou a padrão, com `noindex`.
 
 ---
 
+### 9.4 Scripts de terceiros (todas as páginas)
+
+Na hora de gravar cada página HTML, o build põe os scripts do site (`integracoes` do `site.json`, `codigos/` do inquilino
+e do site; `core/codigos.js`) dentro de `<template data-lgpd="head">` antes do `</head>` e `<template data-lgpd="body">`
+antes do `</body>`. O navegador só roda depois do "Aceitar" do aviso de cookies (`core/ui/ui-site.js`). Rascunho não
+recebe nada.
+
 ## 10. Limpar o que saiu
 
 1. **Arquivos copiados** que não existem mais na origem (css tirado do tema, imagem de página do designer).

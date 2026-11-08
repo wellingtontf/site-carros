@@ -67,7 +67,8 @@ Exemplo:
 | `retencaoRedirecionamentoDias` | não | quantos dias o link antigo de carro redireciona (padrão 180) |
 | `robots` | não | robots.txt próprio (vale mais que o modelo do inquilino) |
 | `formatoEstoque` | não | `"compacto"`: o `estoque.json` gerado sai ~4x menor (dicionário + colunas), sem mudar a busca |
-| `rascunho` | não | `true`: nada entra no Google (`noindex` em tudo, robots fechado) |
+| `rascunho` | não | `true`: nada entra no Google (`noindex` em tudo, robots fechado) e nenhum script de terceiros |
+| `integracoes` | não | `gtm`, `ga4`, `pixelMeta`: o build põe o código oficial em todas as páginas, só depois do aceite de cookies (ver "Scripts" abaixo) |
 
 **O tema decide o que vale** em `configuracoes`, `cabecalho`, `rodape` e `textos` ([temas.md](temas.md#o-que-o-site-pode-configurar-configsettings_schemajson-e-localespt-brjson)):
 chave que o tema não usa volta como **aviso** (provável erro de digitação, ou o tema não tem aquilo); valor do tipo
@@ -109,6 +110,26 @@ A primeira da lista do site é a padrão.
 `precoMin`, `precoMax`, `anoMin`, `marcas` (lista), `estados` (lista de UF), `cidades` (lista). Independem dos filtros: o
 carro fora da restrição nem entra no site. Ex.: a primeseminovos tem 400 carros no estoque e, com `precoMin: 90000`,
 mostra 297.
+
+## Scripts: GTM, GA4, Pixel da Meta, chat... (`core/codigos.js`)
+
+Entram em **todas** as páginas do site (home, listagem, carros, páginas, 404), no fim do `<head>` e no fim do `<body>`,
+sem mexer no tema. Três lugares, nesta ordem:
+
+| Onde | O quê |
+|---|---|
+| `site.json` → `"integracoes": { "gtm": "GTM-XXXX", "ga4": "G-XXXX", "pixelMeta": "123456789" }` | o build gera o código oficial de cada um (o ID tem o formato conferido; formato errado é recusado) |
+| `inquilinos/<id>/codigos/head.html` e `body.html` | código livre de **todos** os sites do inquilino (ex.: um GTM do Revenda Mais) |
+| `sites-config/<dominio>/codigos/head.html` e `body.html` | código livre **do site** (chat, outro pixel...). Pela API: `PUT /v1/sites/<d>/codigos/head` (ou `body`) com o HTML |
+
+- Mande só o trecho (`<script>`, `<noscript>`...), sem `<html>`, `<head>` ou `<body>`. Até 100 KB por arquivo.
+- **LGPD:** nada disso roda antes do aceite de cookies. O build põe o código dentro de `<template data-lgpd>` (que o
+  navegador não executa); quando a página tem esses scripts, o aviso de cookies mostra **Aceitar** e **Recusar**, e só o
+  "Aceitar" ativa os scripts (nas próximas páginas, a escolha já vale). Com `"avisoCookies": false` (o site desligou o
+  aviso), os scripts rodam na hora: aí a responsabilidade pelo consentimento é do site.
+- **Rascunho** (`"rascunho": true`) não recebe nenhum script: não suja as estatísticas do site definitivo. Ao promover,
+  os scripts entram.
+- Mudar um código refaz as páginas do site (ele entra no hash).
 
 ## `estoque.json`
 

@@ -35,6 +35,7 @@ O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da
 | GET | `/v1/lotes/{lote}` | andamento de uma operação em vários sites (contagem por status e problemas) |
 | GET | `/v1/temas` | temas que o inquilino do token pode usar (`tema`, `nome`, `descricao`, `proprio`) |
 | GET | `/v1/temas/{tema}` | o que o tema aceita: `configuracoes`, `cabecalho`, `rodape` (tipo, padrão, rótulo de cada um) e os `textos` padrão. É o contrato para montar uma tela de configuração ([temas.md](temas.md)) |
+| GET / PUT / DELETE | `/v1/sites/{dominio}/codigos/{head\|body}` | **scripts do site** (chat, pixel...): o trecho HTML no corpo (`content-type: text/html`); entra em todas as páginas, só depois do aceite de cookies. Com `</template>`, `<html>`, `<head>` ou `<body>` volta 422 ([configurar-um-site.md](configurar-um-site.md#scripts-gtm-ga4-pixel-da-meta-chat-corecodigosjs)) |
 | GET | `/v1/sites` | sites que o token pode alterar, com o total de carros e a data da última atualização |
 | POST | `/v1/sites` | **cria um site novo com toda a estrutura**: sem domínio = próximo rascunho (`siteN.carro57.com.br`); ou `{"dominio": "novaloja.com.br"}` (ver "Site novo") |
 | PUT | `/v1/sites/{dominio}` | **grava o `site.json` inteiro**: cria o site, se não existir, ou substitui o cadastro (ver "Cadastro do site"), e gera o site |

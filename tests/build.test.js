@@ -643,6 +643,55 @@ test('settings_schema.json e locales/pt-BR.json: padrão vem do tema; site vale 
   fs.rmSync(dir, { recursive: true });
 });
 
+test('scripts (core/codigos.js): integrações + codigos/ do inquilino e do site em TODAS as páginas, dentro de <template data-lgpd>; rascunho não recebe; erros claros', () => {
+  const cod = (dono, lugar, txt) => { const d = path.join(A.raiz(), ...dono, 'codigos'); fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, `${lugar}.html`), txt); };
+  A.criarSite(ID, { carros: [A.carro(), A.carro()], site: { inquilino: 'revenda-mais', integracoes: { gtm: 'GTM-ABC123', ga4: 'G-XYZ789', pixelMeta: '123456789012' },
+    paginas: [{ caminho: 'sobre', titulo: 'Sobre', secoes: [{ tipo: 'texto', html: '<p>x</p>' }] }] } });
+  fs.mkdirSync(path.join(A.raiz(), 'inquilinos', 'revenda-mais'), { recursive: true });
+  fs.writeFileSync(path.join(A.raiz(), 'inquilinos', 'revenda-mais', 'inquilino.json'), JSON.stringify({ nome: 'Revenda Mais' }));
+  cod(['inquilinos', 'revenda-mais'], 'head', '<script>/*INQ-HEAD*/</script>');
+  cod(['sites-config', ID], 'head', '<script>/*SITE-HEAD*/</script>');
+  cod(['sites-config', ID], 'body', '<script>/*SITE-BODY*/</script>');
+  build({ completo: true });
+  const carro = A.listar(A.saida(ID, 'carros')).find((f) => f.endsWith('.html'));
+  for (const f of ['index.html', 'multipla/index.html', 'paginas/sobre/index.html', 'paginas/contato/index.html', '404.html', path.relative(A.saida(ID), carro)]) {
+    const h = A.ler(ID, f);
+    const head = (h.match(/<template data-lgpd="head">([\s\S]*?)<\/template>\s*<\/head>/) || [])[1];
+    assert.ok(head, `${f}: <template data-lgpd="head"> logo antes do </head>`);
+    // ordem: integrações, inquilino, site
+    const ordem = ['gtm.js?id=', 'GTM-ABC123', 'gtag/js?id=G-XYZ789', "fbq('init','123456789012')", 'INQ-HEAD', 'SITE-HEAD'].map((x) => head.indexOf(x));
+    assert.ok(ordem.every((x, i) => x >= 0 && (i === 0 || x > ordem[i - 1])), `${f}: ordem ${ordem}`);
+    assert.match(h, /<template data-lgpd="body">\s*<noscript><iframe src="https:\/\/www\.googletagmanager\.com\/ns\.html\?id=GTM-ABC123"[\s\S]*SITE-BODY\*\/<\/script>\s*<\/template>\s*<\/body>/, `${f}: body`);
+    assert.doesNotMatch(h.replace(/<template[\s\S]*?<\/template>/g, ''), /GTM-ABC123|SITE-HEAD/, `${f}: nada fora do <template> (não roda antes do aceite)`);
+  }
+  // mudar um código refaz as páginas (inclusive as de carro)
+  cod(['sites-config', ID], 'body', '<script>/*SITE-BODY-2*/</script>');
+  assert.equal(build().resumo.base, true);
+  assert.match(fs.readFileSync(carro, 'utf8'), /SITE-BODY-2/);
+  // rascunho: nada (não suja as estatísticas do site definitivo)
+  A.gravarSite(ID, { ...A.lerSite(ID), rascunho: true });
+  build();
+  assert.doesNotMatch(A.ler(ID, 'index.html'), /data-lgpd|GTM-ABC123|SITE-HEAD/);
+  // erros claros: ID fora do formato, campo que não existe, código que quebraria o <template> ou a página
+  const cfg = { ...A.lerSite(ID), rascunho: false };
+  for (const [integ, re] of [[{ gtm: 'GTM-<x>' }, /"integracoes\.gtm": "GTM-<x>" não tem o formato certo \(GTM-XXXXXXX\)/],
+    [{ ga4: 'UA-123' }, /"integracoes\.ga4"/], [{ pixelMeta: '12a' }, /"integracoes\.pixelMeta"/], [{ hotjar: '1' }, /"integracoes\.hotjar" não existe.*codigos\/head\.html/]]) {
+    A.gravarSite(ID, { ...cfg, integracoes: integ });
+    assert.throws(() => build(), re);
+    assert.match(Sites.validarSite(A.lerSite(ID), ID).join(' '), re, 'a API recusa pela mesma regra');
+  }
+  A.gravarSite(ID, { ...cfg, integracoes: {} });
+  cod(['sites-config', ID], 'body', '<script>x</script></template><script>y</script>');
+  assert.throws(() => build(), /código do body.*não pode ter <\/template>/);
+  cod(['sites-config', ID], 'body', '<body><script>x</script></body>');
+  assert.throws(() => build(), /sem <html>, <head> ou <body>/);
+  fs.rmSync(path.join(A.raiz(), 'sites-config', ID, 'codigos'), { recursive: true });
+  fs.rmSync(path.join(A.raiz(), 'inquilinos', 'revenda-mais', 'codigos'), { recursive: true });
+  // sem integração nem código: nenhum <template data-lgpd>
+  build({ completo: true });
+  assert.doesNotMatch(A.ler(ID, 'index.html'), /data-lgpd/);
+});
+
 // ---------- páginas livres dos web designers (core/paginas-livres.js) ----------
 const pastaLivre = (...p) => A.pastaPaginas(ID, ...p);
 const escrever = (arq, txt) => { fs.mkdirSync(path.dirname(arq), { recursive: true }); fs.writeFileSync(arq, txt); };

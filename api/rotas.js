@@ -296,6 +296,31 @@ function criarRotas({ fila }) {
       }
     }
 
+    // SCRIPTS do site (sites-config/<dominio>/codigos/<head|body>.html; core/codigos.js): GTM, chat, pixel... em todas as
+    // páginas, no fim do <head> ou do <body>; só rodam depois do aceite de cookies. Corpo do PUT: o trecho HTML (text/html)
+    //   GET|PUT|DELETE /v1/sites/<d>/codigos/head  e  /codigos/body
+    rp = /^\/codigos\/(head|body)$/.exec(resto);
+    if (rp) {
+      const lugar = rp[1];
+      if (m === 'GET') {
+        const t = Arq.lerCodigo(d, lugar);
+        if (t == null) throw new Erro(404, `o site não tem codigos/${lugar}.html`);
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); return res.end(t);
+      }
+      if (m === 'PUT') {
+        const t = await corpo(req, LIMITE.outro);
+        if (!t.trim()) throw new Erro(400, 'código vazio (para tirar, use DELETE)');
+        const erros = Arq.validarCodigo(t);
+        if (erros.length) throw new Erro(422, 'código inválido: nada foi gravado', { erros });
+        Arq.gravarCodigo(d, lugar, t);
+        return responderPedido(res, url, refazer());
+      }
+      if (m === 'DELETE') {
+        if (!Arq.removerCodigo(d, lugar)) throw new Erro(404, `o site não tem codigos/${lugar}.html`);
+        return responderPedido(res, url, refazer());
+      }
+    }
+
     // LISTAGEM do estoque (sites-config/<dominio>/web/multipla.json → /multipla/): seções antes/depois da lista
     //   GET|PUT|DELETE /v1/sites/<d>/multipla   corpo do PUT: { "secoesAntes": [...], "secoesDepois": [...] }
     if (resto === '/multipla') {
