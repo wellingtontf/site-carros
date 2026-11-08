@@ -444,6 +444,7 @@ test('DELETE /v1/sites/<d>?confirmar=<d>: tira o site (recuperável), apaga a sa
   const r = await reqJ('DELETE', `/v1/sites/${D}?confirmar=${D}&esperar=20`, { token: tokTodos });
   assert.equal(r.status, 200, JSON.stringify(r.j));
   assert.ok(!fs.existsSync(path.join(A.raiz(), 'sites', D)) && !A.existe(D, ''), 'site e saída fora');
+  assert.ok(!fs.readFileSync(path.join(A.raiz(), 'dist', 'index.html'), 'utf8').includes(D), 'o índice não lista o site que saiu');
   assert.ok(fs.existsSync(path.join(A.raiz(), r.j.resultado.arquivo, 'site', 'site.json')), 'cópia recuperável');
   assert.equal(A.pendente(D), undefined);
   assert.equal((await req('GET', `/v1/sites/${D}`, { token: tokTodos })).status, 404);

@@ -20,7 +20,7 @@ const path = require('path');
 const C = require('./caminhos');
 const Sites = require('./sites');
 const Fotos = require('./fotos');
-const { construir, problemasProducao } = require('./build');
+const { construir, problemasProducao, atualizarIndice } = require('./build');
 const { comTrava, chaveSite } = require('./trava');
 
 const aspas = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
@@ -119,7 +119,9 @@ async function removerSite(dominio, { pasta = 'dist', log = console.log } = {}) 
   const inquilino = Inq.doSite(dominio);
   const r = await comTrava(chaveSite(dominio), async () => {
     const fotos = await Fotos.apagarFotosDoSite(dominio, { log }); // antes de arquivar: o estado das fotos diz o que apagar
-    return { status: 'ok', fotos, ...Sites.arquivarArquivos(dominio, { pasta }) };
+    const arq = Sites.arquivarArquivos(dominio, { pasta });
+    atualizarIndice(pasta); // o índice de desenvolvimento não pode listar o site que saiu
+    return { status: 'ok', fotos, ...arq };
   });
   if (r.status !== 'ok') return r;
   log(`${dominio}: site removido (cópia em ${r.arquivo})`);

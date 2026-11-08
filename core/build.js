@@ -802,19 +802,27 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     feitos.push({ site, total: carros.length, motor: versao, template: nomeTpl, resumo });
   }
 
-  // índice só para navegar entre os sites durante o desenvolvimento
-  const presentes = todos.filter((s) => fs.existsSync(path.join(DIST, s.id, 'index.html')));
-  fs.writeFileSync(
-    path.join(DIST, 'index.html'),
-    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sites</title>` +
-      `<body style="font:16px system-ui;max-width:600px;margin:2rem auto;padding:0 1rem"><h1>Sites gerados</h1><ul>` +
-      presentes.map((s) => `<li><a href="${esc(s.id)}/index.html">${esc(s.nome)}</a> &middot; ${esc(s.id)} &middot; template ${esc(s.template)}</li>`).join('') +
-      `</ul></body>`
-  );
+  atualizarIndice(pasta);
   return { pasta, feitos };
 }
 
-module.exports = { construir, render, resolverLinks, problemasProducao, registrarPendente, VERSAO_HTML };
+// <saida>/index.html: índice só para navegar entre os sites durante o desenvolvimento (não é publicado). Refeito pelo
+// build e quando um site sai (core/operacoes.js), para nunca listar site que não existe mais.
+function atualizarIndice(pasta = 'dist') {
+  const DIST = C.saida(pasta);
+  if (!fs.existsSync(DIST)) return;
+  const presentes = Sites.carregarTodos().filter((s) => fs.existsSync(path.join(DIST, s.id, 'index.html')));
+  const arq = path.join(DIST, 'index.html');
+  const tmp = `${arq}.${process.pid}.tmp`; // vários trabalhadores podem escrever ao mesmo tempo: troca atômica
+  fs.writeFileSync(tmp,
+    `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sites</title>` +
+      `<body style="font:16px system-ui;max-width:600px;margin:2rem auto;padding:0 1rem"><h1>Sites gerados</h1><ul>` +
+      presentes.map((s) => `<li><a href="${esc(s.id)}/index.html">${esc(s.nome)}</a> &middot; ${esc(s.id)} &middot; template ${esc(s.template)}</li>`).join('') +
+      `</ul></body>`);
+  fs.renameSync(tmp, arq);
+}
+
+module.exports = { atualizarIndice, construir, render, resolverLinks, problemasProducao, registrarPendente, VERSAO_HTML };
 
 if (require.main === module) {
   const a = process.argv.slice(2);
