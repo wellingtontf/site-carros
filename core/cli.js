@@ -158,16 +158,20 @@ async function testarSite(pasta, id) {
   return falhas;
 }
 
-async function testar({ motor = null, sites = null, pasta = 'dist-teste' }) {
-  let r;
-  try { r = construir({ sites, motor, saida: pasta, completo: true, efemero: true }); } catch (e) { console.error('  não deu para gerar: ' + e.message); return false; }
-  let tudoOk = true;
-  for (const { site, total, motor: mv } of r.feitos) {
-    const falhas = await testarSite(pasta, site.id);
-    console.log(`  ${falhas.length ? 'FALHOU' : 'ok    '} ${site.id} (${total} carros, motor ${mv})${falhas.map((x) => `\n         - ${x}`).join('')}`);
-    if (falhas.length) tudoOk = false;
-  }
-  return tudoOk;
+// gera numa pasta TEMPORÁRIA (.estado/teste-<pid>), testa e apaga: a única saída que fica no projeto é a dist/
+async function testar({ motor = null, sites = null }) {
+  const pasta = path.join('.estado', `teste-${process.pid}`);
+  try {
+    let r;
+    try { r = construir({ sites, motor, saida: pasta, completo: true, efemero: true }); } catch (e) { console.error('  não deu para gerar: ' + e.message); return false; }
+    let tudoOk = true;
+    for (const { site, total, motor: mv } of r.feitos) {
+      const falhas = await testarSite(pasta, site.id);
+      console.log(`  ${falhas.length ? 'FALHOU' : 'ok    '} ${site.id} (${total} carros, motor ${mv})${falhas.map((x) => `\n         - ${x}`).join('')}`);
+      if (falhas.length) tudoOk = false;
+    }
+    return tudoOk;
+  } finally { fs.rmSync(C.saida(pasta), { recursive: true, force: true }); }
 }
 
 async function aplicar(args) {

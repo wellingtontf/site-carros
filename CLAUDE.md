@@ -71,6 +71,7 @@ config/                       fontes.exemplo.json, publicacao.exemplo.json (copi
 ferramentas/                  gerar-exemplo.js, importar-trokey.py (teste de migração), auditar-dist.js (problemas de site estático no ar)
 ```
 Saída: `dist/<dominio>/` com `motor/` (core), `css/ js/ img/` (template), `assets/` (site), `index.html`, `404.html` (links a partir da raiz; `pagina404` no site.json), `estoque.xml` (feed XML de compatibilidade; `feedXml` no site.json), `carro/<id>/`, `carros.json`, `config.json`, `sitemap.xml`, `robots.txt`.
+**Pastas de saída:** `dist/` é a ÚNICA que vale (build, API, publicação). `dist-preview/` = `build.js --motor rascunho` (para olhar um motor novo; nunca publicada). `node core/cli.js testar` gera numa pasta temporária em `.estado/` e apaga no fim; os testes automáticos usam pastas temporárias fora do projeto. Uma `dist-teste/` na raiz é sobra antiga: pode apagar.
 Gerados e fora do git: `dist*/`, `.estado/`, `s3-local/` (simula o bucket de fotos; servido em :8081 nos testes locais).
 
 ## Como a atualização funciona (já implementado e testado)
