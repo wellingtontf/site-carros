@@ -1,0 +1,9 @@
+<!-- carrossel: slides[{imagem, alt, link | mensagem (WhatsApp)}]. Passa sozinho a cada 6 s; setas e bolinhas. -->
+<section class="b-carrossel" aria-roledescription="carrossel">
+  <div class="b-carrossel-trilho">
+    {{#slides}}<div class="b-slide">{{#link}}<a href="{{link}}">{{/link}}{{^link}}<a href="#" class="js-zap" data-msg="{{mensagem}}">{{/link}}<img src="{{imagem}}" alt="{{alt}}" width="1920" height="400"></a></div>{{/slides}}
+  </div>
+  <button type="button" class="b-seta ant" aria-label="Anterior">&#8249;</button>
+  <button type="button" class="b-seta prox" aria-label="Próximo">&#8250;</button>
+  <div class="b-pontos"></div>
+</section>

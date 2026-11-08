@@ -14,6 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const C = require('./caminhos');
+const V = require('./versoes');
 
 const PADRAO = 'padrao';
 const ID_OK = /^[a-z0-9][a-z0-9-]{1,40}$/;
@@ -41,11 +42,13 @@ function arquivoConfig(id, arquivo) {
   return C.config(arquivo);
 }
 const lerConfig = (id, arquivo, padrao = null) => lerJSON(arquivoConfig(id, arquivo), padrao);
-// pasta do tema para um inquilino: o dele, se existir; senão o da imagem (temas/<nome>)
+// pasta do tema (a RAIZ, com rascunho/ e v1/, v2/...) para um inquilino: o dele, se existir; senão o da imagem (temas/<nome>)
 function dirTema(id, nome) {
-  if (id && id !== PADRAO && /^[a-z0-9-]+$/.test(String(nome))) { const p = path.join(C.inquilinoTemas(id), nome); if (fs.existsSync(path.join(p, C.TEMA.schema))) return p; }
+  if (id && id !== PADRAO && /^[a-z0-9-]+$/.test(String(nome))) { const p = path.join(C.inquilinoTemas(id), nome); if (V.ehTema(p) || V.temaSemVersoes(p)) return p; }
   return C.tema(nome);
 }
+// pasta de UMA versão do tema (temas/<nome>/v1, ou rascunho): é ela que o build usa
+const dirVersaoTema = (id, nome, versao) => path.join(dirTema(id, nome), String(versao));
 const temTemaProprio = (id, nome) => dirTema(id, nome) !== C.tema(nome);
 // tema próprio sempre vale; os da imagem seguem a lista "temas" do inquilino (ausente = todos)
 const temaPermitido = (id, nome) => { if (temTemaProprio(id, nome)) return true; const t = carregar(id).temas; return !t || t.includes(nome); };
@@ -62,4 +65,4 @@ function criar(id, { nome, temas = null, rascunhos = null } = {}) {
   return carregar(id);
 }
 
-module.exports = { PADRAO, listar, existe, carregar, doSite, arquivoConfig, lerConfig, temaPermitido, dirTema, temTemaProprio, criar };
+module.exports = { PADRAO, listar, existe, carregar, doSite, arquivoConfig, lerConfig, temaPermitido, dirTema, dirVersaoTema, temTemaProprio, criar };

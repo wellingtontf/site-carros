@@ -86,7 +86,10 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
   do aviso de cookies (Aceitar/Recusar).
 - Componente **barra-busca** (igual ao site da Servopa): marca e modelo em cascata, Pesquisar e ordenação à direita
   (Menor/Maior preço, Menor/Maior ano, A-Z, Z-A, Data de publicação) com o **motor v4**; data de publicação = campo
-  `publicado` do carro ou o dia em que ele apareceu. Etapa 5 (versão do tema) ficou para depois.
+  `publicado` do carro ou o dia em que ele apareceu.
+- Etapa 5: **versões do tema** como as do motor: `temas/<nome>/rascunho/` (edita) → `v1/`, `v2/` (congeladas, com sha256);
+  o site fixa `"versaoTema"`; `node core/cli.js tema congelar|testar|aplicar|reverter|historico|status`; prévia do
+  rascunho com `build.js --versao-tema rascunho`. Os 3 temas viraram `v1` + `rascunho`, saída idêntica.
 
 ## Decisões do Wellington (consolidadas)
 
@@ -132,7 +135,7 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
 
 ## Anexo: todas as mensagens do Wellington, na íntegra
 
-121 mensagens, na ordem. Ficaram de fora só avisos automáticos do sistema. Respostas a perguntas de múltipla escolha
+122 mensagens, na ordem. Ficaram de fora só avisos automáticos do sistema. Respostas a perguntas de múltipla escolha
 (como "Espelho do site") não aparecem aqui, porque entraram como resposta de ferramenta e não como mensagem.
 
 **1.** _07/11 18:32_
@@ -763,3 +766,7 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
 > igual a foto
 >
 > deve ter um como para pesquisar marcar, modelo e lá na direita deve ter um combo por ordenação com as opções menor preco, menor valor, menor ano, maior ano, A-Z, Z-A, data de publicação
+
+**122.** _08/11 20:02_
+
+> vai para etapa 5

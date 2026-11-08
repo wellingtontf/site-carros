@@ -7,6 +7,14 @@
 //   node core/cli.js aplicar v2 --sites a.com.br        ou --todos   (roda os testes antes; --sem-teste pula; --dry só mostra)
 //   node core/cli.js reverter --sites a.com.br          volta esses sites para a versão anterior
 //   node core/cli.js historico
+// Versões dos TEMAS (o mesmo fluxo; o designer edita só temas/<nome>/rascunho/):
+//   node core/cli.js tema status
+//   node core/cli.js tema congelar template-basico v2 --nota "texto"   copia temas/<nome>/rascunho para temas/<nome>/v2 (imutável)
+//   node core/cli.js tema testar template-basico [v2|rascunho] [--sites a,b]   gera numa pasta temporária e testa
+//   node core/cli.js tema aplicar template-basico v2 --sites a,b       ou --todos (os sites desse tema); roda os testes antes
+//   node core/cli.js tema reverter --sites a,b                         volta esses sites para a versão anterior do tema
+//   node core/cli.js tema historico
+//   (--inquilino <id> nos comandos de um tema PRÓPRIO do inquilino: inquilinos/<id>/temas/<nome>/)
 //   node core/cli.js atualizar [a.com.br,b.com.br] [--publicar]   busca o estoque em config/fontes.json e refaz só o que mudou
 //   node core/cli.js publicar                           publica só o que mudou e ainda não foi publicado (config/publicacao.json)
 //   node core/cli.js limpar-public [--aplicar]          pastas de sites-public sem site em sites-config (apaga com --aplicar)
@@ -19,7 +27,8 @@ const path = require('path');
 const crypto = require('crypto');
 const { construir } = require('./build.js');
 const Sites = require('./sites');
-const { versoesMotor } = require('./versoes');
+const Versoes = require('./versoes');
+const { versoesMotor } = Versoes;
 const C = require('./caminhos');
 const LinkCarro = require('./ui/link-carro.js');
 const FormatoEstoque = require('./ui/formato-estoque.js');
@@ -57,6 +66,14 @@ const infoVersao = (v) => { const p = path.join(C.motor(v), 'versao.json'); retu
 const hash = (v) => crypto.createHash('md5').update(fs.readFileSync(path.join(C.motor(v), 'engine.js'))).digest('hex');
 const historico = () => (fs.existsSync(HIST) ? lerJSON(HIST) : []);
 const gravarHistorico = (h) => { fs.mkdirSync(path.dirname(HIST), { recursive: true }); fs.writeFileSync(HIST, JSON.stringify(h, null, 2) + '\n'); };
+// muda um campo de texto do site.json sem reformatar o arquivo; se não existir, entra depois de "depois" (ou no começo)
+function setCampo(texto, campo, valor, depois = null) {
+  const re = new RegExp(`"${campo}"\\s*:\\s*"[^"]*"`);
+  if (re.test(texto)) return texto.replace(re, `"${campo}": "${valor}"`);
+  const ref = depois && new RegExp(`(\\n(\\s*)"${depois}"\\s*:\\s*"[^"]*",?)`).exec(texto);
+  if (ref) return texto.replace(ref[1], `${ref[1].endsWith(',') ? ref[1] : `${ref[1]},`}\n${ref[2]}"${campo}": "${valor}"${ref[1].endsWith(',') ? ',' : ''}`);
+  return texto.replace(/^\s*\{\s*\n/, `{\n  "${campo}": "${valor}",\n`);
+}
 function setMotor(texto, versao) {
   if (/"motor"\s*:\s*"[^"]*"/.test(texto)) return texto.replace(/"motor"\s*:\s*"[^"]*"/, `"motor": "${versao}"`);
   return texto.replace(/^\s*\{\s*\n/, `{\n  "motor": "${versao}",\n`);
@@ -113,6 +130,13 @@ async function testarSite(pasta, id) {
   ok(motor.versao === cfg.motor, `versão do motor (${motor.versao}) diferente da configurada (${cfg.motor})`);
   ok(motor.resultado().length === motor.total, 'resultado inicial deveria ter todos os carros');
   ok(fs.existsSync(path.join(dir, 'index.html')), 'index.html não foi gerado');
+  // o tema: páginas principais geradas e nenhum marcador {{ }} sobrando (campo com nome errado, bloco do layout quebrado)
+  for (const p of ['index.html', 'multipla/index.html', '404.html']) {
+    const arq = path.join(dir, p);
+    if (!fs.existsSync(arq)) { falhas.push(`${p} não foi gerado`); continue; }
+    const sobra = fs.readFileSync(arq, 'utf8').match(/\{\{[#^/>$!]?\s*[a-zA-Z][^}]*\}\}/);
+    ok(!sobra, `${p}: marcador sobrando ${sobra && sobra[0]}`);
+  }
   const linkDe = new Map(ler('estoque.json').filter((d) => d.l).map((d) => [d.i, d.l])); // link vindo do estoque
   const caminho = (c) => linkDe.get(c.id) || LinkCarro.caminho(c);
   const semPagina = motor.resultado().filter((c) => !fs.existsSync(path.join(dir, caminho(c))));
@@ -164,15 +188,15 @@ async function testarSite(pasta, id) {
 }
 
 // gera numa pasta TEMPORÁRIA (.estado/teste-<pid>), testa e apaga: a única saída que fica no projeto é a sites-public/
-async function testar({ motor = null, sites = null }) {
+async function testar({ motor = null, versaoTema = null, sites = null }) {
   const pasta = path.join('.estado', `teste-${process.pid}`);
   try {
     let r;
-    try { r = construir({ sites, motor, saida: pasta, completo: true, efemero: true }); } catch (e) { console.error('  não deu para gerar: ' + e.message); return false; }
+    try { r = construir({ sites, motor, versaoTema, saida: pasta, completo: true, efemero: true }); } catch (e) { console.error('  não deu para gerar: ' + e.message); return false; }
     let tudoOk = true;
     for (const { site, total, motor: mv } of r.feitos) {
       const falhas = await testarSite(pasta, site.id);
-      console.log(`  ${falhas.length ? 'FALHOU' : 'ok    '} ${site.id} (${total} carros, motor ${mv})${falhas.map((x) => `\n         - ${x}`).join('')}`);
+      console.log(`  ${falhas.length ? 'FALHOU' : 'ok    '} ${site.id} (${total} carros, motor ${mv}${versaoTema ? `, tema ${site.tema} ${versaoTema}` : ''})${falhas.map((x) => `\n         - ${x}`).join('')}`);
       if (falhas.length) tudoOk = false;
     }
     return tudoOk;
@@ -207,7 +231,7 @@ function reverter(args) {
   const h = historico();
   const mudancas = [];
   for (const s of alvo) {
-    const ult = [...h].reverse().find((e) => e.sites.some((x) => x.site === s.id && x.anterior));
+    const ult = [...h].reverse().find((e) => e.tipo !== 'tema' && e.sites.some((x) => x.site === s.id && x.anterior));
     if (!ult) { console.log(`  ${s.id}: sem versão anterior no histórico`); continue; }
     const anterior = ult.sites.find((x) => x.site === s.id).anterior;
     mudancas.push({ site: s.id, anterior: s.obj.motor || null, para: anterior });
@@ -223,7 +247,119 @@ function reverter(args) {
 function mostrarHistorico() {
   const h = historico();
   if (!h.length) return console.log('Sem histórico ainda.');
-  h.forEach((e) => console.log(`${e.data}  ${e.acao.padEnd(8)} ${e.sites.map((s) => `${s.site} ${s.anterior || '-'}→${s.para || e.versao || '?'}`).join(', ')}`));
+  h.forEach((e) => console.log(`${e.data}  ${e.tipo === 'tema' ? `tema ${e.tema}` : 'motor'}  ${e.acao.padEnd(8)} ${e.sites.map((s) => `${s.site} ${s.anterior || '-'}→${s.para || e.versao || '?'}`).join(', ')}`));
+}
+
+// ---------- versões dos TEMAS: temas/<nome>/rascunho (editável) → v1, v2... (imutáveis); o site fixa "versaoTema" ----------
+function raizDoTema(nome, args) {
+  const Inq = require('./inquilinos');
+  const inq = args.inquilino || Inq.PADRAO;
+  if (!nome || !/^[a-z0-9-]+$/.test(nome)) falha('informe o tema, ex.: tema congelar template-basico v2');
+  const raiz = Inq.dirTema(inq, nome);
+  if (Versoes.temaSemVersoes(raiz)) falha(`o tema "${nome}" ainda não tem versões: node ferramentas/migrar-temas.js`);
+  if (!Versoes.ehTema(raiz)) falha(`tema "${nome}" não existe (${path.relative(ROOT, raiz)}/)`);
+  return raiz;
+}
+const sitesDoTema = (nome, args) => {
+  const Inq = require('./inquilinos');
+  return sitesInfo().filter((s) => s.obj.tema === nome && (!args.inquilino || Inq.doSite(s.obj) === args.inquilino));
+};
+function temaCongelar(args) {
+  const [, nome, v] = args._;
+  const raiz = raizDoTema(nome, args);
+  if (!v || !Versoes.VERSAO_OK.test(v)) falha('informe o nome da versão, ex.: tema congelar template-basico v2');
+  const rasc = path.join(raiz, 'rascunho');
+  if (!Versoes.ehVersaoDeTema(raiz, 'rascunho')) falha(`o tema "${nome}" não tem rascunho (${path.relative(ROOT, rasc)}/)`);
+  const destino = path.join(raiz, v);
+  if (fs.existsSync(destino)) falha(`${nome} ${v} já existe e não pode ser alterada (versões congeladas são imutáveis)`);
+  const ultima = Versoes.ultimaVersaoTema(raiz);
+  if (ultima && Versoes.hashPasta(rasc) === Versoes.hashPasta(path.join(raiz, ultima)) && !args.forcar) falha(`o rascunho é igual à ${ultima}: nada para congelar (use --forcar se quiser mesmo assim)`);
+  try { require('./temas').carregar(rasc); } catch (e) { falha(`o rascunho tem erro: ${e.message}`); }
+  fs.cpSync(rasc, destino, { recursive: true });
+  fs.writeFileSync(path.join(destino, 'versao.json'), JSON.stringify({ versao: v, data: agora(), nota: args.nota || '', origem: 'rascunho', sha256: Versoes.hashPasta(destino) }, null, 2) + '\n');
+  console.log(`Rascunho do tema ${nome} congelado como ${v}. Próximo passo: node core/cli.js tema testar ${nome} ${v}   e   node core/cli.js tema aplicar ${nome} ${v} --sites <site>`);
+}
+async function temaTestar(args) {
+  const [, nome, v = 'rascunho'] = args._;
+  const raiz = raizDoTema(nome, args);
+  if (!Versoes.ehVersaoDeTema(raiz, v)) falha(`o tema "${nome}" não tem a versão "${v}" (existem: ${['rascunho', ...Versoes.versoesTema(raiz)].join(', ')})`);
+  const sites = args.sites ? args.sites.split(',').map((x) => x.trim()) : sitesDoTema(nome, args).map((s) => s.id);
+  if (!sites.length) falha(`nenhum site usa o tema "${nome}" (use --sites para testar em outro)`);
+  console.log(`Testando o tema ${nome} ${v} em: ${sites.join(', ')}`);
+  const okTudo = await testar({ versaoTema: v, sites });
+  process.exit(okTudo ? 0 : 1);
+}
+async function temaAplicar(args) {
+  const [, nome, v] = args._;
+  const raiz = raizDoTema(nome, args);
+  if (!v) falha(`informe a versão, ex.: tema aplicar ${nome} v2 --sites a.com.br`);
+  if (v === 'rascunho') falha(`não dá para aplicar o rascunho num site: congele antes (node core/cli.js tema congelar ${nome} vN)`);
+  if (!Versoes.versoesTema(raiz).includes(v)) falha(`versão "${v}" do tema "${nome}" não existe (disponíveis: ${Versoes.versoesTema(raiz).join(', ')})`);
+  const alvo = args.todos ? sitesDoTema(nome, args) : escolherSites(args);
+  const outro = alvo.find((s) => s.obj.tema !== nome);
+  if (outro) falha(`o site "${outro.id}" usa o tema "${outro.obj.tema}", não "${nome}" (trocar de tema é pelo cadastro: "tema" e "versaoTema" no site.json)`);
+  if (!alvo.length) falha(`nenhum site usa o tema "${nome}"`);
+  console.log(`Aplicar o tema ${nome} ${v} em: ${alvo.map((s) => s.id).join(', ')}`);
+  if (!args['sem-teste']) {
+    console.log('Testando antes de aplicar...');
+    if (!(await testar({ versaoTema: v, sites: alvo.map((s) => s.id) }))) falha('testes falharam; nada foi alterado');
+  }
+  const todas = alvo.map((s) => ({ site: s.id, anterior: s.obj.versaoTema || null, para: v }));
+  todas.forEach((m) => console.log(`  ${m.site}: ${m.anterior || '(nenhuma)'} → ${v}${m.anterior === v ? '  (já estava)' : ''}`));
+  const mudancas = todas.filter((m) => m.anterior !== v);
+  if (!mudancas.length) return console.log(`Nada a fazer: todos já estão na ${v}`);
+  if (args.dry) return console.log('(--dry: nada foi gravado)');
+  alvo.filter((s) => mudancas.some((m) => m.site === s.id)).forEach((s) => fs.writeFileSync(s.arquivo, setCampo(s.texto, 'versaoTema', v, 'tema')));
+  const h = historico();
+  h.push({ data: agora(), tipo: 'tema', tema: nome, acao: 'aplicar', versao: v, sites: mudancas });
+  gravarHistorico(h);
+  console.log(`\nAplicado. Gere e publique: node core/build.js --sites ${mudancas.map((m) => m.site).join(',')}`);
+}
+function temaReverter(args) {
+  const alvo = escolherSites(args);
+  const h = historico();
+  const mudancas = [];
+  for (const s of alvo) {
+    const ult = [...h].reverse().find((e) => e.tipo === 'tema' && e.tema === s.obj.tema && e.sites.some((x) => x.site === s.id && x.anterior));
+    if (!ult) { console.log(`  ${s.id}: sem versão anterior do tema no histórico`); continue; }
+    const anterior = ult.sites.find((x) => x.site === s.id).anterior;
+    mudancas.push({ site: s.id, anterior: s.obj.versaoTema || null, para: anterior, tema: s.obj.tema });
+    console.log(`  ${s.id}: tema ${s.obj.tema} ${s.obj.versaoTema} → ${anterior}`);
+    if (!args.dry) fs.writeFileSync(s.arquivo, setCampo(s.texto, 'versaoTema', anterior, 'tema'));
+  }
+  if (args.dry || !mudancas.length) return;
+  for (const tema of new Set(mudancas.map((m) => m.tema))) {
+    h.push({ data: agora(), tipo: 'tema', tema, acao: 'reverter', versao: null, sites: mudancas.filter((m) => m.tema === tema).map(({ site, anterior, para }) => ({ site, anterior, para })) });
+  }
+  gravarHistorico(h);
+  console.log(`\nRevertido. Gere e publique: node core/build.js --sites ${mudancas.map((m) => m.site).join(',')}`);
+}
+function temaStatus(args) {
+  const Temas = require('./temas');
+  const Inq = require('./inquilinos');
+  for (const nome of Temas.listar(args.inquilino || Inq.PADRAO)) {
+    const raiz = Inq.dirTema(args.inquilino || Inq.PADRAO, nome);
+    const vs = Versoes.versoesTema(raiz);
+    console.log(`Tema ${nome}`);
+    for (const v of vs) {
+      const i = fs.existsSync(path.join(raiz, v, 'versao.json')) ? lerJSON(path.join(raiz, v, 'versao.json')) : {};
+      const quem = sitesDoTema(nome, args).filter((s) => s.obj.versaoTema === v).map((s) => s.id);
+      console.log(`  ${v.padEnd(8)} ${(i.data || '').padEnd(17)} ${i.nota || ''}${quem.length ? `  ← ${quem.join(', ')}` : ''}`);
+    }
+    const ultima = vs[vs.length - 1];
+    const temRasc = Versoes.ehVersaoDeTema(raiz, 'rascunho');
+    console.log(`  rascunho ${!temRasc ? '(não existe)' : ultima && Versoes.hashPasta(path.join(raiz, 'rascunho')) === Versoes.hashPasta(path.join(raiz, ultima)) ? `igual à ${ultima}` : ultima ? `com alterações desde a ${ultima}` : 'sem versão congelada ainda'}`);
+  }
+}
+async function tema(args) {
+  const sub = args._[0];
+  if (sub === 'status') return temaStatus(args);
+  if (sub === 'congelar') return temaCongelar(args);
+  if (sub === 'testar') return temaTestar(args);
+  if (sub === 'aplicar') return temaAplicar(args);
+  if (sub === 'reverter') return temaReverter(args);
+  if (sub === 'historico') { const h = historico().filter((e) => e.tipo === 'tema'); if (!h.length) return console.log('Sem histórico de temas ainda.'); return h.forEach((e) => console.log(`${e.data}  tema ${e.tema}  ${e.acao.padEnd(8)} ${e.sites.map((s) => `${s.site} ${s.anterior || '-'}→${s.para || e.versao || '?'}`).join(', ')}`)); }
+  falha('uso: tema status | tema congelar <tema> vN [--nota ""] | tema testar <tema> [vN|rascunho] [--sites a,b] | tema aplicar <tema> vN (--sites a,b | --todos) [--dry] [--sem-teste] | tema reverter (--sites a,b | --todos) | tema historico   (--inquilino <id> para tema próprio do inquilino)');
 }
 
 (async () => {
@@ -232,6 +368,7 @@ function mostrarHistorico() {
   const sitesArg = args.sites ? args.sites.split(',').map((s) => s.trim()) : null;
   switch (cmd) {
     case 'status': return status();
+    case 'tema': return tema(args);
     case 'congelar': return congelar(args);
     case 'testar': {
       console.log(`Testando${args.motor ? ' com motor ' + args.motor : ''}...`);
@@ -304,6 +441,6 @@ function mostrarHistorico() {
       return;
     }
     default:
-      console.log('Comandos: fotos [a,b] | status | congelar vN [--nota ""] | testar [--motor v|rascunho] [--sites a,b] | aplicar vN (--sites a,b | --todos) [--dry] [--sem-teste] | reverter (--sites a,b | --todos) | historico | atualizar [dominio1,dominio2] [--publicar] [--forcar] [--completo] | publicar');
+      console.log('Comandos: tema (status|congelar|testar|aplicar|reverter|historico) | fotos [a,b] | status | congelar vN [--nota ""] | testar [--motor v|rascunho] [--sites a,b] | aplicar vN (--sites a,b | --todos) [--dry] [--sem-teste] | reverter (--sites a,b | --todos) | historico | atualizar [dominio1,dominio2] [--publicar] [--forcar] [--completo] | publicar');
   }
 })().catch((e) => falha(e.stack || e.message));

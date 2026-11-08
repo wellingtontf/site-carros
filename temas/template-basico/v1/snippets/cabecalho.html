@@ -1,0 +1,19 @@
+<div class="faixa-topo">
+  <div class="faixa-in">
+    <span>{{site.cabecalho.aviso}}{{#site.cabecalho.avisoDestaque}} <strong>{{site.cabecalho.avisoDestaque}}</strong>{{/site.cabecalho.avisoDestaque}}</span>
+    {{#site.cabecalho.telefone}}<a href="#" class="js-zap" data-msg="Olá! Estava no site e gostaria da ajuda de um especialista!">WhatsApp {{site.cabecalho.telefone}}</a>{{/site.cabecalho.telefone}}
+  </div>
+</div>
+<header class="topo">
+  <a class="marca" href="{{inicioUrl}}">{{#configuracoes.logo}}<img class="logo" src="{{configuracoes.logo}}" alt="{{site.nome}}" width="221" height="28" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="logo-txt" hidden><b>{{site.nome}}</b></span>{{/configuracoes.logo}}{{^configuracoes.logo}}<span class="logo-txt"><b>{{site.nome}}</b></span>{{/configuracoes.logo}}</a>
+  <input type="checkbox" id="menu-abre" class="menu-abre" aria-hidden="true">
+  <label for="menu-abre" class="menu-botao" aria-label="Abrir menu"><span></span><span></span><span></span></label>
+  <nav class="menu">
+    <div class="drop"><button type="button">Encontre por cidade</button>
+      <ul>{{#estoque.cidades}}<li><a href="{{link}}">{{valor}}</a></li>{{/estoque.cidades}}</ul></div>
+    {{#site.cabecalho.menu}}<a href="{{link}}">{{rotulo}}</a>{{/site.cabecalho.menu}}
+    <div class="drop"><button type="button">Sobre</button>
+      <ul>{{#site.cabecalho.sobre}}<li><a href="{{link}}">{{rotulo}}</a></li>{{/site.cabecalho.sobre}}</ul></div>
+    <a class="btn-topo" href="{{estoqueUrl}}">Ver estoque</a>
+  </nav>
+</header>

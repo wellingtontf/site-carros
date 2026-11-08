@@ -53,6 +53,7 @@ sites-config/<dominio>/    A FONTE de cada site (o nome da pasta é o domínio e
   codigos/                   scripts do site (head.html, body.html): GTM, chat...; só depois do aceite de cookies
   assets/                    logo, banners, favicon, fontes
 temas/<nome>/              UM TEMA, autocontido, estrutura do Shopify (barra-topo, lateral, template-basico)
+  rascunho/  v1/  v2/        o designer edita o rascunho; vN são congeladas; o site fixa "versaoTema"
 componentes/<nome>/        peças usadas por todos os temas e páginas (filtro, estoque, filtros-ativos)
 inquilinos/<id>/           configuração e temas próprios de cada inquilino
 config/                    configuração global (copie os .exemplo.json)
@@ -74,6 +75,7 @@ Gerados e fora do git: `sites-public/` (sites prontos), `.estado/` (estado do bu
 | **build** | `core/build.js`: transforma a fonte na saída ([passo a passo](como-o-build-funciona.md)) |
 | **tema** | o visual de um grupo de sites (`temas/<nome>/`, estrutura do Shopify; ver [temas.md](temas.md)) |
 | **configurações** | o que muda de uma revenda para outra dentro do tema: cor, fonte, logo (`"configuracoes"` no `site.json`); o tema declara o que aceita em `config/settings_schema.json` |
+| **versão do tema** | `temas/<nome>/v1`, `v2`...: congeladas a partir do `rascunho/`; o site fixa a dele (`"versaoTema"`), como o motor |
 | **layout** | a moldura comum de todas as páginas de um tema (`layout/tema.html`: head, cabeçalho, rodapé) |
 | **template** | o arquivo de um tipo de página dentro do tema (`templates/home.html`...), encaixado no layout |
 | **componente** | peça reutilizável com opções (`componentes/<nome>/`: filtro, estoque, filtros-ativos) |

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+{{$head}}{{/head}}
+{{{fonteLink}}}
+<link rel="stylesheet" href="{{rel}}css/base.css">
+<link rel="stylesheet" href="{{rel}}css/style.css">
+<style>{{{temaCss}}}</style>
+{{#configuracoes.favicon}}<link rel="icon" href="{{configuracoes.favicon}}">{{/configuracoes.favicon}}
+</head>
+<body{{$atributos}} data-page="pagina" data-base="{{base}}" data-rel="{{rel}}"{{/atributos}}>
+<header class="topo">
+  {{#configuracoes.logo}}<img class="logo" src="{{configuracoes.logo}}" alt="{{site.nome}}">{{/configuracoes.logo}}
+  <a class="marca" href="{{inicioUrl}}">{{site.nome}}</a>
+  <span class="slogan">{{site.slogan}}</span>
+{{$cabecalho}}{{/cabecalho}}</header>
+{{$conteudo}}{{/conteudo}}
+{{#site.textos.rodape}}<footer class="rodape">{{site.textos.rodape}}</footer>{{/site.textos.rodape}}
+{{$scripts}}<script src="{{rel}}motor/engine.js"></script>
+<script src="{{rel}}motor/ui-util.js"></script>
+{{/scripts}}{{#site.links.length}}<nav class="links-legais">{{#site.links}}<a href="{{link}}">{{rotulo}}</a>{{/site.links}}</nav>{{/site.links.length}}
+<script src="{{rel}}motor/ui-site.js"></script>
+</body>
+</html>

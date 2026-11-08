@@ -55,7 +55,7 @@ function criarSite(id, { site = {}, carros = [] } = {}) {
   const dir = path.join(RAIZ, 'sites-config', id);
   fs.mkdirSync(dir, { recursive: true });
   const { paginas, componentes, estoque, ...resto } = site;
-  const cfg = { nome: `Site ${id}`, slogan: 'Seminovos de teste', motor: 'v2', tema: 'teste', url: `https://${id}`, whatsapp: '5511999999999', fotosBase: 'https://fotos.teste/', lojas: LOJAS, ...resto };
+  const cfg = { nome: `Site ${id}`, slogan: 'Seminovos de teste', motor: 'v2', tema: 'teste', versaoTema: 'v1', url: `https://${id}`, whatsapp: '5511999999999', fotosBase: 'https://fotos.teste/', lojas: LOJAS, ...resto };
   fs.writeFileSync(path.join(dir, 'site.json'), JSON.stringify(cfg, null, 2));
   fs.writeFileSync(path.join(dir, 'estoque.json'), JSON.stringify({ carros }));
   if (paginas) gravarPaginas(id, paginas);

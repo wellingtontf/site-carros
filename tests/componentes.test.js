@@ -17,8 +17,8 @@ const build = () => A.silencioso(() => construir({ sites: [ID] })).r.feitos[0];
 function templateComComponentes(nome, multipla) {
   const dir = path.join(A.raiz(), 'temas', nome);
   fs.rmSync(dir, { recursive: true, force: true });
-  fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'temas', 'teste'), dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, 'templates', 'multipla.html'), `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>{{listagem.titulo}}</title></head><body data-rel="{{rel}}" data-base="{{base}}" data-filtro="{{listagem.filtro}}">${multipla}<script src="{{rel}}motor/ui-site.js"></script></body></html>`);
+  fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'temas', 'teste', 'v1'), path.join(dir, 'v1'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'v1', 'templates', 'multipla.html'), `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>{{listagem.titulo}}</title></head><body data-rel="{{rel}}" data-base="{{base}}" data-filtro="{{listagem.filtro}}">${multipla}<script src="{{rel}}motor/ui-site.js"></script></body></html>`);
   return nome;
 }
 
@@ -90,7 +90,7 @@ test('erros: opção inválida no template, no site.json e na página param o bu
 
 test('todos os templates do projeto usam os componentes na listagem', () => {
   for (const t of fs.readdirSync(path.join(A.PROJETO, 'temas'))) {
-    const h = fs.readFileSync(path.join(A.PROJETO, 'temas', t, 'templates', 'multipla.html'), 'utf8');
+    const h = fs.readFileSync(path.join(A.PROJETO, 'temas', t, 'v1', 'templates', 'multipla.html'), 'utf8');
     assert.match(h, /\{\{componente filtro/, `${t}: filtro`);
     assert.match(h, /\{\{componente estoque/, `${t}: estoque`);
   }

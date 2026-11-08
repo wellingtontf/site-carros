@@ -1,0 +1,12 @@
+<!-- busca: titulo, botao, atalhos[{rotulo, link}]. Marca (com total), modelo (só os da marca), preço e ano: as opções de preço/ano são as dos filtros do site.json. -->
+<section class="b-busca">
+  {{#titulo}}<h2>{{titulo}}</h2>{{/titulo}}
+  <form class="b-busca-form js-busca" action="{{estoqueUrl}}" method="get">
+    <select name="marca" aria-label="Marca"><option value="">Selecione a marca</option>{{#marcas}}<option value="{{valor}}">{{valor}} ({{total}})</option>{{/marcas}}</select>
+    <select name="modelo" aria-label="Modelo"><option value="">Selecione o modelo</option>{{#modelos}}<option value="{{valor}}" data-marca="{{marca}}">{{valor}}</option>{{/modelos}}</select>
+    {{#opcoesPreco.length}}<select name="preco" aria-label="Preço"><option value="">Preço até</option>{{#opcoesPreco}}<option value="{{valor}}">{{rotulo}}</option>{{/opcoesPreco}}</select>{{/opcoesPreco.length}}
+    {{#opcoesAno.length}}<select name="ano" aria-label="Ano"><option value="">Ano a partir de</option>{{#opcoesAno}}<option value="{{valor}}">{{rotulo}}</option>{{/opcoesAno}}</select>{{/opcoesAno.length}}
+    <button type="submit">{{botao}}{{^botao}}Pesquisar{{/botao}}</button>
+  </form>
+  {{#atalhos.length}}<p class="b-atalhos">{{#atalhos}}<a href="{{link}}">{{rotulo}}</a>{{/atalhos}}</p>{{/atalhos.length}}
+</section>

@@ -4,6 +4,7 @@
 //   node core/build.js                                          todos os sites, com o motor que cada um usa (sites-public/)
 //   node core/build.js --sites trokey.com.br,outro.com.br        só esses sites
 //   node core/build.js --sites trokey.com.br --motor rascunho    testa o motor em rascunho num site (vai para dist-preview/)
+//   node core/build.js --sites x.com.br --versao-tema rascunho   prévia do rascunho do tema (temas/<nome>/rascunho; dist-preview/)
 //   --completo                                                  ignora o que já foi gerado e refaz tudo
 //   --saida <pasta>                                             muda a pasta de saída
 // Entradas:  sites-config/<dominio>/  temas/<nome>/  core/motor/<versao>/engine.js  core/ui/
@@ -44,11 +45,12 @@ const FormatoEstoque = require('./ui/formato-estoque.js'); // "formatoEstoque": 
 const PL = require('./paginas-livres'); // páginas livres dos web designers (HTML normal)
 const Fotos = require('./fotos'); // fotos por URL: quantas já estão prontas
 const Robots = require('./robots');
-const Sitemap = require('./sitemap');
-const Comp = require('./componentes'); // componentes (componentes/<nome>/): {{componente x}} nos templates, bloco "componente" nas páginas // sitemap.xml: páginas + carros no ar (core/sitemap.js; gerarSitemap(dominio) também roda sozinho)
+const Sitemap = require('./sitemap'); // sitemap.xml: páginas + carros no ar (core/sitemap.js)
+const Comp = require('./componentes'); // componentes (componentes/<nome>/): {{componente x}} nos temas, seção "componente" nas páginas
 const Inq = require('./inquilinos'); // inquilino do site: tema próprio dele, se houver
-const Temas = require('./temas');
-const Codigos = require('./codigos'); // GTM, GA4, Pixel e código livre (site e inquilino), só depois do aceite de cookies // o que o tema declara (config/settings_schema.json) e os textos padrão dele (locales/pt-BR.json)
+const Temas = require('./temas'); // o que o tema declara (config/settings_schema.json) e os textos padrão dele (locales/pt-BR.json)
+const Codigos = require('./codigos'); // GTM, GA4, Pixel e código livre (site e inquilino), só depois do aceite de cookies
+const Versoes = require('./versoes'); // versões do tema (temas/<nome>/v1...)
 const Sites = require('./sites'); // repositório de sites: o único que lê a pasta sites-config/
 const Pendentes = require('./pendentes'); // o que falta publicar, um arquivo por site
 const { renovarMinhas } = require('./trava'); // build longo: mantém as travas do trabalhador vivas // modelo do robots.txt (um para todos os sites; o site pode ter o seu)
@@ -324,8 +326,10 @@ const preencherTextos = (o, ctx) => (typeof o === 'string' ? render(o, ctx) : Ar
 
 // completo = do zero, DESCARTANDO o histórico (vendidos, redirecionamentos): só antes de publicar.
 // todasPaginas = regera todas as páginas do site MANTENDO o histórico (o "rebuild" seguro para site no ar).
-function construir({ sites = null, motor = null, saida = null, completo = false, todasPaginas = false, efemero = false, hoje: hojeParam = null } = {}) {
-  const pasta = saida || (motor ? 'dist-preview' : C.PUBLICO);
+// motor / versaoTema: troca a versão de TODOS os sites gerados (prévia de um rascunho, ou os testes antes de aplicar uma
+// versão nova); sem saida, vai para dist-preview/ (nunca publicada)
+function construir({ sites = null, motor = null, versaoTema = null, saida = null, completo = false, todasPaginas = false, efemero = false, hoje: hojeParam = null } = {}) {
+  const pasta = saida || (motor || versaoTema ? 'dist-preview' : C.PUBLICO);
   const DIST = C.saida(pasta);
   const todos = Sites.carregarTodos();
   const alvo = sites
@@ -364,10 +368,17 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     if (site.template !== undefined || (site.tema && typeof site.tema === 'object')) throw new Error(`Site "${site.id}": "template" agora se chama "tema" e as cores/logo vão em "configuracoes". Para migrar: node ferramentas/migrar-temas.js`);
     const nomeTpl = site.tema;
     // tema próprio do inquilino (inquilinos/<id>/temas/<nome>, sem deploy) ou o da imagem (temas/<nome>)
-    const dirTpl = nomeTpl ? Inq.dirTema(Inq.doSite(site), nomeTpl) : null;
-    if (!nomeTpl || !fs.existsSync(dirTpl)) throw new Error(`Site "${site.id}": tema "${nomeTpl}" não existe (temas/${nomeTpl}/)`);
-    const antigos = C.TEMA_ANTIGO.filter((x) => fs.existsSync(path.join(dirTpl, x)));
+    const raizTema = nomeTpl ? Inq.dirTema(Inq.doSite(site), nomeTpl) : null;
+    if (!nomeTpl || !fs.existsSync(raizTema)) throw new Error(`Site "${site.id}": tema "${nomeTpl}" não existe (temas/${nomeTpl}/)`);
+    const antigos = C.TEMA_ANTIGO.filter((x) => fs.existsSync(path.join(raizTema, x)));
     if (antigos.length) throw new Error(`Tema "${nomeTpl}" com a estrutura antiga (${antigos.join(', ')}): agora é config/settings_schema.json, templates/, secoes/, snippets/ e assets/. Para migrar: node ferramentas/migrar-temas.js`);
+    // VERSÃO do tema (temas/<nome>/v1, v2...; o rascunho só na prévia), fixa no site.json como a do motor
+    if (Versoes.temaSemVersoes(raizTema)) throw new Error(`Tema "${nomeTpl}" sem versões (o tema fica em temas/${nomeTpl}/v1/, e o designer edita temas/${nomeTpl}/rascunho/). Para migrar: node ferramentas/migrar-temas.js`);
+    const vTema = versaoTema || site.versaoTema;
+    if (!vTema) throw new Error(`Site "${site.id}" sem "versaoTema" (ex.: "versaoTema": "${Versoes.ultimaVersaoTema(raizTema) || 'v1'}") em sites-config/${site.id}/site.json`);
+    if (vTema !== 'rascunho' && !Versoes.VERSAO_OK.test(vTema)) throw new Error(`Site "${site.id}": "versaoTema" inválida "${vTema}" (ex.: "v1")`);
+    const dirTpl = path.join(raizTema, vTema);
+    if (!fs.existsSync(dirTpl)) throw new Error(`Site "${site.id}": tema "${nomeTpl}" não tem a versão "${vTema}" (existem: ${Versoes.versoesTema(raizTema).join(', ') || 'nenhuma'})`);
     const faltam = [[path.join(dirTpl, C.TEMA.schema), C.TEMA.schema.split(path.sep).join('/')], ...PAGINAS.map((p) => [path.join(dirTpl, C.TEMA.templates, p), `templates/${p}`]), ...SECOES_OBRIGATORIAS.map((b) => [path.join(dirTpl, C.TEMA.secoes, `${b}.html`), `secoes/${b}.html`])]
       .filter(([arq]) => !fs.existsSync(arq)).map(([, nome]) => nome);
     if (faltam.length) throw new Error(`Tema "${nomeTpl}" incompleto: falta ${faltam.join(', ')}`);
@@ -970,7 +981,7 @@ if (require.main === module) {
   const a = process.argv.slice(2);
   const val = (k) => { const i = a.indexOf(k); return i >= 0 ? a[i + 1] : null; };
   try {
-    construir({ sites: val('--sites') ? val('--sites').split(',').map((s) => s.trim()) : null, motor: val('--motor'), saida: val('--saida'), completo: a.includes('--completo') });
+    construir({ sites: val('--sites') ? val('--sites').split(',').map((s) => s.trim()) : null, motor: val('--motor'), versaoTema: val('--versao-tema'), saida: val('--saida'), completo: a.includes('--completo') });
   } catch (e) {
     console.error('Erro: ' + e.message);
     process.exit(1);

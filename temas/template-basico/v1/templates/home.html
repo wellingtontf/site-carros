@@ -1,0 +1,11 @@
+{{$head}}<title>{{pagina.titulo}}</title>
+<meta name="description" content="{{pagina.descricao}}">
+{{{canon}}}{{/head}}
+{{$conteudo}}<main class="conteudo">
+{{{conteudo}}}
+</main>{{/conteudo}}
+{{$scripts}}<script src="{{rel}}motor/ui-util.js"></script>
+{{#temListagem}}{{> tpl-card}}
+<script src="{{rel}}motor/link-carro.js"></script>
+<script src="{{rel}}motor/ui-lista.js"></script>{{/temListagem}}
+{{/scripts}}

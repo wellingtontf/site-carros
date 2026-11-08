@@ -199,7 +199,7 @@ test('LGPD: scripts de terceiros só rodam depois do "Aceitar"; "Recusar" nunca 
 });
 
 // barra de busca (componente barra-busca; no template-basico fica acima dos filtros ativos)
-for (const t of templates.filter((x) => fs.readFileSync(path.join(A.PROJETO, 'temas', x, 'templates', 'multipla.html'), 'utf8').includes('{{componente barra-busca'))) {
+for (const t of templates.filter((x) => fs.readFileSync(path.join(A.PROJETO, 'temas', x, 'v1', 'templates', 'multipla.html'), 'utf8').includes('{{componente barra-busca'))) {
   const id = `${t}.teste.com.br`;
   test(`[${t}] barra de busca: marca e modelo em cascata, ordenação à direita, tudo no endereço e nos filtros ativos`, { skip: pular }, async () => {
     const arq = path.join(raiz, 'sites-public', id, 'teste-barra.html');

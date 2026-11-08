@@ -72,9 +72,27 @@ test('auditoria dos sites reais: nenhum PROBLEMA de produção', () => {
   assert.deepEqual(resultados.filter((r) => r.nivel === 'PROBLEMA' && r.chave !== 'localhost').map((r) => `${r.item}: ${r.detalhe}`), []);
 });
 
-test('todo tema tem a estrutura do padrão Shopify e o mínimo exigido pelo core (templates e seções da home padrão)', () => {
+// cada tema = temas/<nome>/{rascunho, v1, v2...}; os testes de estrutura valem para TODAS as pastas (rascunho e congeladas)
+const V = require('../core/versoes');
+const versoesDe = (t) => { const raiz = path.join(A.PROJETO, 'temas', t); return ['rascunho', ...V.versoesTema(raiz)].map((v) => [`${t} ${v}`, path.join(raiz, v)]); };
+const todasAsVersoes = () => fs.readdirSync(path.join(A.PROJETO, 'temas')).flatMap(versoesDe);
+
+test('todo tema é versionado: só rascunho/ e vN/ na pasta; versões congeladas não foram editadas (sha256 em versao.json)', () => {
   for (const t of fs.readdirSync(path.join(A.PROJETO, 'temas'))) {
-    const dir = path.join(A.PROJETO, 'temas', t);
+    const raiz = path.join(A.PROJETO, 'temas', t);
+    assert.deepEqual(fs.readdirSync(raiz).filter((n) => n !== 'rascunho' && !V.VERSAO_OK.test(n)), [], `${t}: só rascunho/ e v1/, v2/... na pasta do tema`);
+    assert.ok(V.ehVersaoDeTema(raiz, 'rascunho'), `${t}: falta o rascunho (onde o designer edita)`);
+    assert.ok(V.versoesTema(raiz).length, `${t}: nenhuma versão congelada`);
+    for (const v of V.versoesTema(raiz)) {
+      const info = JSON.parse(fs.readFileSync(path.join(raiz, v, 'versao.json'), 'utf8'));
+      assert.equal(info.versao, v);
+      assert.equal(V.hashPasta(path.join(raiz, v)), info.sha256, `temas/${t}/${v} foi editada depois de congelada: edite temas/${t}/rascunho e congele uma versão nova (node core/cli.js tema congelar ${t} vN)`);
+    }
+  }
+});
+
+test('todo tema tem a estrutura do padrão Shopify e o mínimo exigido pelo core (templates e seções da home padrão)', () => {
+  for (const [t, dir] of todasAsVersoes()) {
     for (const p of ['home.html', 'multipla.html', 'carro.html', 'vendido.html', 'pagina.html']) assert.ok(fs.existsSync(path.join(dir, 'templates', p)), `${t}: falta templates/${p}`);
     for (const b of ['banner', 'vitrine', 'titulo', 'texto', 'formulario', 'lojas']) assert.ok(fs.existsSync(path.join(dir, 'secoes', `${b}.html`)), `${t}: falta secoes/${b}.html (home e páginas padrão)`);
     assert.ok(fs.existsSync(path.join(dir, 'config', 'settings_schema.json')), `${t}: falta config/settings_schema.json`);
@@ -96,8 +114,7 @@ test('todo tema tem a estrutura do padrão Shopify e o mínimo exigido pelo core
 test('todo tema declara o que usa: cada {{configuracoes.x}}, {{site.cabecalho.x}}, {{site.rodape.x}} e {{site.textos.x}} está no settings_schema.json / locales/pt-BR.json', () => {
   const Temas = require('../core/temas');
   const listarArq = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? listarArq(path.join(d, e.name)) : [path.join(d, e.name)]));
-  for (const t of fs.readdirSync(path.join(A.PROJETO, 'temas'))) {
-    const dir = path.join(A.PROJETO, 'temas', t);
+  for (const [t, dir] of todasAsVersoes()) {
     const tema = Temas.carregar(dir); // schema e locale válidos (tipos e padrões conferidos)
     const html = listarArq(dir).filter((f) => f.endsWith('.html')).map((f) => fs.readFileSync(f, 'utf8')).join('\n');
     const usados = (re) => [...new Set([...html.matchAll(re)].map((m) => m[1]))];
@@ -116,7 +133,7 @@ test('todo tema funciona com a home padrão e com um site de 1 loja (gerado e va
     const id = `tpl-${t}.teste.com.br`;
     const dir = path.join(sitesTmp, id);
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, 'site.json'), JSON.stringify({ nome: 'X', motor: 'v2', tema: t, url: `https://${id}`, whatsapp: '5511', lojas: { u: { nome: 'Única', cidade: 'Curitiba', uf: 'PR' } } }));
+    fs.writeFileSync(path.join(dir, 'site.json'), JSON.stringify({ nome: 'X', motor: 'v2', tema: t, versaoTema: V.ultimaVersaoTema(path.join(A.PROJETO, 'temas', t)), url: `https://${id}`, whatsapp: '5511', lojas: { u: { nome: 'Única', cidade: 'Curitiba', uf: 'PR' } } }));
     fs.writeFileSync(path.join(dir, 'estoque.json'), JSON.stringify({ carros: [A.carro({ loja: undefined }), A.carro({ loja: undefined, fotos: 0 })] }));
   }
   // aponta sites-config/ para a pasta temporária só neste teste
@@ -136,12 +153,12 @@ test('todo tema funciona com a home padrão e com um site de 1 loja (gerado e va
 
 test('cada tipo de página tem o seu arquivo no tema: a home usa home.html (não a moldura das páginas internas)', () => {
   const sitesTmp = path.join(raiz, 'sites-home');
-  const tpl = path.join(raiz, 'temas', 'home-propria');
-  fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'temas', 'teste'), tpl, { recursive: true });
+  const tpl = path.join(raiz, 'temas', 'home-propria', 'v1');
+  fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'temas', 'teste', 'v1'), tpl, { recursive: true });
   fs.writeFileSync(path.join(tpl, 'templates', 'home.html'), fs.readFileSync(path.join(tpl, 'templates', 'home.html'), 'utf8').replace('{{/conteudo}}', '<i data-moldura="home"></i>{{/conteudo}}'));
   const id = 'home-propria.teste.com.br';
   fs.mkdirSync(path.join(sitesTmp, id), { recursive: true });
-  fs.writeFileSync(path.join(sitesTmp, id, 'site.json'), JSON.stringify({ nome: 'X', motor: 'v2', tema: 'home-propria', url: `https://${id}`, lojas: { u: { nome: 'U', cidade: 'Curitiba', uf: 'PR' } } }));
+  fs.writeFileSync(path.join(sitesTmp, id, 'site.json'), JSON.stringify({ nome: 'X', motor: 'v2', tema: 'home-propria', versaoTema: 'v1', url: `https://${id}`, lojas: { u: { nome: 'U', cidade: 'Curitiba', uf: 'PR' } } }));
   fs.writeFileSync(path.join(sitesTmp, id, 'estoque.json'), JSON.stringify({ carros: [A.carro({ loja: undefined })] }));
   fs.rmSync(path.join(raiz, 'sites-config'));
   fs.symlinkSync(sitesTmp, path.join(raiz, 'sites-config'));

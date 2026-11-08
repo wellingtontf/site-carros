@@ -522,12 +522,12 @@ test('aviso de cookies: vai no config.json; "avisoCookies": false desliga; texto
 });
 
 test('tema sem as seções obrigatórias é recusado com mensagem clara', () => {
-  const tpl = path.join(A.raiz(), 'temas', 'incompleto');
+  const tpl = path.join(A.raiz(), 'temas', 'incompleto', 'v1');
   fs.mkdirSync(path.join(tpl, 'templates'), { recursive: true });
   for (const p of ['home', 'multipla', 'carro', 'vendido', 'pagina']) fs.writeFileSync(path.join(tpl, 'templates', `${p}.html`), '<html></html>');
   A.criarSite(ID, { carros: [A.carro()], site: { tema: 'incompleto' } });
   assert.throws(() => build(), /falta config\/settings_schema\.json, secoes\/banner\.html.*secoes\/lojas\.html/);
-  fs.rmSync(tpl, { recursive: true });
+  fs.rmSync(path.dirname(tpl), { recursive: true });
 });
 
 test('padrão Shopify: tema e site com os nomes antigos dão erro claro; ferramentas/migrar-temas.js converte e a saída é a mesma', () => {
@@ -541,7 +541,8 @@ test('padrão Shopify: tema e site com os nomes antigos dão erro claro; ferrame
   const referencia = saidaDe();
   // o mesmo tema na estrutura antiga (template.json, paginas/, blocos/, css/ na raiz; {{tema.logo}}; "blocos" nas páginas padrão)
   const dir = path.join(A.raiz(), 'temas', 'velho');
-  fs.cpSync(path.join(__dirname, 'fixtures', 'temas', 'teste'), dir, { recursive: true });
+  fs.cpSync(path.join(__dirname, 'fixtures', 'temas', 'teste', 'v1'), dir, { recursive: true }); // sem versões (como era antes)
+  fs.rmSync(path.join(dir, 'versao.json'));
   for (const [novo, velho] of [['config/settings_schema.json', 'template.json'], ['templates', 'paginas'], ['secoes', 'blocos'], ['assets/css', 'css']]) fs.renameSync(path.join(dir, novo), path.join(dir, velho));
   for (const f of A.listar(dir)) {
     const t = fs.readFileSync(f, 'utf8');
@@ -558,10 +559,12 @@ test('padrão Shopify: tema e site com os nomes antigos dão erro claro; ferrame
   assert.throws(() => build(), /Tema "velho" com a estrutura antiga \(template\.json, paginas, blocos\).*migrar-temas/);
   // volta o site ao antigo e migra tudo
   A.gravarSite(ID, { template: 'velho', tema: configuracoes, ...resto, pagina404: { titulo: '404', blocos: site.pagina404.secoes } });
-  A.silencioso(() => { Migrar.migrarTema(dir); Migrar.migrarSite(ID); });
+  A.silencioso(() => { Migrar.migrarTema(dir); Migrar.versionarTema(dir); Migrar.migrarSite(ID); });
   const migrado = A.lerSite(ID);
-  assert.deepEqual([migrado.tema, migrado.configuracoes, migrado.template, migrado.pagina404.secoes.length], ['velho', configuracoes, undefined, 1]);
-  assert.ok(fs.existsSync(path.join(dir, 'config', 'settings_schema.json')) && fs.existsSync(path.join(dir, 'assets', 'css')) && !fs.existsSync(path.join(dir, 'paginas')));
+  assert.deepEqual([migrado.tema, migrado.versaoTema, migrado.configuracoes, migrado.template, migrado.pagina404.secoes.length], ['velho', 'v1', configuracoes, undefined, 1]);
+  for (const v of ['v1', 'rascunho']) assert.ok(fs.existsSync(path.join(dir, v, 'config', 'settings_schema.json')) && fs.existsSync(path.join(dir, v, 'assets', 'css')) && !fs.existsSync(path.join(dir, v, 'paginas')), v);
+  assert.ok(!fs.existsSync(path.join(dir, 'config')), 'nada solto na raiz do tema');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'v1', 'versao.json'), 'utf8')).sha256, require('../core/versoes').hashPasta(path.join(dir, 'v1')));
   build({ completo: true });
   const depois = saidaDe(); depois['config.json'] = depois['config.json'].replace('"tema":"velho"', '"tema":"teste"'); // só o nome do tema muda
   assert.deepEqual(Object.keys(depois).filter((k) => depois[k] !== referencia[k]).concat(Object.keys(referencia).filter((k) => !(k in depois))), [], 'depois de migrar, o site sai idêntico');
@@ -570,8 +573,8 @@ test('padrão Shopify: tema e site com os nomes antigos dão erro claro; ferrame
 });
 
 test('layout/tema.html: o template preenche os blocos {{$...}}, o resto vem do layout (com padrão); sem blocos = documento inteiro; erros claros', () => {
-  const dir = path.join(A.raiz(), 'temas', 'com-layout');
-  fs.cpSync(path.join(__dirname, 'fixtures', 'temas', 'teste'), dir, { recursive: true });
+  const dir = path.join(A.raiz(), 'temas', 'com-layout', 'v1');
+  fs.cpSync(path.join(__dirname, 'fixtures', 'temas', 'teste', 'v1'), dir, { recursive: true });
   const tpl = (f, t) => fs.writeFileSync(path.join(dir, 'templates', f), t);
   fs.mkdirSync(path.join(dir, 'layout'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'layout', 'tema.html'), '<!doctype html><html><head><meta charset="utf-8"><title>{{$titulo}}{{site.nome}}{{/titulo}}</title>{{$head}}{{/head}}</head>' +
@@ -591,12 +594,12 @@ test('layout/tema.html: o template preenche os blocos {{$...}}, o resto vem do l
   erro('{{$conteudo}}a{{/conteudo}}{{$conteudo}}b{{/conteudo}}', /bloco \{\{\$conteudo\}\} aparece duas vezes/);
   fs.rmSync(path.join(dir, 'layout'), { recursive: true });
   erro('{{$conteudo}}x{{/conteudo}}', /templates\/[a-z]+\.html usa o layout.*não tem layout\/tema\.html/);
-  fs.rmSync(dir, { recursive: true });
+  fs.rmSync(path.dirname(dir), { recursive: true });
 });
 
 test('settings_schema.json e locales/pt-BR.json: padrão vem do tema; site vale mais; chave que o tema não usa = aviso; tipo errado = erro', () => {
-  const dir = path.join(A.raiz(), 'temas', 'com-schema');
-  fs.cpSync(path.join(__dirname, 'fixtures', 'temas', 'teste'), dir, { recursive: true });
+  const dir = path.join(A.raiz(), 'temas', 'com-schema', 'v1');
+  fs.cpSync(path.join(__dirname, 'fixtures', 'temas', 'teste', 'v1'), dir, { recursive: true });
   const schema = JSON.parse(fs.readFileSync(path.join(dir, 'config', 'settings_schema.json'), 'utf8'));
   schema.configuracoes.cor.padrao = '#123abc';
   schema.rodape = { links: { tipo: 'itens', campos: { rotulo: { tipo: 'texto' }, link: { tipo: 'texto' } } }, contato: { tipo: 'item', campos: { link: { tipo: 'texto' } } }, mostrar: { tipo: 'booleano', padrao: true } };
@@ -640,7 +643,7 @@ test('settings_schema.json e locales/pt-BR.json: padrão vem do tema; site vale 
   fs.writeFileSync(path.join(dir, 'config', 'settings_schema.json'), JSON.stringify(schema));
   site({});
   assert.throws(() => build(), /settings_schema\.json: configuracoes\.raio \(padrão\): precisa ser número/);
-  fs.rmSync(dir, { recursive: true });
+  fs.rmSync(path.dirname(dir), { recursive: true });
 });
 
 test('scripts (core/codigos.js): integrações + codigos/ do inquilino e do site em TODAS as páginas, dentro de <template data-lgpd>; rascunho não recebe; erros claros', () => {
@@ -769,7 +772,7 @@ test('designer: página do template vale para todos os sites; o site troca ou de
   const extras = path.join(A.raiz(), 'templates-extra');
   // template de teste com paginas-extras (cópia do "teste" para não sujar o fixture)
   fs.cpSync(path.join(__dirname, 'fixtures', 'temas', 'teste'), path.join(extras, 'com-extras'), { recursive: true });
-  escrever(path.join(extras, 'com-extras', 'paginas-extras', 'financiamento.html'), '<h1>Financiamento padrão</h1>');
+  escrever(path.join(extras, 'com-extras', 'v1', 'paginas-extras', 'financiamento.html'), '<h1>Financiamento padrão</h1>');
   fs.symlinkSync(path.join(extras, 'com-extras'), path.join(A.raiz(), 'temas', 'com-extras'));
   try {
     A.criarSite(ID, { carros: [A.carro()], site: { tema: 'com-extras' } });
@@ -786,7 +789,7 @@ test('designer: página do template vale para todos os sites; o site troca ou de
 test('designer: editar página do template NÃO refaz as páginas de carro (2500 sites)', () => {
   const extras = path.join(A.raiz(), 'templates-extra2');
   fs.cpSync(path.join(__dirname, 'fixtures', 'temas', 'teste'), path.join(extras, 'com-extras'), { recursive: true });
-  const arq = path.join(extras, 'com-extras', 'paginas-extras', 'financiamento.html');
+  const arq = path.join(extras, 'com-extras', 'v1', 'paginas-extras', 'financiamento.html');
   escrever(arq, '<h1>v1</h1>');
   fs.symlinkSync(path.join(extras, 'com-extras'), path.join(A.raiz(), 'temas', 'com-extras'));
   try {
@@ -859,8 +862,8 @@ test('páginas padrão novas: financiamento e avaliação (com as lojas do site 
 
 test('páginas padrão vêm do TEMPLATE: editar o texto atualiza a página sem refazer as páginas de carro', () => {
   // cópia do template "teste" (o original é compartilhado entre os testes)
-  const dir = path.join(A.raiz(), 'temas', 'teste-padrao');
-  fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'temas', 'teste'), dir, { recursive: true });
+  const dir = path.join(A.raiz(), 'temas', 'teste-padrao', 'v1');
+  fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'temas', 'teste', 'v1'), dir, { recursive: true });
   A.criarSite(ID, { carros: [A.carro(), A.carro()], site: { tema: 'teste-padrao' } });
   build();
   assert.ok(A.existe(ID, 'paginas/lgpd/index.html'));

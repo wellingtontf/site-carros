@@ -20,8 +20,16 @@ Hoje há `barra-topo`, `lateral` e `template-basico`. Um inquilino pode ter tema
 
 ## Estrutura
 
+Cada tema tem **versões**, como o motor: o designer edita só o `rascunho/`; `v1/`, `v2/`... são congeladas (imutáveis) e
+cada site diz qual usa (`"versaoTema"`). Cada uma dessas pastas é o tema inteiro:
+
 ```
 temas/<nome>/
+  rascunho/                ← o ÚNICO lugar onde se edita
+  v1/  v2/ ...             ← congeladas (versao.json com data, nota e sha256 de todos os arquivos)
+```
+```
+temas/<nome>/<versão>/
   config/
     settings_schema.json   nome, descrição e TUDO que o site pode configurar (configurações, cabeçalho, rodapé)
   locales/
@@ -38,9 +46,38 @@ temas/<nome>/
 
 Comparando com o Shopify: `paginas-padrao/` e `paginas-extras/` não têm equivalente lá e continuam com esses nomes.
 
+## Versões do tema (o fluxo do designer)
+
+```
+node core/cli.js tema status                                  versões de cada tema, quem usa cada uma, se o rascunho mudou
+node core/build.js --sites loja.com.br --versao-tema rascunho prévia do rascunho em dist-preview/ (nada vai para o ar)
+node core/cli.js tema testar template-basico rascunho         gera e testa os sites do tema com o rascunho
+node core/cli.js tema congelar template-basico v2 --nota "rodapé novo"   rascunho → v2 (imutável)
+node core/cli.js tema aplicar template-basico v2 --sites a.com.br        testa e passa esses sites para a v2 (ou --todos)
+node core/cli.js tema reverter --sites a.com.br               volta para a versão anterior
+node core/cli.js tema historico
+```
+
+1. Edite `temas/<nome>/rascunho/` e veja a prévia: `node core/build.js --sites loja.com.br --versao-tema rascunho` e
+   `node ferramentas/servidor-local.js 8090 dist-preview` → `http://localhost:8090/loja.com.br/`.
+2. Congele: o rascunho vira `vN`. Rascunho igual à última versão é recusado (nada para congelar).
+3. Aplique em alguns sites (piloto), confira, e depois em todos (`--todos` = todos os sites daquele tema). O `aplicar` gera
+   e testa os sites com a versão nova antes; se falhar (arquivo faltando, marcador `{{ }}` sobrando, motor), nada muda.
+4. Deu problema no ar: `tema reverter`. Depois de aplicar ou reverter: `node core/build.js --sites ...` e publicar.
+
+- **Versão congelada não se edita:** `versao.json` guarda o sha256 de todos os arquivos, e um teste falha se alguém mexer.
+  Correção = editar o rascunho e congelar uma versão nova.
+- **Tudo do tema está na versão**, inclusive as páginas padrão (textos legais): o texto oficial do jurídico entra numa
+  versão nova e vai para os sites com `tema aplicar ... --todos`. Assim uma versão antiga nunca usa uma seção que ela não tem.
+- O site fixa a versão (`"versaoTema": "v1"`), como o `"motor"`. Site novo nasce na última congelada. Pela API, um `PUT` do
+  cadastro sem `versaoTema` mantém a versão atual (o sistema da revenda não precisa saber disso).
+- Tema próprio de inquilino (`inquilinos/<id>/temas/<nome>/`) segue as mesmas regras; nos comandos, `--inquilino <id>`.
+- Mudar de versão refaz as páginas dos sites que mudaram (o tema entra no hash).
+
 Nome antigo (antes de 2026-11-08: `templates/<nome>/` com `template.json`, `paginas/`, `blocos/`, `parciais/`, `css/` na
 raiz) dá erro claro no build. `node ferramentas/migrar-temas.js` converte tudo (temas, sites e inquilinos;
-`--simular` só mostra).
+`--simular` só mostra). Tema sem versões (arquivos direto em `temas/<nome>/`) também: o script move para `v1/`, copia
+para `rascunho/` e põe `"versaoTema": "v1"` nos sites.
 
 ## O que o site pode configurar (`config/settings_schema.json` e `locales/pt-BR.json`)
 
@@ -208,9 +245,11 @@ cada item com `valor`, `total`, `link`, `chave`). Dentro de uma seção, os camp
 
 ## Criar um tema
 
-1. Copie um tema parecido: `cp -r temas/barra-topo temas/meu-tema`.
-2. Ajuste `config/settings_schema.json` (o que o site pode configurar), `locales/pt-BR.json` (textos), o
+1. Copie o rascunho de um tema parecido: `mkdir temas/meu-tema && cp -r temas/barra-topo/rascunho temas/meu-tema/rascunho`.
+2. No rascunho, ajuste `config/settings_schema.json` (o que o site pode configurar), `locales/pt-BR.json` (textos), o
    `layout/tema.html` (cabeçalho, rodapé), os 5 arquivos de `templates/`, `assets/css/` e as seções.
-3. Use num site: `"tema": "meu-tema"` no `site.json` (ou libere para o inquilino em `"temas"` do `inquilino.json`).
-4. `npm test`: o teste de temas confere a estrutura, arquivos obrigatórios, seções, ids, links quebrados e marcadores
+3. Congele a primeira versão: `node core/cli.js tema congelar meu-tema v1`.
+4. Use num site: `"tema": "meu-tema", "versaoTema": "v1"` no `site.json` (ou libere para o inquilino em `"temas"` do
+   `inquilino.json`).
+5. `npm test`: o teste de temas confere as versões (só `rascunho/` e `vN/`, nenhuma congelada editada), a estrutura, arquivos obrigatórios, seções, ids, links quebrados e marcadores
    sobrando em todos os temas.

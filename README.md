@@ -14,7 +14,7 @@ páginas, temas, componentes, listagem e rotas, estoque, API, publicação, infr
 core/                      só código, isolado: build, motor de busca (versionado), código do navegador (core/ui)
 api/                       API HTTP /v1 (porta de entrada; o core nunca depende dela)
 sites-config/<dominio>/    A FONTE de cada site: site.json, estoque.json, web/ (home, listagem, páginas), componentes/, assets/
-temas/<nome>/              um visual por pasta (estrutura do Shopify): barra-topo, lateral, template-basico
+temas/<nome>/              um visual por pasta (estrutura do Shopify), com versões: rascunho/ (edita) e v1/, v2/ (congeladas)
 componentes/<nome>/        filtro, estoque, filtros-ativos (usados por todos os temas)
 inquilinos/<id>/           configuração e temas de cada inquilino (multi-tenant)
 config/  ferramentas/  infra/  tests/  docs/
@@ -30,6 +30,7 @@ node ferramentas/servidor-local.js 8080    # http://localhost:8080/<dominio>/ (m
 node core/cli.js testar                    # testa os sites gerados
 node api/servidor.js                       # API em :8787 (token: node api/cli.js cliente criar <nome> --sites "*")
 node core/cli.js status                    # versões do motor e o que cada site usa
+node core/cli.js tema status               # versões dos temas (rascunho → v1, v2...) e o que cada site usa
 ```
 Também como `npm run build`, `npm run testar`, `npm run status`, `npm run api`, `npm run cli -- <comando>`.
 

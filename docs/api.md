@@ -33,8 +33,8 @@ O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da
 |---|---|---|
 | GET | `/v1/saude` | sem token: diz se a API está de pé |
 | GET | `/v1/lotes/{lote}` | andamento de uma operação em vários sites (contagem por status e problemas) |
-| GET | `/v1/temas` | temas que o inquilino do token pode usar (`tema`, `nome`, `descricao`, `proprio`) |
-| GET | `/v1/temas/{tema}` | o que o tema aceita: `configuracoes`, `cabecalho`, `rodape` (tipo, padrão, rótulo de cada um) e os `textos` padrão. É o contrato para montar uma tela de configuração ([temas.md](temas.md)) |
+| GET | `/v1/temas` | temas que o inquilino do token pode usar (`tema`, `nome`, `descricao`, `proprio`, `versoes`, `ultima`) |
+| GET | `/v1/temas/{tema}` | (`?versao=v2`; sem ela, a última congelada) o que o tema aceita: `configuracoes`, `cabecalho`, `rodape` (tipo, padrão, rótulo de cada um) e os `textos` padrão. É o contrato para montar uma tela de configuração ([temas.md](temas.md)) |
 | GET / PUT / DELETE | `/v1/sites/{dominio}/codigos/{head\|body}` | **scripts do site** (chat, pixel...): o trecho HTML no corpo (`content-type: text/html`); entra em todas as páginas, só depois do aceite de cookies. Com `</template>`, `<html>`, `<head>` ou `<body>` volta 422 ([configurar-um-site.md](configurar-um-site.md#scripts-gtm-ga4-pixel-da-meta-chat-corecodigosjs)) |
 | GET | `/v1/sites` | sites que o token pode alterar, com o total de carros e a data da última atualização |
 | POST | `/v1/sites` | **cria um site novo com toda a estrutura**: sem domínio = próximo rascunho (`siteN.carro57.com.br`); ou `{"dominio": "novaloja.com.br"}` (ver "Site novo") |
@@ -188,7 +188,7 @@ O `PATCH` segue o JSON Merge Patch (RFC 7396): objeto mescla campo a campo (no e
 }
 ```
 
-Obrigatórios: `nome`, `tema` e `motor`. As `lojas` são opcionais num site novo (cada uma com `nome`, `cidade` e `uf`); sem loja, o site não aceita estoque. Os opcionais (`cabecalho`, `rodape`, `filtros`, `configuracoes`...) seguem o mesmo formato do `site.json` ([configurar-um-site.md](configurar-um-site.md)). As **páginas não vão no cadastro**: cada página é um arquivo em `sites-config/<dominio>/web/` (`web/index.json` = home, `web/paginas/...`), criado pelo web designer (um cadastro com `"paginas"` ou `"estoque"` volta 422; a listagem é `PUT /v1/sites/{dominio}/multipla`). A API recusa (422, nada gravado): tema ou motor inexistente, nome antigo (`template`, `tema` com cores, `blocos`: ver [temas.md](temas.md)), seção que o tema não tem, `url` sem https e loja removida que ainda tem carros no estoque. O cadastro anterior fica guardado como cópia de segurança.
+Obrigatórios: `nome`, `tema`, `versaoTema` e `motor` (`versaoTema`: num site novo, a última versão congelada do tema; num `PUT` sem ela, fica a atual se o tema não mudou, ou a última do tema novo). As `lojas` são opcionais num site novo (cada uma com `nome`, `cidade` e `uf`); sem loja, o site não aceita estoque. Os opcionais (`cabecalho`, `rodape`, `filtros`, `configuracoes`...) seguem o mesmo formato do `site.json` ([configurar-um-site.md](configurar-um-site.md)). As **páginas não vão no cadastro**: cada página é um arquivo em `sites-config/<dominio>/web/` (`web/index.json` = home, `web/paginas/...`), criado pelo web designer (um cadastro com `"paginas"` ou `"estoque"` volta 422; a listagem é `PUT /v1/sites/{dominio}/multipla`). A API recusa (422, nada gravado): tema ou motor inexistente, nome antigo (`template`, `tema` com cores, `blocos`: ver [temas.md](temas.md)), seção que o tema não tem, `url` sem https e loja removida que ainda tem carros no estoque. O cadastro anterior fica guardado como cópia de segurança.
 
 ## Vários sites numa chamada
 

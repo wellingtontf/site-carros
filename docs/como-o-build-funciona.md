@@ -48,7 +48,8 @@ tempo; sites diferentes rodam em paralelo.
 
 1. **`site.json`:** tema, motor, configurações, textos, lojas, filtros, restrições, `url`, `fotosBase`, inquilino.
 2. **Inquilino:** decide de onde vem o tema. Tema próprio do inquilino (`inquilinos/<id>/temas/<nome>/`)
-   vale mais que o de `temas/` com o mesmo nome.
+   vale mais que o de `temas/` com o mesmo nome. Dentro dele, a **versão** do site (`"versaoTema"`: `temas/<nome>/v1/`;
+   o `rascunho/` só com `--versao-tema rascunho`, que gera em `dist-preview/`).
 3. **Tema completo?** Precisa do `config/settings_schema.json`, dos 5 arquivos de `templates/` (`home.html`,
    `multipla.html`, `carro.html`, `vendido.html`, `pagina.html`) e das seções obrigatórias. Faltou: o build para com
    "falta templates/x.html". Tema na estrutura antiga (`template.json`, `paginas/`, `blocos/`...) também para.

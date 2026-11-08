@@ -1,7 +1,7 @@
 # Testes
 
 ```
-npm test               # tudo (~1 min com o Chrome): 311 testes
+npm test               # tudo (~1 min com o Chrome): 318 testes
 npm run test:rapido    # sem o navegador (Chrome)
 npm run test:snapshot  # regrava o snapshot do HTML (depois de aumentar VERSAO_HTML)
 node core/cli.js testar  # testa os sites reais gerados (motor com os dados de verdade, páginas, links)
@@ -24,6 +24,7 @@ testar retenção de vendidos e redirecionamentos. O ajudante comum é `tests/aj
 | `build.test.js` | geração, layout do tema (blocos `{{$...}}`), configurações do tema (padrão, aviso, tipo errado), scripts de terceiros (`codigos/`, integrações, rascunho), incremental, vendidos e retenção, redirecionamentos, ordem, `web/` (home, multipla, páginas), páginas livres, seções, links relativos, `paraFiltro`, migração (`mover-paginas.js` e `migrar-temas.js`: nome antigo dá erro claro e, migrado, sai idêntico), segurança, erros de configuração |
 | `componentes.test.js` | componentes (barra-busca, filtro, estoque, filtros-ativos): camadas de opções (componente < tema < site < página), validação, CSS/scripts injetados sem repetir, ids únicos, opção `checkbox` do filtro, `web/multipla.json` |
 | `sites-config-public.test.js` | contrato fonte → saída: cada parte de `sites-config/<d>/` aparece em `sites-public/<d>/` e o que sai da fonte sai da saída; sobras |
+| `temas-versoes.test.js` | versões dos temas pela linha de comando: congelar (rascunho igual recusado, sha256), prévia do rascunho em `dist-preview/`, aplicar (testa antes, grava só `versaoTema`, `--todos` = sites do tema), versão com defeito não é aplicada, reverter, `versaoTema` obrigatória |
 | `sitemap.test.js` | `gerarSitemap(dominio)` igual ao do build |
 | `xml-robots.test.js` | robots.txt por modelo e por site; `estoque.xml` e `carros.json` antigos são apagados e despublicados |
 | `snapshot-html.test.js` | o HTML gerado só muda junto com `VERSAO_HTML` (veja abaixo) |
@@ -37,7 +38,7 @@ testar retenção de vendidos e redirecionamentos. O ajudante comum é `tests/aj
 | `escala.test.js` | pods de API e de trabalhador separados, vários trabalhadores dividindo os sites, o mesmo site nunca em dois, travas que expiram |
 | `cloudfront.test.js` | função de borda: índice de pasta, barra final, `//`, 301 de páginas antigas, **rotas da `/multipla/`**, prefixo por domínio |
 | `infra-scripts.test.js` | scripts de infra (`SIMULAR=1`): comandos da AWS certos, rascunho sem certificado, definitivo com `www` |
-| `sites-e-temas.test.js` | gera os sites reais e varre **todas** as páginas (link quebrado, `{{marcador}}` sobrando, título, ids); todo tema na estrutura do padrão Shopify, com layout nos 5 templates, tudo que o HTML usa declarado no schema/locale e o mínimo exigido (5 templates, seções, páginas legais, lugar das seções da multipla) |
+| `sites-e-temas.test.js` | temas versionados (só `rascunho/` e `vN/`; versão congelada editada = falha pelo sha256); gera os sites reais e varre **todas** as páginas (link quebrado, `{{marcador}}` sobrando, título, ids); todo tema na estrutura do padrão Shopify, com layout nos 5 templates, tudo que o HTML usa declarado no schema/locale e o mínimo exigido (5 templates, seções, páginas legais, lugar das seções da multipla) |
 | `navegador.test.js` | Chrome headless em **cada** tema: cards montados pelo JS, filtros pela URL e pela rota, caixas de marcar e filtros ativos com cliques de verdade, scripts de terceiros só depois do "Aceitar" (LGPD), barra de busca (marca/modelo em cascata, ordenação), WhatsApp da página do carro, nenhum erro de JS |
 
 ## `VERSAO_HTML` e snapshot

@@ -1,0 +1,5 @@
+<!-- chamada: titulo, texto, botao, link (ou mensagem p/ WhatsApp) -->
+<section class="b-chamada">
+  <div>{{#titulo}}<h2>{{titulo}}</h2>{{/titulo}}{{#texto}}<p>{{texto}}</p>{{/texto}}</div>
+  {{#link}}<a class="b-btn claro" href="{{link}}" target="_blank" rel="noopener">{{botao}}</a>{{/link}}{{^link}}<a class="b-btn claro js-zap" href="#" data-msg="{{mensagem}}">{{botao}}</a>{{/link}}
+</section>

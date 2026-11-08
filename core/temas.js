@@ -17,6 +17,7 @@ const path = require('path');
 const C = require('./caminhos');
 const Inq = require('./inquilinos');
 const Comp = require('./componentes');
+const V = require('./versoes');
 
 const GRUPOS = ['configuracoes', 'cabecalho', 'rodape'];
 const TIPOS = ['texto', 'numero', 'booleano', 'cor', 'lista', 'imagem', 'item', 'itens'];
@@ -36,7 +37,8 @@ function carregar(dir) {
   const onde = path.relative(C.ROOT, path.join(dir, C.TEMA.schema));
   const s = lerJSON(path.join(dir, C.TEMA.schema), null);
   if (!s || typeof s !== 'object' || Array.isArray(s)) throw new Error(`${onde}: precisa ser um objeto { "nome", "configuracoes", ... }`);
-  const t = { id: path.basename(dir), nome: s.nome || path.basename(dir), descricao: s.descricao || '', textos: lerJSON(path.join(dir, LOCALE), {}) };
+  const id = /^(v\d+(\.\d+)*|rascunho)$/.test(path.basename(dir)) ? path.basename(path.dirname(dir)) : path.basename(dir); // pasta da versão → nome do tema
+  const t = { id, nome: s.nome || id, descricao: s.descricao || '', textos: lerJSON(path.join(dir, LOCALE), {}) };
   const erros = [];
   for (const g of GRUPOS) {
     t[g] = s[g] || {};
@@ -108,15 +110,19 @@ function validarSite(site, t) {
 
 // temas que um inquilino pode usar: os da imagem liberados para ele + os próprios dele
 function listar(inquilino = Inq.PADRAO) {
-  const nomes = (dir) => (fs.existsSync(dir) ? fs.readdirSync(dir).filter((n) => fs.existsSync(path.join(dir, n, C.TEMA.schema))) : []); // (aceita link simbólico)
+  const nomes = (dir) => (fs.existsSync(dir) ? fs.readdirSync(dir).filter((n) => V.ehTema(path.join(dir, n))) : []); // (aceita link simbólico)
   const proprios = inquilino !== Inq.PADRAO ? nomes(C.inquilinoTemas(inquilino)) : [];
   return [...new Set([...nomes(C.TEMAS).filter((n) => Inq.temaPermitido(inquilino, n)), ...proprios])].sort();
 }
-// descrição pública de um tema (API: GET /v1/temas/<nome>)
-function descrever(inquilino, nome) {
+// descrição pública de um tema (API: GET /v1/temas/<nome>[?versao=v2]); sem versão, a última congelada
+function descrever(inquilino, nome, versao = null) {
   if (!listar(inquilino).includes(nome)) return null;
-  const t = carregar(Inq.dirTema(inquilino, nome));
-  return { tema: nome, proprio: Inq.temTemaProprio(inquilino, nome), nome: t.nome, descricao: t.descricao,
+  const raiz = Inq.dirTema(inquilino, nome);
+  const versoes = V.versoesTema(raiz);
+  const v = versao || versoes[versoes.length - 1];
+  if (!v || !versoes.includes(v)) return null;
+  const t = carregar(path.join(raiz, v));
+  return { tema: nome, versao: v, versoes, proprio: Inq.temTemaProprio(inquilino, nome), nome: t.nome, descricao: t.descricao,
     configuracoes: t.configuracoes, cabecalho: t.cabecalho, rodape: t.rodape, textos: t.textos };
 }
 

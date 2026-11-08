@@ -87,13 +87,14 @@ function criarRotas({ fila }) {
     if (m === 'GET' && p === '/v1/temas') {
       const inq = inquilinoAlvo(url.searchParams.get('inquilino'));
       const Temas = require('../core/temas');
-      return enviar(res, 200, { inquilino: inq, temas: Temas.listar(inq).map((n) => { const t = Temas.descrever(inq, n); return { tema: n, nome: t.nome, descricao: t.descricao, proprio: t.proprio }; }) });
+      return enviar(res, 200, { inquilino: inq, temas: Temas.listar(inq).map((n) => { const t = Temas.descrever(inq, n); return { tema: n, nome: t.nome, descricao: t.descricao, proprio: t.proprio, versoes: t.versoes, ultima: t.versao }; }) });
     }
     lr = /^\/v1\/temas\/([a-z0-9-]+)$/.exec(p);
     if (m === 'GET' && lr) {
       const inq = inquilinoAlvo(url.searchParams.get('inquilino'));
-      const t = require('../core/temas').descrever(inq, lr[1]);
-      if (!t) throw new Erro(404, `tema "${lr[1]}" não existe ou não está liberado para o inquilino "${inq}"`);
+      const versao = url.searchParams.get('versao');
+      const t = require('../core/temas').descrever(inq, lr[1], versao);
+      if (!t) throw new Erro(404, versao ? `o tema "${lr[1]}" não tem a versão "${versao}" (ou não está liberado para o inquilino "${inq}")` : `tema "${lr[1]}" não existe ou não está liberado para o inquilino "${inq}"`);
       return enviar(res, 200, t);
     }
     if (m === 'GET' && p === '/v1/sites') {
@@ -232,6 +233,13 @@ function criarRotas({ fila }) {
       const atual = Inq.doSite(dominio);
       if (cad && cad.inquilino != null && cad.inquilino !== atual) throw new Erro(422, 'não dá para mudar o inquilino de um site pelo cadastro');
       if (cad && typeof cad === 'object' && atual !== Inq.PADRAO) cad.inquilino = atual;
+      // versão do tema: quem manda o cadastro (o sistema da revenda) normalmente não cuida dela. Sem "versaoTema", fica a
+      // atual (mesmo tema) ou a última congelada (tema novo); trocar de versão é "tema aplicar" ou mandar o campo
+      if (cad && typeof cad === 'object' && cad.versaoTema == null && typeof cad.tema === 'string') {
+        const ant = Sites.carregar(dominio);
+        const v = ant.tema === cad.tema && ant.versaoTema ? ant.versaoTema : require('../core/versoes').ultimaVersaoTema(Inq.dirTema(atual, cad.tema));
+        if (v) cad.versaoTema = v;
+      }
       const erros = Sites.validarSite(cad, dominio);
       if (erros.length) throw new Erro(422, 'cadastro inválido: nada foi gravado', { erros });
       const { criado } = Sites.gravarSite(dominio, cad);

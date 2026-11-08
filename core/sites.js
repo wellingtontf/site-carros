@@ -7,7 +7,7 @@
 //   carregarTodos()      → [cadastro, ...]
 //   lojas(dominio)       → ids das lojas do site
 //   estoque(dominio)     → { carros: [...] } atual (vazio se não houver)
-//   resumo(dominio)      → { site, nome, tema, motor, url, carros, lojas, atualizado }
+//   resumo(dominio)      → { site, nome, tema, versaoTema, motor, url, carros, lojas, atualizado }
 //   resumos(filtro?)     → [resumo, ...]
 //
 // Cadastro:
@@ -20,7 +20,8 @@
 const fs = require('fs');
 const path = require('path');
 const C = require('./caminhos');
-const { ultimaVersao } = require('./versoes');
+const V = require('./versoes');
+const { ultimaVersao } = V;
 const Inq = require('./inquilinos');
 const Temas = require('./temas');
 
@@ -50,7 +51,7 @@ const estoque = (d) => lerJSON(C.estoque(d), { carros: [] });
 function resumo(d) {
   const s = lerJSON(C.siteJson(d), {});
   const e = estoque(d);
-  return { site: d, inquilino: s.inquilino || Inq.PADRAO, nome: s.nome || '', rascunho: !!s.rascunho, tema: typeof s.tema === 'string' ? s.tema : '', motor: s.motor || '', url: s.url || '', carros: (e.carros || []).length, lojas: Object.keys(s.lojas || {}).length, atualizado: e.atualizado || null };
+  return { site: d, inquilino: s.inquilino || Inq.PADRAO, nome: s.nome || '', rascunho: !!s.rascunho, tema: typeof s.tema === 'string' ? s.tema : '', versaoTema: s.versaoTema || '', motor: s.motor || '', url: s.url || '', carros: (e.carros || []).length, lojas: Object.keys(s.lojas || {}).length, atualizado: e.atualizado || null };
 }
 const resumos = (filtro = () => true) => listar().filter(filtro).map(resumo);
 
@@ -95,12 +96,12 @@ function registrarRascunho(d) {
 // AVISO: "whatsap" escrito errado gravaria sem efeito e o site ficaria sem WhatsApp sem ninguém perceber.
 const CAMPOS_SITE = new Set(['inquilino', 'nome', 'slogan', 'tema', 'motor', 'url', 'whatsapp', 'fotosBase', 'cor', 'configuracoes', 'textos',
   'cabecalho', 'rodape', 'lojas', 'empresa', 'vendedores', 'busca', 'filtros', 'ordenacao', 'restricoes',
-  'avisoCookies', 'paginasPadrao', 'pagina404', 'retencaoVendidosDias', 'retencaoRedirecionamentoDias', 'robots', 'formatoEstoque', 'rascunho', 'integracoes']);
+  'avisoCookies', 'paginasPadrao', 'pagina404', 'retencaoVendidosDias', 'retencaoRedirecionamentoDias', 'robots', 'formatoEstoque', 'rascunho', 'integracoes', 'versaoTema']);
 // tema do cadastro (null se o tema não existe ou o inquilino não pode usar: o validarSite já acusa)
 function temaDoCadastro(s) {
   const inq = s && s.inquilino && Inq.existe(s.inquilino) ? s.inquilino : Inq.PADRAO;
-  if (!s || typeof s.tema !== 'string' || !/^[a-z0-9-]+$/.test(s.tema) || !Inq.temaPermitido(inq, s.tema)) return null;
-  const dir = Inq.dirTema(inq, s.tema);
+  if (!s || typeof s.tema !== 'string' || !/^[a-z0-9-]+$/.test(s.tema) || !Inq.temaPermitido(inq, s.tema) || !V.VERSAO_OK.test(String(s.versaoTema))) return null;
+  const dir = Inq.dirVersaoTema(inq, s.tema, s.versaoTema);
   return fs.existsSync(path.join(dir, C.TEMA.schema)) ? Temas.carregar(dir) : null;
 }
 // avisos (não impedem a gravação): campo que a plataforma não conhece e chave que o tema do site não usa
@@ -124,7 +125,7 @@ function validarPagina(dominio, caminho, pagina) {
   if (!Array.isArray(pagina.secoes) && pagina.blocos === undefined) erros.push('falta "secoes" (lista)');
   const s = existe(dominio) ? carregar(dominio) : null;
   if (s && Array.isArray(pagina.secoes)) {
-    const dir = Inq.dirTema(Inq.doSite(s), s.tema);
+    const dir = Inq.dirVersaoTema(Inq.doSite(s), s.tema, s.versaoTema);
     pagina.secoes.forEach((b, i) => {
       if (b && b.tipo === 'componente') { require('./componentes').validar(b.nome, b.opcoes, `seção ${i + 1}`).forEach((x) => erros.push(`seção ${i + 1}: ${x}`)); return; }
       if (!b || !/^[a-z0-9-]+$/.test(String(b.tipo)) || !fs.existsSync(path.join(dir, C.TEMA.secoes, `${b.tipo}.html`))) erros.push(`seção ${i + 1}: tipo "${b && b.tipo}" não existe no tema "${s.tema}"`);
@@ -170,7 +171,14 @@ function validarSite(s, dominio) {
   else if (s.tema && typeof s.tema === 'object') e(`"tema" agora é o NOME do tema (ex.: "template-basico"); cores, fonte e logo vão em "configuracoes" (${MIGRAR})`);
   else if (!txt(s.tema)) e('"tema" vazio ou ausente (ex.: "tema": "template-basico")');
   else if (!Inq.temaPermitido(inq, s.tema)) e(`o tema "${s.tema}" não está liberado para o inquilino "${inq}"`);
-  else if (!/^[a-z0-9-]+$/.test(s.tema) || !fs.existsSync(path.join(Inq.dirTema(inq, s.tema), C.TEMA.schema))) e(`tema "${s.tema}" não existe`);
+  else if (!/^[a-z0-9-]+$/.test(s.tema) || !V.ehTema(Inq.dirTema(inq, s.tema))) e(V.temaSemVersoes(Inq.dirTema(inq, s.tema)) ? `tema "${s.tema}" sem versões (estrutura antiga): node ferramentas/migrar-temas.js` : `tema "${s.tema}" não existe`);
+  else {
+    // versão do tema (temas/<nome>/v1...): fixa, como a do motor; o rascunho só serve para prévia (build --versao-tema rascunho)
+    const vs = V.versoesTema(Inq.dirTema(inq, s.tema));
+    if (s.versaoTema == null || s.versaoTema === '') e(`"versaoTema" vazio ou ausente (ex.: "versaoTema": "${vs[vs.length - 1] || 'v1'}")`);
+    else if (s.versaoTema === 'rascunho') e(`"versaoTema" não pode ser o rascunho: congele antes (node core/cli.js tema congelar ${s.tema} vN)`);
+    else if (!vs.includes(s.versaoTema)) e(`versão "${s.versaoTema}" do tema "${s.tema}" não existe (existem: ${vs.join(', ') || 'nenhuma congelada'})`);
+  }
   if (s.configuracoes != null && (typeof s.configuracoes !== 'object' || Array.isArray(s.configuracoes))) e('"configuracoes" deve ser um objeto (ex.: { "cor": "#0b5fff", "logo": "assets/logo.png" })');
   for (const g of ['cabecalho', 'rodape', 'textos']) if (s[g] != null && (typeof s[g] !== 'object' || Array.isArray(s[g]))) e(`"${g}" deve ser um objeto`);
   // o que o tema declara (temas/<nome>/config/settings_schema.json e locales/pt-BR.json): tipo errado é erro
@@ -196,15 +204,15 @@ function validarSite(s, dominio) {
     if (!ID_LOJA.test(id)) e(`loja "${id}": id só com minúsculas, números e hífen`);
     if (!l || !txt(l.nome) || !txt(l.cidade) || !/^[A-Z]{2}$/.test(String(l && l.uf))) e(`loja "${id}": precisa de "nome", "cidade" e "uf" (2 letras maiúsculas)`);
   }
-  // trocar de tema: as seções das páginas do site (sites-config/<dominio>/web/) precisam existir no tema novo
-  if (txt(s.tema) && ID_SITE.test(String(dominio))) {
+  // trocar de tema (ou de versão): as seções das páginas do site (sites-config/<dominio>/web/) precisam existir no tema novo
+  if (txt(s.tema) && V.VERSAO_OK.test(String(s.versaoTema)) && ID_SITE.test(String(dominio))) {
     let pags = [];
     try { pags = require('./paginas-livres').paginasJsonDoSite(C, dominio); } catch (x) { e(x.message); }
     if (fs.existsSync(C.multipla(dominio))) pags.push({ caminho: 'multipla', arquivo: C.multipla(dominio), multipla: true });
     for (const p of pags) {
       const j = lerJSON(p.arquivo, {});
       for (const b of p.multipla ? [...(j.secoesAntes || []), ...(j.secoesDepois || [])] : Array.isArray(j.secoes) ? j.secoes : []) {
-        if (!b || !/^[a-z0-9-]+$/.test(String(b.tipo)) || !fs.existsSync(path.join(Inq.dirTema(inq, s.tema), C.TEMA.secoes, `${b.tipo}.html`))) e(`página "${p.caminho || '(home)'}": seção "${b && b.tipo}" não existe no tema "${s.tema}"`);
+        if (!b || !/^[a-z0-9-]+$/.test(String(b.tipo)) || !fs.existsSync(path.join(Inq.dirVersaoTema(inq, s.tema, s.versaoTema), C.TEMA.secoes, `${b.tipo}.html`))) e(`página "${p.caminho || '(home)'}": seção "${b && b.tipo}" não existe no tema "${s.tema}" ${s.versaoTema}`);
       }
     }
   }
@@ -217,13 +225,19 @@ function validarSite(s, dominio) {
   return erros;
 }
 
+// site novo nasce na última versão congelada do tema (como o motor), se o cadastro e o modelo não disserem outra
+function versaoTemaNova(parcial, modelo, inquilino) {
+  const tema = parcial.tema || modelo.tema || 'barra-topo';
+  const v = parcial.versaoTema || (tema === modelo.tema && modelo.versaoTema) || V.ultimaVersaoTema(Inq.dirTema(inquilino, tema));
+  return v ? { versaoTema: v } : {};
+}
 // cadastro de um site novo: site-modelo.json do inquilino (o "padrão da casa"; sem ele, config/site-modelo.json) + o que veio na chamada.
 // Só com o domínio já dá um site válido: nome = domínio, url = https://<domínio>, motor = a última versão congelada.
 // Endereço de rascunho (siteN.carro57.com.br) é sempre rascunho, mesmo que venha "rascunho": false.
 function cadastroNovo(dominio, parcial = {}, inquilino = Inq.PADRAO) {
   const modelo = Inq.lerConfig(inquilino, 'site-modelo.json', {});
   const limpo = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith('_'))); // "_comentario" no modelo
-  return { ...limpo(modelo), ...parcial, ...(inquilino !== Inq.PADRAO ? { inquilino } : {}), ...(ehDominioRascunho(dominio) ? { rascunho: true } : {}), nome: parcial.nome || dominio, url: parcial.url || `https://${dominio}`, motor: parcial.motor || modelo.motor || ultimaVersao(), tema: parcial.tema || modelo.tema || 'barra-topo' };
+  return { ...limpo(modelo), ...parcial, ...(inquilino !== Inq.PADRAO ? { inquilino } : {}), ...(ehDominioRascunho(dominio) ? { rascunho: true } : {}), nome: parcial.nome || dominio, url: parcial.url || `https://${dominio}`, motor: parcial.motor || modelo.motor || ultimaVersao(), tema: parcial.tema || modelo.tema || 'barra-topo', ...versaoTemaNova(parcial, modelo, inquilino) };
 }
 
 // JSON Merge Patch (RFC 7396): objeto mescla campo a campo, null apaga o campo, o resto (texto, número, lista) substitui

@@ -122,7 +122,7 @@ test('templates PRÓPRIOS do inquilino (no volume, sem deploy): só ele usa; mes
   const { construir } = require('../core/build.js');
   const copiar = (dest, marca) => {
     fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'temas', 'teste'), dest, { recursive: true });
-    const p = path.join(dest, 'templates', 'multipla.html');
+    const p = path.join(dest, 'v1', 'templates', 'multipla.html');
     fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace('{{/conteudo}}', `<!-- ${marca} -->{{/conteudo}}`));
   };
   copiar(path.join(A.raiz(), 'inquilinos', 'webmotors', 'temas', 'visual-wm'), 'visual-proprio-wm');
@@ -138,9 +138,9 @@ test('templates PRÓPRIOS do inquilino (no volume, sem deploy): só ele usa; mes
   const erros = Sites.validarSite({ ...Sites.carregar('tpl-rm.com.br'), id: undefined, tema: 'visual-wm' }, 'tpl-rm.com.br');
   assert.ok(erros.some((e) => /tema "visual-wm" não existe/.test(e)), JSON.stringify(erros));
   // o template próprio vale mesmo fora da lista "templates" do inquilino
-  assert.deepEqual(Sites.validarSite({ nome: 'x', motor: 'v2', tema: 'visual-wm', inquilino: 'webmotors' }, 'novo-wm.com.br'), []);
+  assert.deepEqual(Sites.validarSite({ nome: 'x', motor: 'v2', tema: 'visual-wm', versaoTema: 'v1', inquilino: 'webmotors' }, 'novo-wm.com.br'), []);
   // editar o template próprio refaz as páginas (o hash do template entra no do site)
-  fs.appendFileSync(path.join(A.raiz(), 'inquilinos', 'webmotors', 'temas', 'visual-wm', 'assets', 'css', 'base.css'), '\n/* mudou */');
+  fs.appendFileSync(path.join(A.raiz(), 'inquilinos', 'webmotors', 'temas', 'visual-wm', 'v1', 'assets', 'css', 'base.css'), '\n/* mudou */');
   const { r } = A.silencioso(() => construir({ sites: ['tpl-wm.com.br'] }));
   assert.equal(r.feitos[0].resumo.base, true, 'mudança no template refaz as páginas');
 });

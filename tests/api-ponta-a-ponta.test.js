@@ -213,6 +213,13 @@ test('6) recusas claras: arquivo que não é o que diz, SVG com script, página 
   const bt = await pedir('GET', '/v1/temas/barra-topo');
   assert.deepEqual([bt.j.configuracoes.cor.tipo, bt.j.configuracoes.cor.padrao, bt.j.textos.voltar], ['cor', '#0b5fff', 'Voltar ao estoque']);
   assert.equal((await pedir('GET', '/v1/temas/nao-existe')).status, 404);
+  assert.deepEqual([bt.j.versao, bt.j.versoes], ['v1', ['v1']], 'sem ?versao=: a última congelada');
+  assert.equal((await pedir('GET', '/v1/temas/barra-topo?versao=v9')).status, 404);
+  assert.deepEqual(temas.j.temas.find((t) => t.tema === 'barra-topo').versoes, ['v1']);
+  // PUT do cadastro inteiro SEM "versaoTema" (o sistema da revenda não cuida disso): fica a versão atual do tema
+  const cadSem = { ...A.lerSite(D) }; delete cadSem.versaoTema;
+  assert.equal((await pedir('PUT', `/v1/sites/${D}?esperar=30`, cadSem)).status, 200);
+  assert.equal(A.lerSite(D).versaoTema, 'v1');
   // scripts do site (codigos/head e body): gravados, devolvidos, recusados se quebrariam a página, apagados
   const html = () => ({ tipo: "text/html" });
   assert.equal((await pedir('PUT', `/v1/sites/${D}/codigos/head?esperar=30`, '<script>/*CHAT-API*/</script>', html())).status, 200);

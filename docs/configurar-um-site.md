@@ -44,6 +44,7 @@ Exemplo:
 |---|---|---|
 | `nome` | sim | nome do site (títulos, rodapé, textos legais) |
 | `tema` | sim | nome do tema: pasta em `temas/` (ou do inquilino); ver [temas.md](temas.md) |
+| `versaoTema` | sim | versão congelada do tema (`v1`, `v2`...), como o `motor`. Site novo nasce na última; muda com `node core/cli.js tema aplicar`. O rascunho não vale aqui (só na prévia) |
 | `motor` | sim | versão do motor de busca (`v1`, `v2`, `v3`); ver [listagem-e-busca.md](listagem-e-busca.md) |
 | `inquilino` | não | dono do site; sem ele, `padrao` |
 | `slogan` | não | aparece no cabeçalho de alguns temas e nas descrições |
