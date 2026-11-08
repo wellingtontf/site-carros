@@ -60,7 +60,7 @@ function listarAssets(d) {
 }
 
 // ---------- páginas ----------
-// nome "index" = a home (só como página de blocos). Formatos: "blocos" (<nome>.json) e "html" (<nome>.html)
+// nome "index" = a home (só como página de seções). Formatos: "secoes" (<nome>.json) e "html" (<nome>.html)
 function validarNomePagina(nome) {
   if (nome === 'index') return [];
   if (!PAGINA_OK.test(String(nome))) return [`nome de página inválido "${nome}" (minúsculas, números, hífen e /; "index" é a home)`];
@@ -72,29 +72,29 @@ const arqPagina = (d, nome, formato) => (nome === 'index' ? (formato === 'html' 
   : path.join(C.paginasLivresSite(d), `${nome}.${formato === 'html' ? 'html' : 'json'}`));
 function listarPaginas(d) {
   const raiz = C.paginasLivresSite(d);
-  const json = PL.paginasJsonDoSite(C, d).map((p) => ({ nome: p.caminho || 'index', formato: 'blocos' }));
+  const json = PL.paginasJsonDoSite(C, d).map((p) => ({ nome: p.caminho || 'index', formato: 'secoes' }));
   const html = PL.lerPaginasLivres(raiz).map((p) => ({ nome: p.caminho, formato: p.assets.size || path.basename(p.arquivo) === 'index.html' ? 'html (pasta)' : 'html' }));
   return [...json, ...html].map((p) => ({ ...p, endereco: p.nome === 'index' ? '/' : `/paginas/${p.nome}/` })).sort((a, b) => a.nome.localeCompare(b.nome));
 }
 function lerPagina(d, nome) {
-  if (fs.existsSync(arqPagina(d, nome, 'blocos'))) return { formato: 'blocos', conteudo: JSON.parse(fs.readFileSync(arqPagina(d, nome, 'blocos'), 'utf8')) };
+  if (fs.existsSync(arqPagina(d, nome, 'secoes'))) return { formato: 'secoes', conteudo: JSON.parse(fs.readFileSync(arqPagina(d, nome, 'secoes'), 'utf8')) };
   if (fs.existsSync(arqPagina(d, nome, 'html'))) return { formato: 'html', conteudo: fs.readFileSync(arqPagina(d, nome, 'html'), 'utf8') };
   return null;
 }
 // grava a página; o outro formato de mesmo nome sai (senão o build acusaria página duplicada)
 function gravarPagina(d, nome, formato, conteudo) {
-  if (nome === 'index' && formato === 'html') throw new Error('a home (index) é página de blocos (web/index.json)');
+  if (nome === 'index' && formato === 'html') throw new Error('a home (index) é página de seções (web/index.json)');
   const pastaPagina = path.join(C.paginasLivresSite(d), nome);
   if (fs.existsSync(path.join(pastaPagina, 'index.html'))) throw Object.assign(new Error(`a página "${nome}" é uma pasta do designer (${nome}/index.html com arquivos): apague a pasta antes de gravar pela API`), { conflito: true });
   const arq = arqPagina(d, nome, formato);
   fs.mkdirSync(path.dirname(arq), { recursive: true });
   fs.writeFileSync(`${arq}.tmp`, formato === 'html' ? conteudo : JSON.stringify(conteudo, null, 2) + '\n');
   fs.renameSync(`${arq}.tmp`, arq);
-  fs.rmSync(arqPagina(d, nome, formato === 'html' ? 'blocos' : 'html'), { force: true });
+  fs.rmSync(arqPagina(d, nome, formato === 'html' ? 'secoes' : 'html'), { force: true });
 }
 function removerPagina(d, nome) {
   let saiu = false;
-  for (const f of ['blocos', 'html']) if (fs.existsSync(arqPagina(d, nome, f))) { fs.rmSync(arqPagina(d, nome, f)); saiu = true; }
+  for (const f of ['secoes', 'html']) if (fs.existsSync(arqPagina(d, nome, f))) { fs.rmSync(arqPagina(d, nome, f)); saiu = true; }
   return saiu;
 }
 

@@ -6,10 +6,12 @@
 //   site.json "paginas" [...]                → web/index.json e web/paginas/<nome>.json
 //   site.json "componentes" {...}            → sites-config/<d>/componentes/<nome>.json
 //   node ferramentas/mover-paginas.js [dominio1,dominio2]   (sem argumento: todos os sites)
+// No fim, cada site passa pelos nomes do padrão Shopify (ferramentas/migrar-temas.js: "tema", "configuracoes", "secoes").
 const fs = require('fs');
 const path = require('path');
 const C = require('../core/caminhos');
 const Sites = require('../core/sites');
+const Migrar = require('./migrar-temas');
 
 const alvo = process.argv[2] ? process.argv[2].split(',') : Sites.listar();
 let erro = false;
@@ -55,7 +57,7 @@ for (const d of alvo) {
       if (!Array.isArray(cfg.paginas)) fs.writeFileSync(arq, JSON.stringify(cfg, null, 2) + '\n');
     }
   }
-  if (!Array.isArray(cfg.paginas)) { console.log(`${d}: nada (mais) a mover`); continue; }
+  if (!Array.isArray(cfg.paginas)) { if (!Migrar.migrarSite(d)) console.log(`${d}: nada (mais) a mover`); continue; }
   const destinos = cfg.paginas.map((p) => {
     const caminho = String(p.caminho ?? '').replace(/^\/+|\/+$/g, '');
     const { caminho: _, ...resto } = p;
@@ -67,5 +69,6 @@ for (const d of alvo) {
   delete cfg.paginas;
   fs.writeFileSync(arq, JSON.stringify(cfg, null, 2) + '\n');
   console.log(`${d}: ${destinos.length} página(s) → ${destinos.map(([f]) => path.relative(C.ROOT, f)).join(', ')}`);
+  Migrar.migrarSite(d);
 }
 process.exitCode = erro ? 1 : 0;

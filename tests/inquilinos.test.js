@@ -22,9 +22,9 @@ const esperar = async (cond, ms = 10000) => { const fim = Date.now() + ms; while
 
 before(async () => {
   Inq.criar('revenda-mais', { nome: 'Revenda Mais', rascunhos: { padrao: 'site{n}.carro57.com.br' } });
-  Inq.criar('webmotors', { nome: 'Webmotors', templates: ['teste', 'barra-topo'], rascunhos: { padrao: 'loja{n}.wm-previa.com.br' } });
-  fs.writeFileSync(path.join(A.raiz(), 'inquilinos', 'webmotors', 'config', 'site-modelo.json'), JSON.stringify({ template: 'teste', tema: { cor: '#e30613' } }));
-  fs.writeFileSync(path.join(A.raiz(), 'inquilinos', 'revenda-mais', 'config', 'site-modelo.json'), JSON.stringify({ template: 'teste', tema: { cor: '#0533ce' } }));
+  Inq.criar('webmotors', { nome: 'Webmotors', temas: ['teste', 'barra-topo'], rascunhos: { padrao: 'loja{n}.wm-previa.com.br' } });
+  fs.writeFileSync(path.join(A.raiz(), 'inquilinos', 'webmotors', 'config', 'site-modelo.json'), JSON.stringify({ tema: 'teste', configuracoes: { cor: '#e30613' } }));
+  fs.writeFileSync(path.join(A.raiz(), 'inquilinos', 'revenda-mais', 'config', 'site-modelo.json'), JSON.stringify({ tema: 'teste', configuracoes: { cor: '#0533ce' } }));
   A.criarSite('loja-rm.com.br', { carros: [A.carro()], site: { inquilino: 'revenda-mais' } });
   A.criarSite('loja-wm.com.br', { carros: [A.carro()], site: { inquilino: 'webmotors' } });
   A.silencioso(() => require('../core/build.js').construir({}));
@@ -64,8 +64,8 @@ test('rascunho na sequência DO inquilino, com o modelo de site DELE', async () 
   assert.equal(rm.j.site, 'site1.carro57.com.br');
   assert.equal(wm.j.site, 'loja1.wm-previa.com.br');
   const cad = Sites.carregar('loja1.wm-previa.com.br');
-  assert.deepEqual([cad.inquilino, cad.tema.cor, cad.rascunho], ['webmotors', '#e30613', true]);
-  assert.equal(Sites.carregar('site1.carro57.com.br').tema.cor, '#0533ce');
+  assert.deepEqual([cad.inquilino, cad.configuracoes.cor, cad.rascunho], ['webmotors', '#e30613', true]);
+  assert.equal(Sites.carregar('site1.carro57.com.br').configuracoes.cor, '#0533ce');
   // endereço de rascunho de outro inquilino: não
   const x = await req('POST', '/v1/sites', { corpo: { dominio: 'site9.carro57.com.br' }, token: tokWM });
   assert.equal(x.status, 422);
@@ -77,7 +77,7 @@ test('domínio é único na plataforma; templates liberados por inquilino; o inq
   assert.equal(usado.status, 409);
   assert.match(usado.j.erro, /em uso/);
   assert.doesNotMatch(usado.j.erro, /revenda/i, 'não conta de quem é');
-  const tpl = await req('POST', '/v1/sites', { corpo: { dominio: 'nova-wm.com.br', cadastro: { template: 'template-basico' } }, token: tokWM });
+  const tpl = await req('POST', '/v1/sites', { corpo: { dominio: 'nova-wm.com.br', cadastro: { tema: 'template-basico' } }, token: tokWM });
   assert.equal(tpl.status, 422);
   assert.match(tpl.j.erros.join(' '), /não está liberado para o inquilino "webmotors"/);
   // PUT sem "inquilino": continua da Webmotors
@@ -121,26 +121,26 @@ test('publicação e infra com a configuração DO inquilino ({inquilino} dispon
 test('templates PRÓPRIOS do inquilino (no volume, sem deploy): só ele usa; mesmo nome substitui o da imagem só para ele', () => {
   const { construir } = require('../core/build.js');
   const copiar = (dest, marca) => {
-    fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'templates', 'teste'), dest, { recursive: true });
-    const p = path.join(dest, 'paginas', 'multipla.html');
+    fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'temas', 'teste'), dest, { recursive: true });
+    const p = path.join(dest, 'templates', 'multipla.html');
     fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace('</body>', `<!-- ${marca} --></body>`));
   };
-  copiar(path.join(A.raiz(), 'inquilinos', 'webmotors', 'templates', 'visual-wm'), 'visual-proprio-wm');
-  copiar(path.join(A.raiz(), 'inquilinos', 'webmotors', 'templates', 'teste'), 'teste-substituido-wm');
-  A.criarSite('tpl-wm.com.br', { carros: [A.carro()], site: { inquilino: 'webmotors', template: 'visual-wm' } });
-  A.criarSite('tpl-wm2.com.br', { carros: [A.carro()], site: { inquilino: 'webmotors', template: 'teste' } });
-  A.criarSite('tpl-rm.com.br', { carros: [A.carro()], site: { inquilino: 'revenda-mais', template: 'teste' } });
+  copiar(path.join(A.raiz(), 'inquilinos', 'webmotors', 'temas', 'visual-wm'), 'visual-proprio-wm');
+  copiar(path.join(A.raiz(), 'inquilinos', 'webmotors', 'temas', 'teste'), 'teste-substituido-wm');
+  A.criarSite('tpl-wm.com.br', { carros: [A.carro()], site: { inquilino: 'webmotors', tema: 'visual-wm' } });
+  A.criarSite('tpl-wm2.com.br', { carros: [A.carro()], site: { inquilino: 'webmotors', tema: 'teste' } });
+  A.criarSite('tpl-rm.com.br', { carros: [A.carro()], site: { inquilino: 'revenda-mais', tema: 'teste' } });
   A.silencioso(() => construir({ sites: ['tpl-wm.com.br', 'tpl-wm2.com.br', 'tpl-rm.com.br'] }));
   assert.match(A.ler('tpl-wm.com.br', 'multipla/index.html'), /visual-proprio-wm/);
   assert.match(A.ler('tpl-wm2.com.br', 'multipla/index.html'), /teste-substituido-wm/, 'o "teste" da Webmotors vale para ela');
   assert.doesNotMatch(A.ler('tpl-rm.com.br', 'multipla/index.html'), /substituido/, 'a Revenda Mais continua com o da imagem');
   // outro inquilino não enxerga o template próprio da Webmotors
-  const erros = Sites.validarSite({ ...Sites.carregar('tpl-rm.com.br'), id: undefined, template: 'visual-wm' }, 'tpl-rm.com.br');
-  assert.ok(erros.some((e) => /template "visual-wm" não existe/.test(e)), JSON.stringify(erros));
+  const erros = Sites.validarSite({ ...Sites.carregar('tpl-rm.com.br'), id: undefined, tema: 'visual-wm' }, 'tpl-rm.com.br');
+  assert.ok(erros.some((e) => /tema "visual-wm" não existe/.test(e)), JSON.stringify(erros));
   // o template próprio vale mesmo fora da lista "templates" do inquilino
-  assert.deepEqual(Sites.validarSite({ nome: 'x', motor: 'v2', template: 'visual-wm', inquilino: 'webmotors' }, 'novo-wm.com.br'), []);
+  assert.deepEqual(Sites.validarSite({ nome: 'x', motor: 'v2', tema: 'visual-wm', inquilino: 'webmotors' }, 'novo-wm.com.br'), []);
   // editar o template próprio refaz as páginas (o hash do template entra no do site)
-  fs.appendFileSync(path.join(A.raiz(), 'inquilinos', 'webmotors', 'templates', 'visual-wm', 'css', 'base.css'), '\n/* mudou */');
+  fs.appendFileSync(path.join(A.raiz(), 'inquilinos', 'webmotors', 'temas', 'visual-wm', 'assets', 'css', 'base.css'), '\n/* mudou */');
   const { r } = A.silencioso(() => construir({ sites: ['tpl-wm.com.br'] }));
   assert.equal(r.feitos[0].resumo.base, true, 'mudança no template refaz as páginas');
 });

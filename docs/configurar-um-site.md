@@ -20,12 +20,12 @@ Exemplo:
   "inquilino": "revenda-mais",
   "nome": "Loja Teste Seminovos",
   "slogan": "Seminovos com 1 ano de garantia",
-  "template": "template-basico",
+  "tema": "template-basico",
   "motor": "v3",
   "url": "https://lojateste.com.br",
   "whatsapp": "5541999990000",
   "fotosBase": "https://fotos.plataforma.com.br/",
-  "tema": { "cor": "#0533ce", "logo": "assets/logo.webp", "fonteGoogle": "Montserrat" },
+  "configuracoes": { "cor": "#0533ce", "logo": "assets/logo.webp", "fonteGoogle": "Montserrat" },
   "lojas": {
     "matriz": { "nome": "Matriz", "cidade": "Curitiba", "uf": "PR", "endereco": "Rua X, 100", "whatsapp": "5541999990001" },
     "sul":    { "nome": "Loja Sul", "cidade": "Porto Alegre", "uf": "RS" }
@@ -43,15 +43,15 @@ Exemplo:
 | Campo | Obrigatório | O que é |
 |---|---|---|
 | `nome` | sim | nome do site (títulos, rodapé, textos legais) |
-| `template` | sim | pasta em `templates/` (ou do inquilino) |
+| `tema` | sim | nome do tema: pasta em `temas/` (ou do inquilino); ver [temas.md](temas.md) |
 | `motor` | sim | versão do motor de busca (`v1`, `v2`, `v3`); ver [listagem-e-busca.md](listagem-e-busca.md) |
 | `inquilino` | não | dono do site; sem ele, `padrao` |
-| `slogan` | não | aparece no cabeçalho de alguns templates e nas descrições |
+| `slogan` | não | aparece no cabeçalho de alguns temas e nas descrições |
 | `url` | para produção | endereço oficial **com https** (`https://loja.com.br` ou `https://www.loja.com.br`). Sem ele não há sitemap, canonical nem JSON-LD, e a publicação recusa |
 | `whatsapp` | não | número com DDI e DDD; vale para carros de loja sem WhatsApp próprio |
 | `fotosBase` | não | onde ficam as fotos (`<fotosBase>carros/<id>/<n>-<400\|800\|1600>.webp`). Precisa terminar em `/`; localhost ou http é recusado na publicação |
-| `tema` | não | `cor`, `fundo`, `texto`, `raio` (px), `colunas` (px do card), `fonte`, `fonteGoogle`, `logo`, `banner`, `favicon`. Imagens com caminho relativo (`assets/logo.png`) apontam para `assets/` do site |
-| `textos` | não | textos do template: `busca` (dica da caixa de busca), `rodape`, `avisoCookies`, `botaoWhatsapp`, `voltar` |
+| `configuracoes` | não | `cor`, `fundo`, `texto`, `raio` (px), `colunas` (px do card), `fonte`, `fonteGoogle`, `logo`, `banner`, `favicon`. Imagens com caminho relativo (`assets/logo.png`) apontam para `assets/` do site |
+| `textos` | não | textos do tema: `busca` (dica da caixa de busca), `rodape`, `avisoCookies`, `botaoWhatsapp`, `voltar` |
 | `cabecalho`, `rodape` | não | menu, botão, endereço, redes sociais... (links relativos à raiz; `"contato/"` vira `/paginas/contato/`) |
 | `lojas` | para ter estoque | `{ "<id>": { nome, cidade, uf, endereco, whatsapp, telefone } }`. Cidade/UF da loja valem para os carros dela |
 | `filtros` | não | quais filtros aparecem e em que ordem (abaixo). Sem ele, todos |
@@ -60,8 +60,8 @@ Exemplo:
 | `restricoes` | não | o que o site pode vender (abaixo) |
 | `vendedores` | não | `{ "carlos": "5541..." }`: `?v=carlos` em qualquer link manda o WhatsApp para ele |
 | `empresa` | não | `razaoSocial`, `cnpj`, `email`, `encarregado`: preenchem as páginas legais (LGPD, privacidade) |
-| `paginasPadrao` | não | desliga páginas padrão do template: `{ "financiamento": false }` |
-| `pagina404` | não | página de erro própria (mesmo formato de uma página de blocos) |
+| `paginasPadrao` | não | desliga páginas padrão do tema: `{ "financiamento": false }` |
+| `pagina404` | não | página de erro própria (mesmo formato de uma página de seções: `{ "titulo", "secoes": [...] }`) |
 | `avisoCookies` | não | `false` desliga o aviso de cookies |
 | `retencaoVendidosDias` | não | quantos dias a página de carro vendido fica no ar (padrão 30) |
 | `retencaoRedirecionamentoDias` | não | quantos dias o link antigo de carro redireciona (padrão 180) |
@@ -72,6 +72,10 @@ Exemplo:
 Não vão no `site.json` (o build e a API recusam com explicação): `paginas` (são arquivos em `web/`), `estoque` (a
 listagem é `web/multipla.json`) e `componentes` (são arquivos em `componentes/`). Campo desconhecido não impede a
 gravação, mas volta como aviso na API (provável erro de digitação).
+
+Nomes antigos (antes de 2026-11-08) são recusados com explicação: `"template"` (agora `"tema"`), o objeto `"tema"` com
+cores e logo (agora `"configuracoes"`) e `"blocos"` nas páginas (agora `"secoes"`). `node ferramentas/migrar-temas.js`
+converte.
 
 ### Filtros
 

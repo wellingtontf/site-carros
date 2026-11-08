@@ -1,0 +1,11 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>{{carro.titulo}} - {{site.nome}}</title><meta name="description" content="{{carro.descricaoCurta}}">{{{og}}}
+<link rel="stylesheet" href="{{rel}}css/style.css"></head>
+<body data-page="carro" data-rel="{{rel}}" data-id="{{carro.id}}" data-loja="{{carro.lojaId}}" data-titulo="{{carro.titulo}}" data-base="{{base}}">
+<a class="voltar" href="{{estoqueUrl}}">voltar</a>{{#configuracoes.logo}}<img src="{{configuracoes.logo}}" alt="">{{/configuracoes.logo}}
+<h1>{{carro.titulo}}</h1><img id="foto-principal" {{{carro.principalAttrs}}}>
+<div>{{#carro.fotos}}<button class="mini" data-n="{{n}}"><img {{{imgAttrs}}}></button>{{/carro.fotos}}</div>
+<p class="preco">{{carro.precoFmt}}</p><dl>{{#carro.specs}}<dt>{{rotulo}}</dt><dd>{{valor}}</dd>{{/carro.specs}}</dl>
+<p>{{carro.descricao}}</p><ul>{{#carro.opcionais}}<li>{{.}}</li>{{/carro.opcionais}}</ul>
+<a id="zap" href="#">zap</a><button id="copiar">copiar</button>
+<script src="{{rel}}motor/engine.js"></script><script src="{{rel}}motor/ui-util.js"></script><script src="{{rel}}motor/ui-carro.js"></script>
+{{#site.links}}<a class="legal" href="{{link}}">{{rotulo}}</a>{{/site.links}}<script src="{{rel}}motor/ui-site.js"></script></body></html>

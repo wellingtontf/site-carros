@@ -76,7 +76,7 @@ function status() {
   sitesInfo().forEach((s) => {
     const m = s.obj.motor || '(sem motor)';
     const aviso = s.obj.motor && !vs.includes(s.obj.motor) ? '  ← versão não existe!' : '';
-    console.log(`  ${s.id.padEnd(larg)}  template ${String(s.obj.template).padEnd(12)} motor ${m}${aviso}`);
+    console.log(`  ${s.id.padEnd(larg)}  tema ${String(s.obj.tema).padEnd(15)} motor ${m}${aviso}`);
   });
 }
 

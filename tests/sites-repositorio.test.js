@@ -30,10 +30,10 @@ test('regra da casa: só core/sites.js lê a pasta sites-config/ (o resto usa o 
 });
 
 test('site novo só com o domínio funciona em TODOS os templates (sem lojas e sem carros)', async () => {
-  const tpls = fs.readdirSync(path.join(A.PROJETO, 'templates'));
+  const tpls = fs.readdirSync(path.join(A.PROJETO, 'temas'));
   for (const t of tpls) {
     const d = `novo-${t}.com.br`;
-    const r = await Ops.criarSite(d, { template: t }, quieto);
+    const r = await Ops.criarSite(d, { tema: t }, quieto);
     assert.equal(r.status, 'ok', `${t}: ${JSON.stringify(r)}`);
     assert.equal(r.infra.status, 'nao_configurada');
     assert.deepEqual(A.verificarSiteGerado(d).slice(0, 5), [], `template ${t}`);
@@ -43,7 +43,7 @@ test('site novo só com o domínio funciona em TODOS os templates (sem lojas e s
 test('criarSite: domínio existente ou cadastro inválido não cria nada', async () => {
   A.criarSite('ja.com.br');
   assert.equal((await Ops.criarSite('ja.com.br', {}, quieto)).status, 'existe');
-  const r = await Ops.criarSite('ruim.com.br', { template: 'nao-existe' }, quieto);
+  const r = await Ops.criarSite('ruim.com.br', { tema: 'nao-existe' }, quieto);
   assert.equal(r.status, 'invalido');
   assert.ok(!fs.existsSync(path.join(A.raiz(), 'sites-config', 'ruim.com.br')));
 });
@@ -51,9 +51,9 @@ test('criarSite: domínio existente ou cadastro inválido não cria nada', async
 test('renomearSite: se o build falhar no meio, tudo volta como estava', async () => {
   A.criarSite('velho.com.br', { carros: [A.carro()] });
   A.silencioso(() => construir({ sites: ['velho.com.br'] }));
-  // estraga o template só para o build do domínio novo falhar
-  const cfg = A.lerSite('velho.com.br'); cfg.template = 'some-durante-o-teste'; A.gravarSite('velho.com.br', cfg);
-  await assert.rejects(Ops.renomearSite('velho.com.br', 'novo.com.br', quieto), /template/);
+  // estraga o tema só para o build do domínio novo falhar
+  const cfg = A.lerSite('velho.com.br'); cfg.tema = 'some-durante-o-teste'; A.gravarSite('velho.com.br', cfg);
+  await assert.rejects(Ops.renomearSite('velho.com.br', 'novo.com.br', quieto), /tema "some-durante-o-teste" não existe/);
   assert.ok(fs.existsSync(path.join(A.raiz(), 'sites-config', 'velho.com.br', 'site.json')), 'cadastro voltou');
   assert.ok(A.existe('velho.com.br', 'index.html'), 'saída voltou');
   assert.ok(fs.existsSync(path.join(A.raiz(), '.estado', 'sites-public', 'velho.com.br.json')), 'estado voltou');
@@ -144,7 +144,7 @@ test('proximoRascunho: segue a sequência, pula o que existe e nunca reutiliza n
   assert.equal(Sites.proximoRascunho(), 'site1.carro57.com.br', 'sem reservar, não gasta o número');
   assert.equal(Sites.proximoRascunho({ reservar: true }), 'site1.carro57.com.br');
   assert.equal(Sites.proximoRascunho({ reservar: true }), 'site2.carro57.com.br');
-  Sites.criarArquivos('site7.carro57.com.br', Sites.cadastroNovo('site7.carro57.com.br', { template: 'teste' })); // criado com domínio explícito
+  Sites.criarArquivos('site7.carro57.com.br', Sites.cadastroNovo('site7.carro57.com.br', { tema: 'teste' })); // criado com domínio explícito
   assert.equal(Sites.proximoRascunho(), 'site8.carro57.com.br');
   fs.rmSync(path.join(A.raiz(), 'sites-config', 'site7.carro57.com.br'), { recursive: true }); // promovido/removido
   Sites.proximoRascunho({ reservar: true }); // site8

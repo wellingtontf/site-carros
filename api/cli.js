@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Inquilinos e tokens da API.
-//   node api/cli.js inquilino criar <id> --nome "Webmotors" [--rascunho "site{n}.previa.com.br"] [--templates a,b]
+//   node api/cli.js inquilino criar <id> --nome "Webmotors" [--rascunho "site{n}.previa.com.br"] [--temas a,b]
 //   node api/cli.js inquilino listar
 //   node api/cli.js cliente criar <nome> --inquilino <id> --sites a.com.br,b.com.br   (ou --sites "*" = todos do inquilino)
 //   node api/cli.js cliente listar
@@ -14,19 +14,19 @@ const av = process.argv.slice(2);
 const opc = (k) => { const i = av.indexOf(`--${k}`); return i >= 0 ? av[i + 1] : null; };
 const [grupo, acao, nome] = av.filter((x, i) => !x.startsWith('--') && !(i > 0 && av[i - 1].startsWith('--')));
 const lista = (v) => String(v || '').split(',').map((x) => x.trim()).filter(Boolean);
-const USO = 'uso: inquilino criar <id> --nome "..." [--rascunho "site{n}.x.com.br"] [--templates a,b] | inquilino listar | cliente criar <nome> --inquilino <id> --sites a,b | cliente listar | cliente remover <nome>';
+const USO = 'uso: inquilino criar <id> --nome "..." [--rascunho "site{n}.x.com.br"] [--temas a,b] | inquilino listar | cliente criar <nome> --inquilino <id> --sites a,b | cliente listar | cliente remover <nome>';
 
 if (grupo === 'inquilino') {
   if (acao === 'criar') {
     if (!nome) falha('informe o id: inquilino criar <id> --nome "..."');
     try {
-      const i = Inq.criar(nome, { nome: opc('nome') || nome, templates: opc('templates') ? lista(opc('templates')) : null, rascunhos: opc('rascunho') ? { padrao: opc('rascunho') } : null });
+      const i = Inq.criar(nome, { nome: opc('nome') || nome, temas: opc('temas') ? lista(opc('temas')) : null, rascunhos: opc('rascunho') ? { padrao: opc('rascunho') } : null });
       console.log(`Inquilino "${i.id}" criado: inquilinos/${i.id}/ (coloque fotos.json, infra.json, publicacao.json, site-modelo.json em inquilinos/${i.id}/config/)`);
     } catch (e) { falha(e.message); }
   } else if (!acao || acao === 'listar') {
     for (const id of [Inq.PADRAO, ...Inq.listar()]) {
       const i = Inq.carregar(id);
-      console.log(`${id.padEnd(20)} ${String(Sites.listar({ inquilino: id }).length).padStart(5)} site(s)  ${i.nome}${i.rascunhos ? `  rascunho: ${i.rascunhos.padrao}` : ''}${i.templates ? `  templates: ${i.templates.join(',')}` : ''}`);
+      console.log(`${id.padEnd(20)} ${String(Sites.listar({ inquilino: id }).length).padStart(5)} site(s)  ${i.nome}${i.rascunhos ? `  rascunho: ${i.rascunhos.padrao}` : ''}${i.temas ? `  temas: ${i.temas.join(',')}` : ''}`);
     }
   } else falha(USO);
 } else if (grupo === 'cliente') {

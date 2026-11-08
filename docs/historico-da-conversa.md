@@ -69,18 +69,29 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
 - **Filtro com caixas de marcar** (escolher mais de um) e componente **filtros ativos** ("chips" com ✕ e "Limpar busca").
 - Documentação do build passo a passo; revisão de toda a documentação em `docs/` e este backup.
 
+### Fase 5: temas no padrão do mercado (08/11, noite; depois do primeiro backup)
+- Pergunta "como é feito o template em sites assim?": o padrão é o do Shopify (tema com layout, templates, seções,
+  snippets, assets, schema de opções, locales) e o WordPress/Hugo (tema pai e filho). O Wellington quis a nomenclatura do
+  Shopify.
+- Decisões: nomes **mistos** (conceitos em português, termos técnicos do Shopify); `"blocos"` vira `"secoes"` em todo
+  lugar; chave não declarada no schema = aviso e tipo errado = erro; scripts no cabeçalho/rodapé por campos prontos (GTM,
+  GA4, Pixel) + código livre, só depois do aceite de cookies; versão do tema com as páginas padrão dentro da versão.
+- Etapa 1 feita: `templates/` → `temas/` (estrutura do Shopify), `"template"` → `"tema"`, objeto `"tema"` →
+  `"configuracoes"`, `"blocos"` → `"secoes"`, `ferramentas/migrar-temas.js`; HTML gerado idêntico. O tema `trokey` foi
+  apagado pelo Wellington. Etapas seguintes (layout, schema e locales, scripts, versão) em CLAUDE.md.
+
 ## Decisões do Wellington (consolidadas)
 
 | Assunto | Decisão |
 |---|---|
-| Pastas | core isolado; `sites-config/<dominio>/` com subpastas; templates em `templates/<nome>/`; componentes numa pasta só |
+| Pastas | core isolado; `sites-config/<dominio>/` com subpastas; temas em `temas/<nome>/`; componentes numa pasta só |
 | Fonte e saída | `sites-config` é a base de tudo; `sites-public` é só saída (sobra é apagada com `limpar-public`) |
 | Estoque | um único `estoque.json` por site; cada carro diz a sua loja; tudo é JSON (sem XML) |
 | Páginas | arquivos em `web/` (espelho do site); endereço `/paginas/<nome>/`; só a home na raiz; designer não mexe no core |
-| Templates | autocontidos; um arquivo por tipo de página; páginas padrão (LGPD...) dentro do template |
+| Temas | autocontidos, estrutura e nomes do Shopify (misto); um template por tipo de página; páginas padrão (LGPD...) dentro do tema |
 | Listagem | sempre `/multipla/`; filtros como rota com nomes do Revenda Mais (`-` no lugar de `_`), valores minúsculos |
 | Valor sem carro | mostrar "Nenhum carro encontrado" (não esconder o filtro) |
-| Filtro | combos ou caixas de marcar, configurável no template ou na página; filtros ativos acima do estoque |
+| Filtro | combos ou caixas de marcar, configurável no tema ou na página; filtros ativos acima do estoque |
 | Motor | versionado (rascunho → congelar → aplicar); versões congeladas imutáveis |
 | Fotos | só no S3 |
 | Integração | API agnóstica; o Revenda Mais (ou outro) manda os dados; gatilho manual é aceito |
@@ -113,7 +124,7 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
 
 ## Anexo: todas as mensagens do Wellington, na íntegra
 
-114 mensagens, na ordem. Ficaram de fora só avisos automáticos do sistema. Respostas a perguntas de múltipla escolha
+118 mensagens, na ordem. Ficaram de fora só avisos automáticos do sistema. Respostas a perguntas de múltipla escolha
 (como "Espelho do site") não aparecem aqui, porque entraram como resposta de ferramenta e não como mensagem.
 
 **1.** _07/11 18:32_
@@ -708,3 +719,20 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
 >
 > no final vc pode subir tudo no git inclusive os 1500 veiculos
 
+**115.** _08/11 18:41_
+
+> normalmente em sites assim que tem varios modelos e n sites com templates.. como é feito o template? qual a estrutura?
+
+**116.** _08/11 18:46_
+
+> gostei de tudo isso o que vc precisaria aqui para ajustar minha aplicação para isso?
+
+**117.** _08/11 18:48_
+
+> é melhor chamar de tema ou template?
+
+**118.** _08/11 18:49_
+
+> eu quero usar o padrao de mercado de nomeclatura A estrutura típica, no modelo do Shopify:
+>
+> e para eu ter cabeçalho e rodapes qeu eu consigo injetar algum script?

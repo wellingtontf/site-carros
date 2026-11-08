@@ -1,7 +1,7 @@
 # Testes
 
 ```
-npm test               # tudo (~1 min com o Chrome): 296 testes
+npm test               # tudo (~1 min com o Chrome): 288 testes
 npm run test:rapido    # sem o navegador (Chrome)
 npm run test:snapshot  # regrava o snapshot do HTML (depois de aumentar VERSAO_HTML)
 node core/cli.js testar  # testa os sites reais gerados (motor com os dados de verdade, páginas, links)
@@ -21,8 +21,8 @@ testar retenção de vendidos e redirecionamentos. O ajudante comum é `tests/aj
 | `motor.test.js` | busca, busca aproximada, filtros em cascata, vários valores (v3+), link da busca, ordens, WhatsApp — em **todas** as versões; e que as congeladas não foram editadas (`sha256`) |
 | `rotas.test.js` | rotas da listagem (`core/ui/rotas.js`): nomes do Revenda Mais com `-` e `_`, `|`/`%7C`, minúsculas; motor v3; links do build como rota; servidor local = regras da hospedagem |
 | `formato-estoque.test.js` | `estoque.json` compacto: menor e com o motor dando os mesmos resultados |
-| `build.test.js` | geração, incremental, vendidos e retenção, redirecionamentos, ordem, `web/` (home, multipla, páginas), páginas livres, blocos, links relativos, `paraFiltro`, migração (`mover-paginas.js`), segurança, erros de configuração |
-| `componentes.test.js` | componentes: camadas de opções (componente < template < site < página), validação, CSS/scripts injetados sem repetir, ids únicos, opção `checkbox` do filtro, `web/multipla.json` |
+| `build.test.js` | geração, incremental, vendidos e retenção, redirecionamentos, ordem, `web/` (home, multipla, páginas), páginas livres, seções, links relativos, `paraFiltro`, migração (`mover-paginas.js` e `migrar-temas.js`: nome antigo dá erro claro e, migrado, sai idêntico), segurança, erros de configuração |
+| `componentes.test.js` | componentes: camadas de opções (componente < tema < site < página), validação, CSS/scripts injetados sem repetir, ids únicos, opção `checkbox` do filtro, `web/multipla.json` |
 | `sites-config-public.test.js` | contrato fonte → saída: cada parte de `sites-config/<d>/` aparece em `sites-public/<d>/` e o que sai da fonte sai da saída; sobras |
 | `sitemap.test.js` | `gerarSitemap(dominio)` igual ao do build |
 | `xml-robots.test.js` | robots.txt por modelo e por site; `estoque.xml` e `carros.json` antigos são apagados e despublicados |
@@ -32,13 +32,13 @@ testar retenção de vendidos e redirecionamentos. O ajudante comum é `tests/aj
 | `producao.test.js` | problemas de site estático no ar: 404, `?v=` nos css/js, canonical em página livre, publicação recusa fotos em localhost/http, auditoria |
 | `servidor.test.js` | API: tokens por cliente, 403 em site alheio, 422 com erros, estoque inteiro, carro avulso, rajada num build só, trava de queda (409), fila que sobrevive a reinício, site novo |
 | `api-ponta-a-ponta.test.js` | um site montado **só pela API** (cadastro, estoque, páginas, multipla, componentes, arquivos) gera tudo, sem link quebrado nem problema de produção |
-| `sites-repositorio.test.js` | `core/sites.js` é o único que lista sites; site novo só com o domínio em todos os templates; troca de domínio que volta atrás se falhar |
+| `sites-repositorio.test.js` | `core/sites.js` é o único que lista sites; site novo só com o domínio em todos os temas; troca de domínio que volta atrás se falhar |
 | `inquilinos.test.js` | multi-tenant: cada inquilino só vê os seus sites, com configuração própria; domínio único na plataforma |
 | `escala.test.js` | pods de API e de trabalhador separados, vários trabalhadores dividindo os sites, o mesmo site nunca em dois, travas que expiram |
 | `cloudfront.test.js` | função de borda: índice de pasta, barra final, `//`, 301 de páginas antigas, **rotas da `/multipla/`**, prefixo por domínio |
 | `infra-scripts.test.js` | scripts de infra (`SIMULAR=1`): comandos da AWS certos, rascunho sem certificado, definitivo com `www` |
-| `sites-e-templates.test.js` | gera os sites reais e varre **todas** as páginas (link quebrado, `{{marcador}}` sobrando, título, ids); todo template com o mínimo exigido (5 páginas, blocos, páginas legais, lugar dos blocos da multipla) |
-| `navegador.test.js` | Chrome headless em **cada** template: cards montados pelo JS, filtros pela URL e pela rota, caixas de marcar e filtros ativos com cliques de verdade, WhatsApp da página do carro, nenhum erro de JS |
+| `sites-e-temas.test.js` | gera os sites reais e varre **todas** as páginas (link quebrado, `{{marcador}}` sobrando, título, ids); todo tema na estrutura do padrão Shopify e com o mínimo exigido (5 templates, seções, páginas legais, lugar das seções da multipla) |
+| `navegador.test.js` | Chrome headless em **cada** tema: cards montados pelo JS, filtros pela URL e pela rota, caixas de marcar e filtros ativos com cliques de verdade, WhatsApp da página do carro, nenhum erro de JS |
 
 ## `VERSAO_HTML` e snapshot
 

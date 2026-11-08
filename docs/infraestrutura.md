@@ -30,7 +30,7 @@ Como a plataforma roda em produção para milhares de sites de vários inquilino
 ## Multi-tenant
 
 ```
-inquilinos/revenda-mais/inquilino.json      { "nome", "templates": [...], "rascunhos": { "padrao": "site{n}.carro57.com.br" } }
+inquilinos/revenda-mais/inquilino.json      { "nome", "temas": [...], "rascunhos": { "padrao": "site{n}.carro57.com.br" } }
 inquilinos/revenda-mais/config/             fotos.json, infra.json, publicacao.json, robots.txt, site-modelo.json
 inquilinos/webmotors/...
 sites-config/<dominio>/site.json                   "inquilino": "revenda-mais"
@@ -42,7 +42,7 @@ config/clientes.json                        tokens (só o hash), cada um de UM i
 | Sites | O token só vê e altera sites do inquilino dele. `"*"` = todos os sites **do inquilino**. Só o admin da plataforma (`TOKEN_ATUALIZAR`) atravessa inquilinos. |
 | Domínio | Único na plataforma: dois inquilinos não disputam o mesmo domínio. O erro diz "em uso" sem revelar de quem é. |
 | Rascunhos | Sequência própria por inquilino (`site{n}.carro57.com.br`, `loja{n}.outro.com.br`). O padrão não pode ser de dois inquilinos. |
-| Templates | `"templates"` no inquilino libera só alguns (o visual de um cliente não vaza para outro inquilino). |
+| Temas | `"temas"` no inquilino libera só alguns (o visual de um cliente não vaza para outro inquilino). |
 | robots.txt, modelo de site | Por inquilino (`PUT /v1/robots` mexe só nos sites do token). |
 | Publicação, fotos, infra | Comandos por inquilino (`{inquilino}` disponível): **bucket, distribuição CloudFront e até conta AWS separados por inquilino**, se o contrato exigir. |
 
@@ -98,7 +98,7 @@ A distribuição multi-tenant de cada inquilino precisa ter `OriginPath: /{{past
 
 - **Travas:** são renovadas enquanto o trabalho dura (o build síncrono também renova) e expiram em 5 min (`SITE_CARROS_TRAVA_EXPIRA_MS`) quando o pod morre.
 - **Listagem de pedidos:** por site e por cliente usa um índice (`.estado/api/indice/`); só a listagem sem filtro (admin) lê a pasta de pedidos.
-- **Templates:** os da imagem são a base versionada (deploy). Cada inquilino pode ter os **próprios** em `inquilinos/<id>/templates/<nome>/` (no EFS), que o designer publica sem deploy. Eles valem só para os sites do inquilino e, com o mesmo nome, substituem o da imagem só para ele.
+- **Temas:** os da imagem são a base versionada (deploy). Cada inquilino pode ter os **próprios** em `inquilinos/<id>/temas/<nome>/` (no EFS), que o designer publica sem deploy. Eles valem só para os sites do inquilino e, com o mesmo nome, substituem o da imagem só para ele.
 - **Fila em arquivos:** fica, por aguentar o volume previsto. A troca por SQS + DynamoDB, se um dia for preciso, é só em `api/fila.js`.
 - **A validar no piloto:** `delete-distribution-tenant` pode exigir desativar o tenant antes; o 301 de `renomear.sh` é manual.
 - **Nada aqui foi aplicado numa conta AWS ainda.** Manifestos com sintaxe validada e scripts testados em modo simulado. Os IDs (conta, EFS, distribuição, certificado, ECR) são exemplos.

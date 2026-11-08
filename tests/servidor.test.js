@@ -211,7 +211,7 @@ test('sem nenhum token configurado ou com TOKEN_ATUALIZAR curto: o servidor nem 
 });
 
 // ---------- cadastro de site, lote de estoques, refazer todos ----------
-const cadastro = (extra = {}) => ({ nome: 'Loja Nova', motor: 'v2', template: 'teste', url: 'https://loja-nova.com.br', whatsapp: '5541999990000', lojas: { matriz: { nome: 'Matriz', cidade: 'Curitiba', uf: 'PR' } }, ...extra });
+const cadastro = (extra = {}) => ({ nome: 'Loja Nova', motor: 'v2', tema: 'teste', url: 'https://loja-nova.com.br', whatsapp: '5541999990000', lojas: { matriz: { nome: 'Matriz', cidade: 'Curitiba', uf: 'PR' } }, ...extra });
 
 test('PUT /v1/sites/<d>: cria o site (201) e já gera; token limitado não cria site novo', async () => {
   const NOVO = 'loja-nova.com.br';
@@ -233,9 +233,9 @@ test('PUT /v1/sites/<d>: atualiza o cadastro e refaz; cadastro inválido é 422 
   const r = await reqJ('PUT', `/v1/sites/${NOVO}?esperar=20`, { corpo: cadastro({ nome: 'Loja Renomeada' }), token: tokTodos });
   assert.equal(r.status, 200);
   assert.match(A.ler(NOVO, 'index.html'), /Loja Renomeada/);
-  const ruim = await reqJ('PUT', `/v1/sites/${NOVO}`, { corpo: cadastro({ template: 'nao-existe', lojas: [], id: 'x' }), token: tokTodos });
+  const ruim = await reqJ('PUT', `/v1/sites/${NOVO}`, { corpo: cadastro({ tema: 'nao-existe', lojas: [], id: 'x' }), token: tokTodos });
   assert.equal(ruim.status, 422);
-  assert.ok(ruim.j.erros.some((e) => /template/.test(e)) && ruim.j.erros.some((e) => /lojas/.test(e)) && ruim.j.erros.some((e) => /"id"/.test(e)), JSON.stringify(ruim.j));
+  assert.ok(ruim.j.erros.some((e) => /tema/.test(e)) && ruim.j.erros.some((e) => /lojas/.test(e)) && ruim.j.erros.some((e) => /"id"/.test(e)), JSON.stringify(ruim.j));
   // tirar a loja que o estoque usa: recusado (o site quebraria)
   const semLoja = await reqJ('PUT', `/v1/sites/${NOVO}`, { corpo: cadastro({ lojas: { outra: { nome: 'Outra', cidade: 'X', uf: 'SP' }, mais: { nome: 'Mais', cidade: 'Y', uf: 'SP' } } }), token: tokTodos });
   assert.equal(semLoja.status, 422);
@@ -313,7 +313,7 @@ test('PUT /v1/robots: robots.txt de TODOS os sites (só token "*"), com trava co
 // ---------- site novo só com o domínio, troca de domínio, infra ----------
 test('POST /v1/sites: cria site novo só com o domínio (modelo + infra), toda a estrutura', async () => {
   const D = 'so-dominio.com.br';
-  fs.writeFileSync(path.join(A.raiz(), 'config', 'site-modelo.json'), JSON.stringify({ _comentario: 'x', template: 'teste', tema: { cor: '#123456' } }));
+  fs.writeFileSync(path.join(A.raiz(), 'config', 'site-modelo.json'), JSON.stringify({ _comentario: 'x', tema: 'teste', configuracoes: { cor: '#123456' } }));
   fs.writeFileSync(path.join(A.raiz(), 'config', 'infra.json'), JSON.stringify({ criar: 'echo {site} {pasta} >> infra.log', renomear: 'echo {antigo} {novo} >> infra.log' }));
   assert.equal((await req('POST', '/v1/sites', { corpo: { dominio: D } })).status, 403, 'token de um site só não cria');
   assert.equal((await req('POST', '/v1/sites', { corpo: { dominio: 'Com Espaço' }, token: tokTodos })).status, 422);
@@ -324,7 +324,7 @@ test('POST /v1/sites: cria site novo só com o domínio (modelo + infra), toda a
   const dir = path.join(A.raiz(), 'sites-config', D);
   for (const f of ['site.json', 'estoque.json', 'assets', 'web/paginas']) assert.ok(fs.existsSync(path.join(dir, f)), f);
   const cad = JSON.parse(fs.readFileSync(path.join(dir, 'site.json'), 'utf8'));
-  assert.deepEqual([cad.nome, cad.url, cad.template, cad.tema.cor, cad.motor, '_comentario' in cad], [D, `https://${D}`, 'teste', '#123456', 'v3', false]);
+  assert.deepEqual([cad.nome, cad.url, cad.tema, cad.configuracoes.cor, cad.motor, '_comentario' in cad], [D, `https://${D}`, 'teste', '#123456', 'v3', false]);
   assert.ok(A.existe(D, 'index.html') && A.existe(D, 'multipla/index.html') && A.existe(D, 'robots.txt'), 'site gerado');
   assert.match(fs.readFileSync(path.join(A.raiz(), 'infra.log'), 'utf8'), new RegExp(`${D} sites-public/${D}`));
   // estoque antes das lojas: recusado com explicação; depois de cadastrar a loja, entra
@@ -339,7 +339,7 @@ test('POST /v1/sites: cria site novo só com o domínio (modelo + infra), toda a
 test('POST /v1/sites: infra que falha deixa o site pronto e avisa como erro; POST /infra refaz', async () => {
   fs.writeFileSync(path.join(A.raiz(), 'config', 'infra.json'), JSON.stringify({ criar: 'echo "certificado recusado" >&2; exit 4' }));
   const D = 'infra-falha.com.br';
-  const r = await reqJ('POST', '/v1/sites?esperar=20', { corpo: { dominio: D, cadastro: { template: 'teste' } }, token: tokTodos });
+  const r = await reqJ('POST', '/v1/sites?esperar=20', { corpo: { dominio: D, cadastro: { tema: 'teste' } }, token: tokTodos });
   assert.equal(r.status, 500, JSON.stringify(r.j));
   assert.match(r.j.erros[0], /infra falhou: certificado recusado/);
   assert.ok(A.existe(D, 'index.html'), 'o site em si ficou pronto');
@@ -411,7 +411,7 @@ test('POST /v1/sites/<d>/promover: rascunho vira o site definitivo; token acompa
 
 test('POST /v1/sites sem domínio: cria o próximo rascunho da sequência (siteN.carro57.com.br)', async () => {
   fs.writeFileSync(path.join(A.raiz(), 'config', 'rascunhos.json'), JSON.stringify({ padrao: 'site{n}.carro57.com.br' }));
-  const a = await reqJ('POST', '/v1/sites?esperar=20', { corpo: { cadastro: { template: 'teste', nome: 'Loja do João' } }, token: tokTodos });
+  const a = await reqJ('POST', '/v1/sites?esperar=20', { corpo: { cadastro: { tema: 'teste', nome: 'Loja do João' } }, token: tokTodos });
   assert.equal(a.status, 201, JSON.stringify(a.j));
   assert.match(a.j.site, /^site(\d+)\.carro57\.com\.br$/);
   const n = Number(a.j.site.match(/\d+/)[0]);
@@ -423,8 +423,8 @@ test('POST /v1/sites sem domínio: cria o próximo rascunho da sequência (siteN
   assert.equal(b.status, 202);
   assert.equal(b.j.site, `site${n + 1}.carro57.com.br`);
   // cadastro inválido não gasta número
-  assert.equal((await req('POST', '/v1/sites', { corpo: { cadastro: { template: 'nao-existe' } }, token: tokTodos })).status, 422);
-  const c = await reqJ('POST', '/v1/sites', { corpo: { cadastro: { template: 'teste' } }, token: tokTodos });
+  assert.equal((await req('POST', '/v1/sites', { corpo: { cadastro: { tema: 'nao-existe' } }, token: tokTodos })).status, 422);
+  const c = await reqJ('POST', '/v1/sites', { corpo: { cadastro: { tema: 'teste' } }, token: tokTodos });
   assert.equal(c.j.site, `site${n + 2}.carro57.com.br`);
   // promover: para um domínio carro57 não pode
   const p = await reqJ('POST', `/v1/sites/${a.j.site}/promover`, { corpo: { dominio: 'site99.carro57.com.br' }, token: tokTodos });
@@ -453,7 +453,7 @@ test('DELETE /v1/sites/<d>?confirmar=<d>: tira o site (recuperável), apaga a sa
 
 test('PATCH /v1/sites/<d>: grava só os campos enviados (o resto do site.json fica), null apaga, validação vale', async () => {
   const D = 'patch.teste.com.br';
-  A.criarSite(D, { carros: [A.carro()], site: { slogan: 'Antigo', cabecalho: { menu: [{ rotulo: 'Estoque', link: 'multipla/' }] }, tema: { cor: '#111111' } } });
+  A.criarSite(D, { carros: [A.carro()], site: { slogan: 'Antigo', cabecalho: { menu: [{ rotulo: 'Estoque', link: 'multipla/' }] }, configuracoes: { cor: '#111111' } } });
   const r = await reqJ('PATCH', `/v1/sites/${D}?esperar=20`, { corpo: { whatsapp: '5541988887777', lojas: { centro: { whatsapp: '5541900000000' } }, slogan: null }, token: tokTodos });
   assert.equal(r.status, 200, JSON.stringify(r.j));
   const cad = A.lerSite(D);
@@ -462,11 +462,11 @@ test('PATCH /v1/sites/<d>: grava só os campos enviados (o resto do site.json fi
   assert.equal(cad.lojas.centro.nome, 'Loja Centro', 'campo da loja que não veio continua');
   assert.ok(cad.lojas.sul, 'loja que não veio continua');
   assert.equal(cad.slogan, undefined, 'null apaga');
-  assert.deepEqual([cad.tema.cor, cad.cabecalho.menu[0].rotulo], ['#111111', 'Estoque'], 'o que outros mantêm não some');
+  assert.deepEqual([cad.configuracoes.cor, cad.cabecalho.menu[0].rotulo], ['#111111', 'Estoque'], 'o que outros mantêm não some');
   // inválido: nada gravado
-  const ruim = await reqJ('PATCH', `/v1/sites/${D}`, { corpo: { template: 'nao-existe' }, token: tokTodos });
+  const ruim = await reqJ('PATCH', `/v1/sites/${D}`, { corpo: { tema: 'nao-existe' }, token: tokTodos });
   assert.equal(ruim.status, 422);
-  assert.equal(A.lerSite(D).template, 'teste');
+  assert.equal(A.lerSite(D).tema, 'teste');
   assert.equal((await req('PATCH', `/v1/sites/${D}`, { corpo: { inquilino: 'outro' }, token: tokTodos })).status, 422);
   assert.equal((await req('PATCH', '/v1/sites/nao-existe.com.br', { corpo: {}, token: tokTodos })).status, 404);
   assert.equal((await req('PATCH', `/v1/sites/${D}`, { corpo: { whatsapp: '5541977776666' } })).status, 403, 'token sem acesso ao site');

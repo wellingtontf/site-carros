@@ -6,7 +6,7 @@ filtros, página de cada carro e páginas institucionais. Cadastro, estoque e p�
 que mudou para a CDN.
 
 **Documentação completa: [docs/](docs/README.md)** — visão geral, como o build funciona passo a passo, configurar um site,
-páginas, templates, componentes, listagem e rotas, estoque, API, publicação, infraestrutura e testes.
+páginas, temas, componentes, listagem e rotas, estoque, API, publicação, infraestrutura e testes.
 
 ## Pastas
 
@@ -14,9 +14,9 @@ páginas, templates, componentes, listagem e rotas, estoque, API, publicação, 
 core/                      só código, isolado: build, motor de busca (versionado), código do navegador (core/ui)
 api/                       API HTTP /v1 (porta de entrada; o core nunca depende dela)
 sites-config/<dominio>/    A FONTE de cada site: site.json, estoque.json, web/ (home, listagem, páginas), componentes/, assets/
-templates/<nome>/          um visual por pasta: barra-topo, lateral, trokey, template-basico
-componentes/<nome>/        filtro, estoque, filtros-ativos (usados por todos os templates)
-inquilinos/<id>/           configuração e templates de cada inquilino (multi-tenant)
+temas/<nome>/              um visual por pasta (estrutura do Shopify): barra-topo, lateral, template-basico
+componentes/<nome>/        filtro, estoque, filtros-ativos (usados por todos os temas)
+inquilinos/<id>/           configuração e temas de cada inquilino (multi-tenant)
 config/  ferramentas/  infra/  tests/  docs/
 ```
 Gerados (fora do git): `sites-public/<dominio>/` (o site pronto), `.estado/` (estado do build, fila, travas), `s3-local/`.
@@ -35,7 +35,7 @@ Também como `npm run build`, `npm run testar`, `npm run status`, `npm run api`,
 
 ## Sites de teste no repositório
 
-| Site | Template | Estoque |
+| Site | Tema | Estoque |
 |---|---|---|
 | `lojateste.com.br` | template-basico | 1500 carros de teste (URLs de foto longas, para teste de tamanho); filtro com caixas de marcar; `estoque.json` compacto |
 | `primeseminovos.exemplo.com.br` | template-basico | 400 carros (`node ferramentas/gerar-exemplo.js`), 297 no site por `precoMin` |

@@ -1,34 +1,36 @@
 #!/usr/bin/env node
-// Gera os sites. Cada site = sites-config/<dominio>/ (site.json + estoque.json + assets/) + um template + uma versão do motor.
+// Gera os sites. Cada site = sites-config/<dominio>/ (site.json + estoque.json + assets/) + um tema + uma versão do motor.
 // É INCREMENTAL: guarda o que gerou em .estado/ e, na próxima vez, só reescreve o que mudou.
 //   node core/build.js                                          todos os sites, com o motor que cada um usa (sites-public/)
 //   node core/build.js --sites trokey.com.br,outro.com.br        só esses sites
 //   node core/build.js --sites trokey.com.br --motor rascunho    testa o motor em rascunho num site (vai para dist-preview/)
 //   --completo                                                  ignora o que já foi gerado e refaz tudo
 //   --saida <pasta>                                             muda a pasta de saída
-// Entradas:  sites-config/<dominio>/  templates/<nome>/  core/motor/<versao>/engine.js  core/ui/
+// Entradas:  sites-config/<dominio>/  temas/<nome>/  core/motor/<versao>/engine.js  core/ui/
 // Saídas:    <saida>/<dominio>/...   e   .estado/<saida>/pendentes/<dominio>.json (o que mudou e ainda não foi publicado)
 //
 // O que vai para cada site gerado:
 //   motor/engine.js + motor/ui-*.js      ← core (motor da versão do site + ui)
-//   css/ js/ img/ ...                    ← templates/<nome>/ (tudo menos paginas/ e template.json)
+// Tema (temas/<nome>/, estrutura do Shopify): config/settings_schema.json, templates/ (um por tipo de página), secoes/,
+// snippets/ ({{> nome}}), assets/, paginas-padrao/, paginas-extras/.
+//   css/ js/ img/ ...                    ← temas/<nome>/assets/ (na raiz do site)
 //   assets/                              ← sites-config/<dominio>/assets/
-//   index.html                           ← a HOME: templates/<nome>/paginas/home.html + sites-config/<dominio>/paginas/index.json (sem ela, HOME_PADRAO)
-//   multipla/index.html                  ← templates/<nome>/paginas/multipla.html (a listagem do estoque; sempre em /multipla)
-//   carros/<Marca>/<Modelo>/<Versao>/<...>-<id>.html ← templates/<nome>/paginas/carro.html (e vendido.html); regra em core/ui/link-carro.js
-//   <caminho>/index.html                 ← templates/<nome>/paginas/pagina.html + blocos/<tipo>.html (sites-config/<dominio>/paginas/<caminho>.json)
-//   NADA depois de /multipla/: filtro é sempre parâmetro (/multipla/?marca=Toyota, ?carroceria=Moto). Endereço antigo
-//   (/multipla/marca/toyota/, /multipla/revenda_cidade_nome/Curitiba/) é 301 da hospedagem (infra/cloudfront/roteador.js)
+//   index.html                           ← a HOME: temas/<nome>/templates/home.html + sites-config/<dominio>/web/index.json (sem ela, HOME_PADRAO)
+//   multipla/index.html                  ← temas/<nome>/templates/multipla.html (a listagem do estoque; sempre em /multipla)
+//   carros/<Marca>/<Modelo>/<Versao>/<...>-<id>.html ← temas/<nome>/templates/carro.html (e vendido.html); regra em core/ui/link-carro.js
+//   paginas/<caminho>/index.html         ← temas/<nome>/templates/pagina.html + secoes/<tipo>.html (sites-config/<dominio>/web/paginas/<caminho>.json)
+//   NADA de arquivo depois de /multipla/: os filtros são ROTAS (/multipla/marca/toyota) que a hospedagem entrega com o
+//   mesmo multipla/index.html (infra/cloudfront/roteador.js)
 //   estoque.json (os carros que o motor lê; era carros.json), config.json, sitemap.xml (com <lastmod> = quando cada página
 //   mudou de verdade), robots.txt (core/robots.js)
 //
 // sites-config/<dominio>/web/ é o ESPELHO do site público: cada arquivo é um endereço.
-//   web/index.json → /  (home)          web/multipla.json → /multipla/  ({ "blocosAntes": [...], "blocosDepois": [...] })
-//   web/paginas/lojas.json, web/paginas/sobre/nos.json → /paginas/lojas/ ... { "titulo": "...", "blocos": [ { "tipo": "banner", ... } ] }
+//   web/index.json → /  (home)          web/multipla.json → /multipla/  ({ "secoesAntes": [...], "secoesDepois": [...] })
+//   web/paginas/lojas.json, web/paginas/sobre/nos.json → /paginas/lojas/ ... { "titulo": "...", "secoes": [ { "tipo": "banner", ... } ] }
 //   web/paginas/feirao.html, web/paginas/feirao/index.html → HTML livre do designer (core/paginas-livres.js)
-// Cada tipo de bloco é um HTML do template (templates/<nome>/blocos/<tipo>.html). O site.json NÃO tem lista de páginas.
-// Páginas que TODO site ganha (contato, privacidade, cookies, LGPD...) vêm do TEMPLATE do site:
-// templates/<nome>/paginas-padrao/<nome>.json (cada template é autocontido; o texto legal muda num lugar só por template), com
+// Cada tipo de seção é um HTML do tema (temas/<nome>/secoes/<tipo>.html). O site.json NÃO tem lista de páginas.
+// Páginas que TODO site ganha (contato, privacidade, cookies, LGPD...) vêm do TEMA do site:
+// temas/<nome>/paginas-padrao/<nome>.json (cada tema é autocontido; o texto legal muda num lugar só por tema), com
 // {{site.nome}}, {{site.dominio}}, {{empresa.cnpj}}, {{rel}}... preenchidos por site. O site substitui uma delas com uma
 // página de mesmo nome em sites-config/<dominio>/web/paginas/ (ex.: contato.json), ou desliga com "paginasPadrao": { "<nome>": false }. Campos de link/imagem com caminho
 // relativo (link, imagem, foto, logo...) recebem o prefixo certo para a página onde aparecem.
@@ -44,7 +46,7 @@ const Fotos = require('./fotos'); // fotos por URL: quantas já estão prontas
 const Robots = require('./robots');
 const Sitemap = require('./sitemap');
 const Comp = require('./componentes'); // componentes (componentes/<nome>/): {{componente x}} nos templates, bloco "componente" nas páginas // sitemap.xml: páginas + carros no ar (core/sitemap.js; gerarSitemap(dominio) também roda sozinho)
-const Inq = require('./inquilinos'); // inquilino do site: template próprio dele, se houver
+const Inq = require('./inquilinos'); // inquilino do site: tema próprio dele, se houver
 const Sites = require('./sites'); // repositório de sites: o único que lê a pasta sites-config/
 const Pendentes = require('./pendentes'); // o que falta publicar, um arquivo por site
 const { renovarMinhas } = require('./trava'); // build longo: mantém as travas do trabalhador vivas // modelo do robots.txt (um para todos os sites; o site pode ter o seu)
@@ -53,14 +55,14 @@ const ROOT = C.ROOT;
 const ESTADO = C.ESTADO;
 const CAMPOS_FILTRO = ['estado', 'cidade', 'loja', 'marca', 'modelo', 'carroceria', 'ano', 'preco', 'km', 'cambio', 'combustivel', 'cor'];
 const TEXTOS_PADRAO = { botaoWhatsapp: 'Tenho interesse (WhatsApp)', busca: 'Buscar: marca, modelo, cidade, cor...', voltar: 'Voltar ao estoque', rodape: '' };
-const TEMA_PADRAO = { cor: '#0b5fff', fundo: '#f5f6f8', texto: '#1b2430', raio: 12, colunas: 250, fonte: 'system-ui,-apple-system,"Segoe UI",Roboto,sans-serif' };
-// páginas que todo template tem (templates/<nome>/paginas/), uma por tipo de página do site:
+const CONFIGURACOES_PADRAO = { cor: '#0b5fff', fundo: '#f5f6f8', texto: '#1b2430', raio: 12, colunas: 250, fonte: 'system-ui,-apple-system,"Segoe UI",Roboto,sans-serif' };
+// templates que todo tema tem (temas/<nome>/templates/, padrão Shopify), um por tipo de página do site:
 //   home.html      página principal (/)                     multipla.html  listagem do estoque (/multipla/ e filtros)
 //   carro.html     página de cada carro                     vendido.html   carro que saiu ("não está mais disponível")
 //   pagina.html    moldura das páginas de conteúdo (/paginas/...) e da 404
 const PAGINAS = ['home.html', 'multipla.html', 'carro.html', 'vendido.html', 'pagina.html'];
-// blocos que todo template precisa ter: home padrão (banner, vitrine) e páginas padrão (titulo, texto, formulario, lojas)
-const BLOCOS_OBRIGATORIOS = ['banner', 'vitrine', 'titulo', 'texto', 'formulario', 'lojas'];
+// seções que todo tema precisa ter: home padrão (banner, vitrine) e páginas padrão (titulo, texto, formulario, lojas)
+const SECOES_OBRIGATORIAS = ['banner', 'vitrine', 'titulo', 'texto', 'formulario', 'lojas'];
 const AVISO_COOKIES_PADRAO = 'Usamos cookies para melhorar sua experiência e, se ativadas, ferramentas de medição. Ao continuar, você concorda.';
 const CAMINHO_ESTOQUE = 'multipla'; // a listagem do estoque fica SEMPRE em /multipla; a raiz é a home institucional
 // páginas de conteúdo (todas menos a home) ficam em /paginas/<nome>/ no site publicado: lojas, contato, lgpd, feirão...
@@ -97,7 +99,7 @@ const url = (caminho) => caminho.split('/').map(encodeURIComponent).join('/');
 // 404.html de quem não configurou uma ("pagina404" no site.json, mesmo formato de uma página de "paginas")
 const PAGINA_404_PADRAO = {
   titulo: 'Página não encontrada',
-  blocos: [
+  secoes: [
     { tipo: 'titulo', titulo: 'Página não encontrada', subtitulo: 'O endereço pode ter mudado ou o veículo já foi vendido.' },
     { tipo: 'vitrine', titulo: 'Veja alguns carros do nosso estoque', quantidade: 4, botao: 'Ver estoque completo' },
   ],
@@ -111,7 +113,7 @@ function problemasProducao(site) {
   else if (site.fotosBase && /^http:\/\//i.test(site.fotosBase)) p.push(`"fotosBase" sem https ("${site.fotosBase}"): o navegador bloqueia as fotos num site https`);
   return p;
 }
-// home de quem não configurou uma (o template precisa ter os blocos "banner" e "vitrine")
+// home de quem não configurou uma (o tema precisa ter as seções "banner" e "vitrine")
 const HOME_PADRAO = (site) => [
   { tipo: 'banner', titulo: site.nome, subtitulo: site.slogan || '' },
   { tipo: 'vitrine', titulo: 'Destaques', quantidade: 8, botao: 'Ver estoque completo' },
@@ -217,18 +219,19 @@ function gravarEstado(pasta, id, obj) {
 const registrarPendente = (pasta, id, mud, completo) => Pendentes.registrar(pasta, id, mud, completo); // core/pendentes.js
 
 const limpaCss = (v) => String(v).replace(/[<>{};]/g, '');
-function temaDoSite(site) {
-  const t = { ...TEMA_PADRAO, ...(site.cor ? { cor: site.cor } : {}), ...(site.tema || {}) };
-  if (t.fonteGoogle) t.fonte = `"${t.fonteGoogle}",${TEMA_PADRAO.fonte}`;
+// "configuracoes" do site.json (cores, fonte, logo...; no Shopify, o settings_data.json)
+function configuracoesDoSite(site) {
+  const t = { ...CONFIGURACOES_PADRAO, ...(site.cor ? { cor: site.cor } : {}), ...(site.configuracoes || {}) };
+  if (t.fonteGoogle) t.fonte = `"${t.fonteGoogle}",${CONFIGURACOES_PADRAO.fonte}`;
   return t;
 }
 const temaCss = (t) => `:root{--cor:${limpaCss(t.cor)};--fundo:${limpaCss(t.fundo)};--texto:${limpaCss(t.texto)};--raio:${Number(t.raio)}px;--colunas:${Number(t.colunas)}px;--fonte:${limpaCss(t.fonte)}}`;
-// imagens do tema (logo, banner...): caminho relativo aponta para os arquivos do site (ex.: "assets/logo.png")
+// imagens das configurações (logo, banner...): caminho relativo aponta para os arquivos do site (ex.: "assets/logo.png")
 // e ganha o prefixo certo para cada página; URL absoluta fica como está
 const IMAGEM = /\.(png|jpe?g|webp|avif|gif|svg|ico)$/i;
-const temaDaPagina = (t, rel) => Object.fromEntries(Object.entries(t).map(([k, v]) =>
+const configuracoesDaPagina = (t, rel) => Object.fromEntries(Object.entries(t).map(([k, v]) =>
   [k, typeof v === 'string' && IMAGEM.test(v) && !/^([a-z]+:)?\/\//i.test(v) && !v.startsWith('/') ? rel + v : v]));
-// links/imagens relativos dentro de cabeçalho, rodapé e blocos ganham o prefixo da página
+// links/imagens relativos dentro de cabeçalho, rodapé e seções ganham o prefixo da página
 const relativo = (v) => typeof v === 'string' && v !== '' && !/^([a-z][a-z0-9+.-]*:|\/\/|\/|#|\?)/i.test(v);
 // mapa: ajusta o link antes do prefixo (ex.: "contato/" → "paginas/contato/", ver paraPagina no construir)
 function resolverLinks(o, rel, mapa = (x) => x) {
@@ -279,13 +282,14 @@ function juntar(site) {
 }
 
 // hoje: "AAAA-MM-DD" (padrão: a data atual; SITE_CARROS_HOJE ou o parâmetro servem para testar prazos de retenção)
-// <template>/paginas-padrao/*.json (as páginas padrão do template; lidas uma vez por template a cada build)
+// <tema>/paginas-padrao/*.json (as páginas padrão do tema; lidas uma vez por tema a cada build)
 function lerPaginasPadrao(dirTpl) {
-  const dir = path.join(dirTpl, 'paginas-padrao');
+  const dir = path.join(dirTpl, C.TEMA.paginasPadrao);
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort().map((f) => {
     const p = lerJSON(path.join(dir, f));
-    if (!p.caminho || !Array.isArray(p.blocos)) throw new Error(`${path.relative(ROOT, path.join(dir, f))}: precisa de "caminho" e "blocos"`);
+    if (p.blocos !== undefined) throw new Error(`${path.relative(ROOT, path.join(dir, f))}: "blocos" agora se chama "secoes" (node ferramentas/migrar-temas.js)`);
+    if (!p.caminho || !Array.isArray(p.secoes)) throw new Error(`${path.relative(ROOT, path.join(dir, f))}: precisa de "caminho" e "secoes"`);
     return { ...p, nome: f.replace(/\.json$/, '') };
   });
 }
@@ -304,22 +308,21 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     : todos;
   fs.mkdirSync(DIST, { recursive: true });
   const hashTpl = new Map();
-  // paginas-extras/ fica de fora: editar uma página livre do template não deve refazer as páginas de carro de todos os sites
   // paginas-extras e paginas-padrao ficam de fora: editar o texto de uma página (LGPD, feirão...) não deve refazer as
   // páginas de carro de todos os sites (as páginas de conteúdo são refeitas sempre; os rótulos entram no hash do site)
   Comp.limparCache();
   // mudou um componente: refaz as páginas. Só as pastas dos componentes contam (o README.md da raiz de componentes/ não)
   const hashComponentes = fs.existsSync(C.COMPONENTES) ? sha(hashDir(C.COMPONENTES, (r) => !r.includes(path.sep))) : '';
-  const tplHash = (dir) => { if (!hashTpl.has(dir)) hashTpl.set(dir, sha(hashDir(dir, (r) => r === 'paginas-extras' || r === 'paginas-padrao'))); return hashTpl.get(dir); };
+  const tplHash = (dir) => { if (!hashTpl.has(dir)) hashTpl.set(dir, sha(hashDir(dir, (r) => r === C.TEMA.paginasExtras || r === C.TEMA.paginasPadrao))); return hashTpl.get(dir); };
   const hoje = hojeParam || process.env.SITE_CARROS_HOJE || new Date().toISOString().slice(0, 10);
   const feitos = [];
-  // páginas padrão por template (cache) e aviso de texto provisório uma vez por template
+  // páginas padrão por tema (cache) e aviso de texto provisório uma vez por tema
   const padraoDe = new Map();
   const paginasPadraoDo = (dirTpl) => {
     if (!padraoDe.has(dirTpl)) {
       const lista = lerPaginasPadrao(dirTpl);
       const prov = lista.filter((p) => p.provisorio).map((p) => `${p.nome}.json`);
-      if (prov.length) console.warn(`  aviso: ${path.relative(ROOT, path.join(dirTpl, 'paginas-padrao'))}: TEXTO PROVISÓRIO (falta o texto do jurídico) em ${prov.join(', ')}`);
+      if (prov.length) console.warn(`  aviso: ${path.relative(ROOT, path.join(dirTpl, C.TEMA.paginasPadrao))}: TEXTO PROVISÓRIO (falta o texto do jurídico) em ${prov.join(', ')}`);
       padraoDe.set(dirTpl, lista);
     }
     return padraoDe.get(dirTpl);
@@ -331,22 +334,26 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     if (!versao) throw new Error(`Site "${site.id}" sem "motor" (ex.: "motor": "v1") em sites-config/${site.id}/site.json`);
     const arqMotor = path.join(C.motor(versao), 'engine.js');
     if (!fs.existsSync(arqMotor)) throw new Error(`Site "${site.id}": motor "${versao}" não existe (core/motor/${versao}/engine.js)`);
-    const nomeTpl = site.template;
-    // template próprio do inquilino (inquilinos/<id>/templates/<nome>, sem deploy) ou o da imagem (templates/<nome>)
-    const dirTpl = nomeTpl ? Inq.dirTemplate(Inq.doSite(site), nomeTpl) : null;
-    if (!nomeTpl || !fs.existsSync(dirTpl)) throw new Error(`Site "${site.id}": template "${nomeTpl}" não existe (templates/${nomeTpl}/)`);
-    const faltam = [...PAGINAS.map((p) => [path.join(dirTpl, 'paginas', p), `paginas/${p}`]), ...BLOCOS_OBRIGATORIOS.map((b) => [path.join(dirTpl, 'blocos', `${b}.html`), `blocos/${b}.html`])]
+    // padrão Shopify (2026-11-08): "tema" = nome do tema; o objeto antigo "tema" (cores, logo) virou "configuracoes"
+    if (site.template !== undefined || (site.tema && typeof site.tema === 'object')) throw new Error(`Site "${site.id}": "template" agora se chama "tema" e as cores/logo vão em "configuracoes". Para migrar: node ferramentas/migrar-temas.js`);
+    const nomeTpl = site.tema;
+    // tema próprio do inquilino (inquilinos/<id>/temas/<nome>, sem deploy) ou o da imagem (temas/<nome>)
+    const dirTpl = nomeTpl ? Inq.dirTema(Inq.doSite(site), nomeTpl) : null;
+    if (!nomeTpl || !fs.existsSync(dirTpl)) throw new Error(`Site "${site.id}": tema "${nomeTpl}" não existe (temas/${nomeTpl}/)`);
+    const antigos = C.TEMA_ANTIGO.filter((x) => fs.existsSync(path.join(dirTpl, x)));
+    if (antigos.length) throw new Error(`Tema "${nomeTpl}" com a estrutura antiga (${antigos.join(', ')}): agora é config/settings_schema.json, templates/, secoes/, snippets/ e assets/. Para migrar: node ferramentas/migrar-temas.js`);
+    const faltam = [[path.join(dirTpl, C.TEMA.schema), C.TEMA.schema.split(path.sep).join('/')], ...PAGINAS.map((p) => [path.join(dirTpl, C.TEMA.templates, p), `templates/${p}`]), ...SECOES_OBRIGATORIAS.map((b) => [path.join(dirTpl, C.TEMA.secoes, `${b}.html`), `secoes/${b}.html`])]
       .filter(([arq]) => !fs.existsSync(arq)).map(([, nome]) => nome);
-    if (faltam.length) throw new Error(`Template "${nomeTpl}" incompleto: falta ${faltam.join(', ')}`);
+    if (faltam.length) throw new Error(`Tema "${nomeTpl}" incompleto: falta ${faltam.join(', ')}`);
 
     // páginas de conteúdo; a home ("") é obrigatória: sem ela no site.json, o core usa HOME_PADRAO
-    // a listagem (/multipla/) é configurada em sites-config/<dominio>/web/multipla.json: { "blocosAntes": [...], "blocosDepois": [...] }
-    if (site.estoque != null) throw new Error(`Site "${site.id}": "estoque" não fica mais no site.json: a listagem é configurada em sites-config/${site.id}/web/multipla.json ({ "blocosAntes", "blocosDepois" }). Para mover: node ferramentas/mover-paginas.js ${site.id}`);
+    // a listagem (/multipla/) é configurada em sites-config/<dominio>/web/multipla.json: { "secoesAntes": [...], "secoesDepois": [...] }
+    if (site.estoque != null) throw new Error(`Site "${site.id}": "estoque" não fica mais no site.json: a listagem é configurada em sites-config/${site.id}/web/multipla.json ({ "secoesAntes", "secoesDepois" }). Para mover: node ferramentas/mover-paginas.js ${site.id}`);
     let cfgEstoque = {};
     // arquivo vazio = sem configuração (o designer apaga o conteúdo para tirar o banner, por exemplo)
     if (fs.existsSync(C.multipla(site.id)) && fs.readFileSync(C.multipla(site.id), 'utf8').trim() !== '') {
       try { cfgEstoque = lerJSON(C.multipla(site.id)); } catch (e) { throw new Error(`sites-config/${site.id}/web/multipla.json: JSON inválido (${e.message})`); }
-      if (!cfgEstoque || typeof cfgEstoque !== 'object' || Array.isArray(cfgEstoque)) throw new Error(`sites-config/${site.id}/web/multipla.json: precisa ser um objeto { "blocosAntes": [...], "blocosDepois": [...] }`);
+      if (!cfgEstoque || typeof cfgEstoque !== 'object' || Array.isArray(cfgEstoque)) throw new Error(`sites-config/${site.id}/web/multipla.json: precisa ser um objeto { "secoesAntes": [...], "secoesDepois": [...] }`);
       const erros = Sites.validarMultipla(site.id, cfgEstoque);
       if (erros.length) throw new Error(`sites-config/${site.id}/web/multipla.json: ${erros.join('; ')}`);
     }
@@ -359,36 +366,37 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       const onde = `sites-config/${site.id}/web/${path.relative(dirWeb, p.arquivo)}`;
       let j;
       try { j = lerJSON(p.arquivo); } catch (e) { throw new Error(`${onde}: JSON inválido (${e.message})`); }
-      if (!j || typeof j !== 'object' || Array.isArray(j)) throw new Error(`${onde}: precisa ser um objeto { "titulo", "blocos": [...] }`);
+      if (!j || typeof j !== 'object' || Array.isArray(j)) throw new Error(`${onde}: precisa ser um objeto { "titulo", "secoes": [...] }`);
+      if (j.blocos !== undefined) throw new Error(`${onde}: "blocos" agora se chama "secoes" (node ferramentas/migrar-temas.js)`);
       const { caminho, ...resto } = j; // o caminho é o nome do arquivo
       return { ...resto, caminho: p.caminho, arquivo: onde };
     });
     const desligadas = site.paginasPadrao || {};
     // páginas livres dos designers (HTML normal). Prioridade de quem tem o mesmo caminho:
-    //   sites-config/<dominio>/web/paginas/ > templates/<nome>/paginas-extras/ > templates/<nome>/paginas-padrao/
+    //   sites-config/<dominio>/web/paginas/ > temas/<nome>/paginas-extras/ > temas/<nome>/paginas-padrao/
     const livres = [
       ...PL.lerPaginasLivres(C.paginasLivresSite(site.id)).map((p) => ({ ...p, origem: `sites-config/${site.id}/web/paginas` })),
-      ...PL.lerPaginasLivres(path.join(dirTpl, 'paginas-extras')).map((p) => ({ ...p, origem: `templates/${nomeTpl}/paginas-extras`, doTemplate: true })),
+      ...PL.lerPaginasLivres(path.join(dirTpl, C.TEMA.paginasExtras)).map((p) => ({ ...p, origem: `temas/${nomeTpl}/${C.TEMA.paginasExtras}`, doTemplate: true })),
     ];
     const vistosLivres = new Map();
     for (const p of livres) {
-      const onde = `${p.origem}/${path.relative(p.origem.startsWith('sites-config') ? C.paginasLivresSite(site.id) : path.join(dirTpl, 'paginas-extras'), p.arquivo)}`;
+      const onde = `${p.origem}/${path.relative(p.origem.startsWith('sites-config') ? C.paginasLivresSite(site.id) : path.join(dirTpl, C.TEMA.paginasExtras), p.arquivo)}`;
       if (vistosLivres.get(p.caminho) === p.origem) throw new Error(`Página "${p.caminho}" duplicada em ${p.origem} (existe ${p.caminho}.html e ${p.caminho}/index.html)`);
       const json = paginasSite.find((x) => x.caminho === p.caminho && !x.livre);
       if (json && !p.doTemplate) throw new Error(`Página "${p.caminho}" duplicada em ${p.origem} (existe ${json.arquivo} e a página HTML ${onde}): fique com uma só`);
-      if (json || vistosLivres.has(p.caminho)) continue; // a do site vale mais que a do template
+      if (json || vistosLivres.has(p.caminho)) continue; // a do site vale mais que a do tema
       if (p.doTemplate && desligadas[p.caminho] === false) continue;
       if (!CAMINHO_OK.test(p.caminho)) throw new Error(`Página livre ${onde}: nome inválido "${p.caminho}" (use letras minúsculas, números e hífen: ex. feirao-novembro.html)`);
       vistosLivres.set(p.caminho, p.origem);
       const html = fs.readFileSync(p.arquivo, 'utf8');
       const m = PL.metadados(html, p.caminho);
-      paginasSite.push({ caminho: p.caminho, titulo: m.titulo, descricao: m.descricao, ...(m.rotulo ? { rotulo: m.rotulo } : {}), blocos: [],
+      paginasSite.push({ caminho: p.caminho, titulo: m.titulo, descricao: m.descricao, ...(m.rotulo ? { rotulo: m.rotulo } : {}), secoes: [],
         livre: { arquivo: p.arquivo, assets: p.assets, semMoldura: m.livre, onde } });
     }
     // páginas padrão (contato, privacidade, cookies, LGPD): entram se o site não tem uma de mesmo caminho nem desligou
     const PADRAO = paginasPadraoDo(dirTpl);
-    const extrasTpl = PL.lerPaginasLivres(path.join(dirTpl, 'paginas-extras')).map((p) => p.caminho);
-    for (const n of Object.keys(desligadas)) if (!PADRAO.some((p) => p.nome === n) && !extrasTpl.includes(n)) console.warn(`  aviso: site "${site.id}": paginasPadrao "${n}" não existe em templates/${nomeTpl}/paginas-padrao/ nem em templates/${nomeTpl}/paginas-extras/`);
+    const extrasTpl = PL.lerPaginasLivres(path.join(dirTpl, C.TEMA.paginasExtras)).map((p) => p.caminho);
+    for (const n of Object.keys(desligadas)) if (!PADRAO.some((p) => p.nome === n) && !extrasTpl.includes(n)) console.warn(`  aviso: site "${site.id}": paginasPadrao "${n}" não existe em temas/${nomeTpl}/paginas-padrao/ nem em temas/${nomeTpl}/paginas-extras/`);
     for (const p of PADRAO) {
       const caminho = limparCaminho(p.caminho);
       if (desligadas[p.nome] === false || paginasSite.some((x) => x.caminho === caminho)) continue;
@@ -397,7 +405,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
         site: { nome: site.nome, url: site.url || '', dominio: site.id, whatsapp: site.whatsapp || '' }, empresa: site.empresa || {}, rel: prefixo(endPagina(caminho)),
       }), caminho, padrao: nome });
     }
-    if (!paginasSite.some((p) => p.caminho === '')) paginasSite.unshift({ caminho: '', titulo: site.nome, descricao: site.slogan || '', blocos: HOME_PADRAO(site) });
+    if (!paginasSite.some((p) => p.caminho === '')) paginasSite.unshift({ caminho: '', titulo: site.nome, descricao: site.slogan || '', secoes: HOME_PADRAO(site) });
     const usados = new Set();
     for (const p of paginasSite) {
       const onde = `Site "${site.id}", página "${p.caminho || '(raiz)'}"`;
@@ -405,10 +413,10 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       if (RESERVADOS.has(p.caminho.split('/')[0])) throw new Error(`${onde}: "${p.caminho.split('/')[0]}" é reservado`);
       if (usados.has(p.caminho)) throw new Error(`${onde}: caminho repetido${p.arquivo ? ` (${p.arquivo} e outro arquivo viram o mesmo endereço)` : ''}`);
       usados.add(p.caminho);
-      if (!Array.isArray(p.blocos)) throw new Error(`${onde}: falta "blocos" (lista)`);
+      if (!Array.isArray(p.secoes)) throw new Error(`${onde}: falta "secoes" (lista)`);
     }
     // link para uma página do site escrito do jeito simples ("contato/", "lojas", "/sobre/nos/" no HTML do designer) vai
-    // para /paginas/<nome>/. Assim cadastro, blocos e HTML livre não precisam saber que as páginas moram em /paginas/.
+    // para /paginas/<nome>/. Assim cadastro, seções e HTML livre não precisam saber que as páginas moram em /paginas/.
     const caminhosPag = new Set(paginasSite.map((p) => p.caminho).filter(Boolean));
     const paraPagina = (v) => {
       const f = paraFiltro(v);
@@ -426,7 +434,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     const lojas = site.lojas || {};
     const out = path.join(DIST, site.id);
     const base = site.fotosBase || '';
-    const tema = temaDoSite(site);
+    const configuracoes = configuracoesDoSite(site);
     const textos = { ...TEXTOS_PADRAO, ...(site.textos || {}) };
 
     // Só as páginas dependem disto (a versão do motor e os filtros ficam de fora de propósito:
@@ -439,7 +447,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     if (site.componentes != null) throw new Error(`Site "${site.id}": "componentes" não fica mais no site.json: cada componente é um arquivo em sites-config/${site.id}/componentes/<nome>.json (ex.: estoque.json). Para mover: node ferramentas/mover-paginas.js`);
     const opcoesSite = Sites.componentesDoSite(site.id);
     for (const [n, op] of Object.entries(opcoesSite)) { const er = Comp.validar(n, op, `sites-config/${site.id}/componentes/${n}.json`); if (er.length) throw new Error(er.join('; ')); }
-    const baseHash = sha(JSON.stringify([RENDER_VERSION, tplHash(dirTpl), hashComponentes, opcoesSite, site.nome, site.slogan, site.url, site.cor, site.tema, site.textos, site.fotosBase, site.cabecalho, site.rodape, site.lojas, nomesEstoque,
+    const baseHash = sha(JSON.stringify([RENDER_VERSION, tplHash(dirTpl), hashComponentes, opcoesSite, site.nome, site.slogan, site.url, site.cor, site.configuracoes, site.textos, site.fotosBase, site.cabecalho, site.rodape, site.lojas, nomesEstoque,
       paginasSite.filter((p) => p.rotulo).map((p) => [p.rotulo, p.caminho]), // links legais aparecem no rodapé das páginas de carro
       ...(site.rascunho ? ['rascunho'] : [])])); // só entra quando é rascunho: os sites definitivos não refazem nada por causa disso
     const estadoAnt = completo || efemero ? null : lerEstado(pasta, site.id);
@@ -450,16 +458,16 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     const mud = { escritos: [], removidos: [] };
     const rel = (p) => `${site.id}/${p}`;
 
-    // core → motor/ (engine da versão do site + ui); template → css/ js/ img/...; site → assets/
+    // core → motor/ (engine da versão do site + ui); tema → assets/ do tema na RAIZ (css/ js/ img/...); site → assets/
     const engine = fs.readFileSync(arqMotor, 'utf8').replace(/__VERSAO__/g, versao);
     escreverSe(path.join(out, 'motor', 'engine.js'), engine, rel('motor/engine.js'), mud);
     const arquivos = new Map();
     for (const [k, v] of listarArvore(C.UI)) arquivos.set(`motor/${k}`, v);
-    for (const [k, v] of listarArvore(dirTpl, (r) => ['paginas', 'paginas-extras', 'paginas-padrao', 'blocos', 'parciais', 'template.json', 'motor', 'assets'].includes(r))) arquivos.set(k, v);
+    for (const [k, v] of listarArvore(path.join(dirTpl, C.TEMA.assets), (r) => ['motor', 'assets', 'componentes'].includes(r))) arquivos.set(k, v);
     for (const [k, v] of listarArvore(C.assets(site.id))) arquivos.set(`assets/${k}`, v);
     for (const n of Comp.listar()) for (const ext of ['css', 'js']) { const f = path.join(C.COMPONENTES, n, `${n}.${ext}`); if (fs.existsSync(f)) arquivos.set(`componentes/${n}.${ext}`, f); }
     for (const [k, v] of arquivos) copiarSe(v, path.join(out, k), rel(k), mud);
-    const estaticos = new Set(arquivos.keys()); // arquivos copiados (template, assets, páginas livres): o que sumir da origem é apagado
+    const estaticos = new Set(arquivos.keys()); // arquivos copiados (tema, assets, páginas livres): o que sumir da origem é apagado
     // cache busting: todo .css/.js do site vai no HTML com ?v=<hash do conteúdo>. A hospedagem pode guardar css/js por
     // 1 ano (Cache-Control immutable) e HTML novo sempre pede o arquivo novo. Arquivos do template entram no hash das
     // páginas (mudou o css → as páginas são refeitas com o ?v novo). Os do core (motor/) não: página de carro antiga
@@ -476,14 +484,14 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     const rascunho = (html) => (!site.rascunho || /<meta[^>]+name=["']robots["'][^>]+noindex/i.test(html) ? html
       : html.replace(/<head([^>]*)>/i, '<head$1>\n<meta name="robots" content="noindex, nofollow">'));
     const escreverHtml = (arqRel, html) => escreverSe(path.join(out, arqRel), rascunho(versionar(html, arqRel)), rel(arqRel), mud);
-    // {{> nome}} inclui templates/<nome>/parciais/<nome>.html (cabeçalho, rodapé... escritos uma vez só)
+    // {{> nome}} inclui temas/<nome>/snippets/<nome>.html (cabeçalho, rodapé... escritos uma vez só)
     const parciais = (txt, nivel = 0) => txt.replace(/\{\{>\s*([a-z0-9-]+)\s*\}\}/g, (_, n) => {
-      const arq = path.join(dirTpl, 'parciais', `${n}.html`);
-      if (!fs.existsSync(arq)) throw new Error(`Template "${nomeTpl}": parcial "${n}" não existe (templates/${nomeTpl}/parciais/${n}.html)`);
-      if (nivel > 5) throw new Error(`Template "${nomeTpl}": parciais aninhadas demais (${n})`);
+      const arq = path.join(dirTpl, C.TEMA.snippets, `${n}.html`);
+      if (!fs.existsSync(arq)) throw new Error(`Tema "${nomeTpl}": snippet "${n}" não existe (temas/${nomeTpl}/snippets/${n}.html)`);
+      if (nivel > 5) throw new Error(`Tema "${nomeTpl}": snippets aninhados demais (${n})`);
       return parciais(fs.readFileSync(arq, 'utf8'), nivel + 1);
     });
-    const pagina = (arquivo) => parciais(fs.readFileSync(path.join(dirTpl, 'paginas', arquivo), 'utf8'));
+    const pagina = (arquivo) => parciais(fs.readFileSync(path.join(dirTpl, C.TEMA.templates, arquivo), 'utf8'));
 
     // dados que o motor lê
     escreverSe(
@@ -501,6 +509,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     escreverSe(
       path.join(out, 'config.json'),
       JSON.stringify({
+        // "template" = nome do tema (a chave muda junto com a próxima VERSAO_HTML; o core/ui não lê)
         nome: site.nome, motor: versao, template: nomeTpl, whatsapp: site.whatsapp, vendedores: site.vendedores || {},
         busca: site.busca !== false, filtros: site.filtros || null, ordenacao: site.ordenacao || null, total: carros.length,
         // aviso de cookies (core/ui/ui-site.js): link para a política de cookies, ou de privacidade, se o site tiver
@@ -527,26 +536,26 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
         lojas: Object.entries(lojas).map(([id, l]) => ({ id, ...l, total: carros.filter((c) => c.lojaId === id).length, link: q('loja', l.nome) })),
       };
     };
-    const ctxSite = { tema, base, temaCss: temaCss(tema), fonteLink: fonteLink(tema), motor: versao };
+    const ctxSite = { base, temaCss: temaCss(configuracoes), fonteLink: fonteLink(configuracoes), motor: versao };
     // contexto de cada página: r = prefixo até a raiz do site ("", "../", "../../")
     const ctx = (r) => ({
-      ...ctxSite, rel: r, tema: temaDaPagina(tema, r),
+      ...ctxSite, rel: r, configuracoes: configuracoesDaPagina(configuracoes, r),
       site: { nome: site.nome, slogan: site.slogan || '', url: site.url || '', textos,
         cabecalho: resolverLinks(site.cabecalho || {}, r, paraPagina), rodape: resolverLinks(site.rodape || {}, r, paraPagina),
-        // páginas com "rotulo" (as padrão têm): para o rodapé de qualquer template ({{#site.links}})
+        // páginas com "rotulo" (as padrão têm): para o rodapé de qualquer tema ({{#site.links}})
         links: paginasSite.filter((p) => p.rotulo && p.caminho).map((p) => ({ rotulo: p.rotulo, link: `${r}${endPagina(p.caminho)}/` })) },
       inicioUrl: r || './', estoqueUrl: r + `${CAMINHO_ESTOQUE}/`, estoque: estoqueInfo(r),
     });
 
-    // ---- blocos (templates/<nome>/blocos/<tipo>.html) ----
-    const tplBlocos = new Map();
-    const tplBloco = (tipo) => {
-      if (!tplBlocos.has(tipo)) {
-        const arq = path.join(dirTpl, 'blocos', `${tipo}.html`);
-        if (!/^[a-z0-9-]+$/.test(String(tipo)) || !fs.existsSync(arq)) throw new Error(`Site "${site.id}": bloco "${tipo}" não existe no template "${nomeTpl}" (templates/${nomeTpl}/blocos/${tipo}.html)`);
-        tplBlocos.set(tipo, parciais(fs.readFileSync(arq, 'utf8')));
+    // ---- seções (temas/<nome>/secoes/<tipo>.html) ----
+    const tplSecoes = new Map();
+    const tplSecao = (tipo) => {
+      if (!tplSecoes.has(tipo)) {
+        const arq = path.join(dirTpl, C.TEMA.secoes, `${tipo}.html`);
+        if (!/^[a-z0-9-]+$/.test(String(tipo)) || !fs.existsSync(arq)) throw new Error(`Site "${site.id}": seção "${tipo}" não existe no tema "${nomeTpl}" (temas/${nomeTpl}/secoes/${tipo}.html)`);
+        tplSecoes.set(tipo, parciais(fs.readFileSync(arq, 'utf8')));
       }
-      return tplBlocos.get(tipo);
+      return tplSecoes.get(tipo);
     };
     const marcas = [...new Set(carros.map((c) => c.marca))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((m) => ({ valor: m }));
     // opções de preço/ano para formulários de busca: as mesmas configuradas nos filtros do site (precisam bater com o motor)
@@ -554,7 +563,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       const f = (site.filtros || []).find((x) => typeof x === 'object' && x.campo === campo && Array.isArray(x.opcoes));
       return f ? f.opcoes.map((v) => ({ valor: v, rotulo: fmt(v) })) : [];
     };
-    // dados que o build acrescenta a alguns tipos de bloco
+    // dados que o build acrescenta a alguns tipos de seção
     const enriquecer = (b, r) => {
       const d = { ...b };
       // vitrine = cards fixos; listagem = o estoque interativo (motor) dentro da página, já com os primeiros cards no HTML
@@ -593,16 +602,16 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       }
       return d;
     };
-    // usados: os componentes da página (para o build pôr o css/js deles); bloco "componente" chama um componente
-    const renderBlocos = (lista, r, usados = new Set(), onde = `Site "${site.id}"`) => (lista || []).map((b) => {
+    // usados: os componentes da página (para o build pôr o css/js deles); seção "componente" chama um componente
+    const renderSecoes = (lista, r, usados = new Set(), onde = `Site "${site.id}"`) => (lista || []).map((b) => {
       if (b.tipo === 'componente') {
         usados.add(b.nome);
-        return Comp.renderizar(b.nome, [{ origem: `sites-config/${site.id}/componentes/${b.nome}.json`, opcoes: opcoesSite[b.nome] }, { origem: `${onde}, bloco componente`, opcoes: b.opcoes }], ctx(r), render, onde);
+        return Comp.renderizar(b.nome, [{ origem: `sites-config/${site.id}/componentes/${b.nome}.json`, opcoes: opcoesSite[b.nome] }, { origem: `${onde}, seção componente`, opcoes: b.opcoes }], ctx(r), render, onde);
       }
       const d = resolverLinks(enriquecer(b, r), r, paraPagina);
-      return render(tplBloco(b.tipo), { ...ctx(r), ...d, bloco: d });
+      return render(tplSecao(b.tipo), { ...ctx(r), ...d, secao: d });
     }).join('\n');
-    // página inteira: expande {{componente x}} do template, renderiza, põe o css/js dos componentes usados e confere que
+    // página inteira: expande {{componente x}} do tema, renderiza, põe o css/js dos componentes usados e confere que
     // os ids que o motor usa não se repetem (ex.: dois componentes "estoque" na mesma página)
     const IDS_UNICOS = ['filtros', 'filtros-ativos', 'q', 'filtros-dinamicos', 'ord', 'contagem', 'grade', 'mais', 'limpar', 'copiar', 'tpl-card'];
     const renderPagina = (tpl, c, onde, usados = new Set(), pagina = {}) => {
@@ -618,7 +627,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       }
       for (const id of IDS_UNICOS) {
         const n = ((id === 'tpl-card' ? html : A_semModelos(html)).match(new RegExp(`\\bid="${id}"`, 'g')) || []).length;
-        if (n > 1) throw new Error(`${onde}: o id "${id}" aparece ${n} vezes na página (dois componentes "estoque" ou "filtro" juntos, ou o template já tem esse elemento além do componente)`);
+        if (n > 1) throw new Error(`${onde}: o id "${id}" aparece ${n} vezes na página (dois componentes "estoque" ou "filtro" juntos, ou o tema já tem esse elemento além do componente)`);
       }
       return html;
     };
@@ -680,9 +689,9 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
         canon: raizUrlSite ? `<link rel="canonical" href="${esc(raizUrlSite)}/${esc(url(l.caminho))}/">` : '',
       };
       const usados = new Set();
-      const ondeL = `Site "${site.id}", templates/${nomeTpl}/paginas/multipla.html`;
+      const ondeL = `Site "${site.id}", temas/${nomeTpl}/templates/multipla.html`;
       const html = renderPagina(tplLista, {
-        ...ctx(r), listagem, blocosAntes: renderBlocos(cfgEstoque.blocosAntes, r, usados, ondeL), blocosDepois: renderBlocos(cfgEstoque.blocosDepois, r, usados, ondeL),
+        ...ctx(r), listagem, secoesAntes: renderSecoes(cfgEstoque.secoesAntes, r, usados, ondeL), secoesDepois: renderSecoes(cfgEstoque.secoesDepois, r, usados, ondeL),
       }, ondeL, usados, { opcoes: cfgEstoque.componentes, onde: `sites-config/${site.id}/web/multipla.json` });
       datar(arqRel, escreverHtml(arqRel, comCards(comBaseDaRota(html), lista, r)));
     }
@@ -707,14 +716,14 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
         for (const [k, v] of p.livre.assets) { const destino = `${dirP}/${k}`; copiarSe(v, path.join(out, destino), rel(destino), mud); estaticos.add(destino); }
         continue;
       }
-      const nListagem = p.blocos.filter((b) => b.tipo === 'listagem').length;
-      if (nListagem > 1) throw new Error(`Site "${site.id}", página "${p.caminho || '(raiz)'}": só pode ter um bloco "listagem"`);
+      const nListagem = p.secoes.filter((b) => b.tipo === 'listagem').length;
+      if (nListagem > 1) throw new Error(`Site "${site.id}", página "${p.caminho || '(raiz)'}": só pode ter uma seção "listagem"`);
       const usados = new Set();
       const ondeP = `Site "${site.id}", página "${p.caminho || '(home)'}"`;
-      const conteudo = renderBlocos(p.blocos, r, usados, ondeP);
+      const conteudo = renderSecoes(p.secoes, r, usados, ondeP);
       const htmlP = renderPagina(p.caminho ? tplPagina : tplHome, {
         ...ctx(r), pagina: { titulo: p.titulo || site.nome, descricao: p.descricao || site.slogan || '' }, canon, conteudo,
-        temListagem: nListagem > 0, // bloco "listagem" do template: o template carrega o motor (componentes trazem o deles)
+        temListagem: nListagem > 0, // seção "listagem" do tema: o tema carrega o motor (componentes trazem o deles)
       }, ondeP, usados);
       // componente "estoque" na página: os primeiros cards já saem no HTML (Google e quem está sem JS)
       datar(arqRel, escreverHtml(arqRel, usados.has('estoque') ? comCards(htmlP, carros, r) : htmlP));
@@ -723,11 +732,12 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     // os links dela partem da raiz do domínio ("/css/...", "/multipla/"), não da pasta. Fica fora do sitemap (noindex).
     {
       const p = site.pagina404 || PAGINA_404_PADRAO;
-      if (!Array.isArray(p.blocos)) throw new Error(`Site "${site.id}": "pagina404" precisa de "blocos" (lista)`);
+      if (p.blocos !== undefined) throw new Error(`Site "${site.id}": "pagina404": "blocos" agora se chama "secoes" (node ferramentas/migrar-temas.js)`);
+      if (!Array.isArray(p.secoes)) throw new Error(`Site "${site.id}": "pagina404" precisa de "secoes" (lista)`);
       const usados = new Set();
       escreverHtml('404.html', renderPagina(tplPagina, {
         ...ctx('/'), pagina: { titulo: `${p.titulo || PAGINA_404_PADRAO.titulo} | ${site.nome}`, descricao: '' },
-        canon: '<meta name="robots" content="noindex">', conteudo: renderBlocos(p.blocos, '/', usados, `Site "${site.id}", 404`), temListagem: false,
+        canon: '<meta name="robots" content="noindex">', conteudo: renderSecoes(p.secoes, '/', usados, `Site "${site.id}", 404`), temListagem: false,
       }, `Site "${site.id}", 404`, usados));
     }
     // arquivo copiado que não existe mais na origem (imagem tirada da página do designer, css removido do template...)
@@ -815,7 +825,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
         ],
         opcionais: c.opcionais, endereco: lojas[c.lojaId].endereco || '', principalAttrs, fotos,
       };
-      datar(link, escreverHtml(link, renderPagina(tplCarro, { ...ctx(relDe(link)), carro, og }, `Site "${site.id}", templates/${nomeTpl}/paginas/carro.html`)));
+      datar(link, escreverHtml(link, renderPagina(tplCarro, { ...ctx(relDe(link)), carro, og }, `Site "${site.id}", temas/${nomeTpl}/templates/carro.html`)));
     }
 
     // sitemap e robots: é por aqui que o Google descobre as páginas dos carros (a listagem é montada por JS)
@@ -843,7 +853,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     for (const [id, v] of Object.entries(vendidos)) {
       if ((Date.parse(hoje) - Date.parse(v.data)) / 86400000 > retencao) { remover(v.link); delete vendidos[id]; continue; }
       titulos[id] = titulosAnt[id] || id;
-      escreverHtml(v.link, renderPagina(tplVendido, { ...ctx(relDe(v.link)), carro: { id, titulo: titulos[id] } }, `Site "${site.id}", templates/${nomeTpl}/paginas/vendido.html`));
+      escreverHtml(v.link, renderPagina(tplVendido, { ...ctx(relDe(v.link)), carro: { id, titulo: titulos[id] } }, `Site "${site.id}", temas/${nomeTpl}/templates/vendido.html`));
     }
 
     // carro que MUDOU de link (mudou marca/modelo/versão/cidade, ou o formato do link): o endereço antigo redireciona
@@ -877,8 +887,8 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       : resumo.base ? `visual/config mudou: ${carros.length} páginas refeitas`
       : mud.escritos.length || mud.removidos.length ? `+${novos} novos ~${alterados} alterados -${saiu} saíram${redir ? ` · ${redir} link(s) antigo(s) redirecionando` : ''} · ${mud.escritos.length} arquivo(s) escrito(s)`
       : 'sem mudanças';
-    console.log(`${site.id}: ${carros.length} carros · ${detalhe} · template ${nomeTpl} · motor ${versao} · ${ARQ_ESTOQUE} ${kb} KB`);
-    feitos.push({ site, total: carros.length, motor: versao, template: nomeTpl, resumo });
+    console.log(`${site.id}: ${carros.length} carros · ${detalhe} · tema ${nomeTpl} · motor ${versao} · ${ARQ_ESTOQUE} ${kb} KB`);
+    feitos.push({ site, total: carros.length, motor: versao, tema: nomeTpl, resumo });
   }
 
   atualizarIndice(pasta);
@@ -898,7 +908,7 @@ function atualizarIndice(pasta = C.PUBLICO) {
   fs.writeFileSync(tmp,
     `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sites</title>` +
       `<body style="font:16px system-ui;max-width:600px;margin:2rem auto;padding:0 1rem"><h1>Sites gerados</h1><ul>` +
-      presentes.map((s) => `<li><a href="${esc(s.id)}/index.html">${esc(s.nome)}</a> &middot; ${esc(s.id)} &middot; template ${esc(s.template)}</li>`).join('') +
+      presentes.map((s) => `<li><a href="${esc(s.id)}/index.html">${esc(s.nome)}</a> &middot; ${esc(s.id)} &middot; tema ${esc(s.tema)}</li>`).join('') +
       `</ul></body>`);
   fs.renameSync(tmp, arq);
 }

@@ -171,7 +171,7 @@ test('ordem: campo "ordem" manda; sem ele, a posição no arquivo; empates pela 
 
 test('vitrine segue a ordem do estoque; somenteDestaques filtra', () => {
   const cs = [A.carro({ ordem: 2, modelo: 'Segundo' }), A.carro({ ordem: 1, modelo: 'Primeiro', destaque: true }), A.carro({ ordem: 3, modelo: 'Terceiro', destaque: true })];
-  A.criarSite(ID, { carros: cs, site: { paginas: [{ caminho: '', blocos: [
+  A.criarSite(ID, { carros: cs, site: { paginas: [{ caminho: '', secoes: [
     { tipo: 'vitrine', titulo: 'Todos', quantidade: 2 },
     { tipo: 'vitrine', titulo: 'Destaques', somenteDestaques: true, quantidade: 5 },
   ] }] } });
@@ -190,8 +190,8 @@ test('restrições do site tiram carros', () => {
 
 test('páginas de conteúdo (arquivos em sites-config/<id>/web/): criadas, no sitemap, e apagadas quando o arquivo sai', () => {
   A.criarSite(ID, { carros: [A.carro()], site: { paginas: [
-    { caminho: '', titulo: 'Home', blocos: [{ tipo: 'texto', html: '<p>oi</p>' }] },
-    { caminho: 'sobre/nos', titulo: 'Sobre', blocos: [{ tipo: 'texto', html: '<p>quem somos</p>' }] },
+    { caminho: '', titulo: 'Home', secoes: [{ tipo: 'texto', html: '<p>oi</p>' }] },
+    { caminho: 'sobre/nos', titulo: 'Sobre', secoes: [{ tipo: 'texto', html: '<p>quem somos</p>' }] },
   ] } });
   build();
   assert.match(A.ler(ID, 'paginas/sobre/nos/index.html'), /quem somos/);
@@ -203,7 +203,7 @@ test('páginas de conteúdo (arquivos em sites-config/<id>/web/): criadas, no si
 });
 
 test('bloco listagem: estoque dentro da página, com os primeiros cards no HTML', () => {
-  A.criarSite(ID, { carros: [A.carro(), A.carro(), A.carro()], site: { paginas: [{ caminho: '', blocos: [{ tipo: 'listagem', quantidade: 2 }] }] } });
+  A.criarSite(ID, { carros: [A.carro(), A.carro(), A.carro()], site: { paginas: [{ caminho: '', secoes: [{ tipo: 'listagem', quantidade: 2 }] }] } });
   build();
   const home = A.ler(ID, 'index.html');
   assert.match(home, /id="grade" data-pagina="2"/);
@@ -212,7 +212,7 @@ test('bloco listagem: estoque dentro da página, com os primeiros cards no HTML'
 });
 
 test('bloco lojas e dados globais do estoque (total, cidades, marcas)', () => {
-  A.criarSite(ID, { carros: [A.carro(), A.carro({ loja: 'sul' })], site: { paginas: [{ caminho: '', blocos: [{ tipo: 'lojas' }] }] } });
+  A.criarSite(ID, { carros: [A.carro(), A.carro({ loja: 'sul' })], site: { paginas: [{ caminho: '', secoes: [{ tipo: 'lojas' }] }] } });
   build();
   const home = A.ler(ID, 'index.html');
   assert.match(home, /Loja Centro/);
@@ -221,7 +221,7 @@ test('bloco lojas e dados globais do estoque (total, cidades, marcas)', () => {
 });
 
 test('regressão: links do bloco lojas numa subpágina não dobram o "../" (bug achado pelos testes)', () => {
-  A.criarSite(ID, { carros: [A.carro()], site: { paginas: [{ caminho: '', blocos: [] }, { caminho: 'lojas', blocos: [{ tipo: 'lojas' }] }] } });
+  A.criarSite(ID, { carros: [A.carro()], site: { paginas: [{ caminho: '', secoes: [] }, { caminho: 'lojas', secoes: [{ tipo: 'lojas' }] }] } });
   build();
   const html = A.ler(ID, 'paginas/lojas/index.html');
   assert.match(html, /href="\.\.\/\.\.\/multipla\/loja\/loja%20centro"/); // /paginas/lojas/ → 2 níveis
@@ -232,8 +232,8 @@ test('regressão: links do bloco lojas numa subpágina não dobram o "../" (bug 
 test('links e imagens relativos funcionam em qualquer profundidade (home, subpágina, página do carro)', () => {
   const c = A.carro();
   fs.mkdirSync(path.join(A.raiz(), 'sites-config', ID, 'assets'), { recursive: true });
-  A.criarSite(ID, { carros: [c], site: { tema: { logo: 'assets/logo.png' }, cabecalho: { menu: [{ rotulo: 'Estoque', link: 'multipla/' }, { rotulo: 'Fora', link: 'https://x.com' }] },
-    paginas: [{ caminho: '', blocos: [] }, { caminho: 'a/b', blocos: [{ tipo: 'banner', imagem: 'assets/logo.png', titulo: 'x' }] }] } });
+  A.criarSite(ID, { carros: [c], site: { configuracoes: { logo: 'assets/logo.png' }, cabecalho: { menu: [{ rotulo: 'Estoque', link: 'multipla/' }, { rotulo: 'Fora', link: 'https://x.com' }] },
+    paginas: [{ caminho: '', secoes: [] }, { caminho: 'a/b', secoes: [{ tipo: 'banner', imagem: 'assets/logo.png', titulo: 'x' }] }] } });
   fs.writeFileSync(path.join(A.raiz(), 'sites-config', ID, 'assets', 'logo.png'), 'png');
   build();
   assert.match(A.ler(ID, 'paginas/a/b/index.html'), /href="\.\.\/\.\.\/\.\.\/multipla\/"/);
@@ -257,18 +257,24 @@ test('segurança: dado malicioso no estoque e no site.json é escapado', () => {
 
 test('erros de configuração dão mensagem clara (e não geram site pela metade)', () => {
   const casos = [
-    [{ template: 'nao-existe' }, /template "nao-existe" não existe/],
+    [{ tema: 'nao-existe' }, /tema "nao-existe" não existe/],
     [{ motor: 'v99' }, /motor "v99" não existe/],
     [{ motor: undefined }, /sem "motor"/],
     [{ lojas: {} }, /tem carros mas nenhuma loja/], // site sem lojas só pode existir sem estoque (site recém-criado)
-    [{ paginas: [{ caminho: 'multipla', blocos: [] }] }, /reservado/],
-    [{ paginas: [{ caminho: 'carros', blocos: [] }] }, /reservado/],
-    [{ paginas: [{ caminho: 'Maiuscula', blocos: [] }] }, /caminho inválido/],
-    [{ paginas: [{ caminho: 'x', blocos: [] }, { caminho: 'x/index', blocos: [] }] }, /repetido/], // x.json e x/index.json
-    [{ paginas: [{ caminho: 'x' }] }, /falta "blocos"/],
-    [{ paginas: [{ caminho: '', blocos: [{ tipo: 'nao-existe' }] }] }, /bloco "nao-existe" não existe/],
-    [{ paginas: [{ caminho: '', blocos: [{ tipo: '../../x' }] }] }, /bloco/],
-    [{ paginas: [{ caminho: '', blocos: [{ tipo: 'listagem' }, { tipo: 'listagem' }] }] }, /só pode ter um bloco "listagem"/],
+    [{ paginas: [{ caminho: 'multipla', secoes: [] }] }, /reservado/],
+    [{ paginas: [{ caminho: 'carros', secoes: [] }] }, /reservado/],
+    [{ paginas: [{ caminho: 'Maiuscula', secoes: [] }] }, /caminho inválido/],
+    [{ paginas: [{ caminho: 'x', secoes: [] }, { caminho: 'x/index', secoes: [] }] }, /repetido/], // x.json e x/index.json
+    [{ paginas: [{ caminho: 'x' }] }, /falta "secoes"/],
+    [{ paginas: [{ caminho: '', secoes: [{ tipo: 'nao-existe' }] }] }, /seção "nao-existe" não existe/],
+    [{ paginas: [{ caminho: '', secoes: [{ tipo: '../../x' }] }] }, /seção/],
+    [{ paginas: [{ caminho: '', secoes: [{ tipo: 'listagem' }, { tipo: 'listagem' }] }] }, /só pode ter uma seção "listagem"/],
+    // nomes de antes do padrão Shopify: erro claro com o caminho da migração
+    [{ template: 'teste' }, /"template" agora se chama "tema".*migrar-temas/],
+    [{ tema: { cor: '#000000' } }, /"template" agora se chama "tema".*configuracoes/],
+    [{ paginas: [{ caminho: '', blocos: [{ tipo: 'texto' }] }] }, /"blocos" agora se chama "secoes".*migrar-temas/],
+    [{ estoque: { blocosAntes: [] } }, /"blocosAntes" agora se chama "secoesAntes"/],
+    [{ pagina404: { blocos: [] } }, /"pagina404": "blocos" agora se chama "secoes"/],
   ];
   for (const [site, msg] of casos) {
     A.limpar();
@@ -284,7 +290,7 @@ test('"paginas" no site.json é recusado com o caminho para mover; o script de m
   A.limpar();
   A.criarSite(ID, { carros: [A.carro()] });
   const cfg = A.lerSite(ID);
-  cfg.paginas = [{ caminho: '', titulo: 'Home', blocos: [{ tipo: 'texto', html: '<p>home</p>' }] }, { caminho: 'sobre/nos', titulo: 'Sobre', blocos: [] }];
+  cfg.paginas = [{ caminho: '', titulo: 'Home', secoes: [{ tipo: 'texto', html: '<p>home</p>' }] }, { caminho: 'sobre/nos', titulo: 'Sobre', secoes: [] }];
   fs.writeFileSync(path.join(A.raiz(), 'sites-config', ID, 'site.json'), JSON.stringify(cfg)); // direto, sem o ajudante
   assert.throws(() => build(), /não fica mais no site\.json.*sites-config\/loja-teste\.com\.br\/web\/paginas\//);
   const r = require('child_process').spawnSync(process.execPath, [path.join(A.PROJETO, 'ferramentas', 'mover-paginas.js'), ID], { env: { ...process.env, SITE_CARROS_RAIZ: A.raiz() }, encoding: 'utf8' });
@@ -298,16 +304,16 @@ test('"paginas" no site.json é recusado com o caminho para mover; o script de m
   fs.rmSync(path.join(A.raiz(), 'sites-config', ID, 'web'), { recursive: true });
   const velha = path.join(A.raiz(), 'sites-config', ID, 'paginas');
   fs.mkdirSync(path.join(velha, 'promo'), { recursive: true });
-  fs.writeFileSync(path.join(velha, 'index.json'), JSON.stringify({ titulo: 'Home velha', blocos: [] }));
+  fs.writeFileSync(path.join(velha, 'index.json'), JSON.stringify({ titulo: 'Home velha', secoes: [] }));
   fs.writeFileSync(path.join(velha, 'promo', 'index.html'), '<h1>Promo</h1>');
-  const c2 = A.lerSite(ID); c2.estoque = { caminho: 'estoque', blocosAntes: [{ tipo: 'texto', html: '<p>x</p>' }] };
+  const c2 = A.lerSite(ID); c2.estoque = { caminho: 'estoque', secoesAntes: [{ tipo: 'texto', html: '<p>x</p>' }] };
   fs.writeFileSync(path.join(A.raiz(), 'sites-config', ID, 'site.json'), JSON.stringify(c2));
   const r2 = require('child_process').spawnSync(process.execPath, [path.join(A.PROJETO, 'ferramentas', 'mover-paginas.js'), ID], { env: { ...process.env, SITE_CARROS_RAIZ: A.raiz() }, encoding: 'utf8' });
   assert.equal(r2.status, 0, r2.stderr);
   assert.ok(!fs.existsSync(velha), 'pasta antiga sai');
   assert.equal(JSON.parse(fs.readFileSync(A.arqPagina(ID, ''), 'utf8')).titulo, 'Home velha');
   assert.ok(fs.existsSync(A.pastaPaginas(ID, 'promo', 'index.html')));
-  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites-config', ID, 'web', 'multipla.json'), 'utf8')), { blocosAntes: [{ tipo: 'texto', html: '<p>x</p>' }] });
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites-config', ID, 'web', 'multipla.json'), 'utf8')), { secoesAntes: [{ tipo: 'texto', html: '<p>x</p>' }] });
   assert.equal(A.lerSite(ID).estoque, undefined);
   build();
   assert.ok(A.existe(ID, 'paginas/promo/index.html'));
@@ -320,20 +326,20 @@ test('pasta de site precisa ser um domínio', () => {
 });
 
 test('sites-config/<d>/web/ é o espelho do site: index.json = /, multipla.json = /multipla/, paginas/ = /paginas/; lugar antigo dá erro claro', () => {
-  A.criarSite(ID, { carros: [A.carro()], site: { estoque: { blocosAntes: [{ tipo: 'texto', html: '<p>ANTES-DA-LISTA</p>' }] }, paginas: [{ caminho: '', titulo: 'Home', blocos: [{ tipo: 'texto', html: '<p>HOME-WEB</p>' }] }] } });
+  A.criarSite(ID, { carros: [A.carro()], site: { estoque: { secoesAntes: [{ tipo: 'texto', html: '<p>ANTES-DA-LISTA</p>' }] }, paginas: [{ caminho: '', titulo: 'Home', secoes: [{ tipo: 'texto', html: '<p>HOME-WEB</p>' }] }] } });
   build();
   assert.match(A.ler(ID, 'multipla/index.html'), /ANTES-DA-LISTA/, 'web/multipla.json → /multipla/');
   assert.match(A.ler(ID, 'index.html'), /HOME-WEB/, 'web/index.json → /');
-  // multipla.json vazio (o designer apagou o conteúdo): sem blocos, sem erro
+  // multipla.json vazio (o designer apagou o conteúdo): sem secoes, sem erro
   fs.writeFileSync(path.join(A.raiz(), 'sites-config', ID, 'web', 'multipla.json'), '');
   build();
   assert.ok(!A.ler(ID, 'multipla/index.html').includes('ANTES-DA-LISTA'));
   // "estoque" no site.json: erro com o caminho certo
-  const s = A.lerSite(ID); s.estoque = { blocosAntes: [] }; A.gravarSite(ID, s);
+  const s = A.lerSite(ID); s.estoque = { secoesAntes: [] }; A.gravarSite(ID, s);
   assert.throws(() => build(), /web\/multipla\.json.*mover-paginas/);
   delete s.estoque; A.gravarSite(ID, s);
   // home em web/paginas/index.json: erro
-  fs.mkdirSync(A.pastaPaginas(ID), { recursive: true }); fs.writeFileSync(A.pastaPaginas(ID, 'index.json'), '{"blocos":[]}');
+  fs.mkdirSync(A.pastaPaginas(ID), { recursive: true }); fs.writeFileSync(A.pastaPaginas(ID, 'index.json'), '{"secoes":[]}');
   assert.throws(() => build(), /a home fica em sites-config\/loja-teste\.com\.br\/web\/index\.json/);
   fs.rmSync(A.pastaPaginas(ID, 'index.json'));
   // pasta antiga sites-config/<d>/paginas/: erro com a ferramenta de migração
@@ -400,7 +406,7 @@ test('sitemap: <lastmod> é o dia em que a página mudou de verdade (não o dia 
 
 test('nenhum arquivo depois de /multipla/: filtros são ROTAS (/multipla/marca/Honda), links do estoque também', () => {
   const cs = [A.carro({ marca: 'Honda', modelo: 'Civic' }), A.carro({ marca: 'Volkswagen', modelo: 'Gol', loja: 'sul' }), A.carro({ carroceria: 'Moto' }), A.carro({ carroceria: 'SUV' })];
-  A.criarSite(ID, { carros: cs, site: { paginas: [{ caminho: '', blocos: [{ tipo: 'lojas' }] }, { caminho: 'a/b', blocos: [{ tipo: 'lojas' }] }] } });
+  A.criarSite(ID, { carros: cs, site: { paginas: [{ caminho: '', secoes: [{ tipo: 'lojas' }] }, { caminho: 'a/b', secoes: [{ tipo: 'lojas' }] }] } });
   build();
   assert.deepEqual(fs.readdirSync(A.saida(ID, 'multipla')), ['index.html'], 'só a listagem em /multipla/');
   assert.ok(!/\/multipla\/(marca|cidade|carroceria|revenda_cidade_nome)\//.test(A.ler(ID, 'sitemap.xml')), 'sitemap sem páginas de filtro');
@@ -488,7 +494,7 @@ test('páginas padrão: sem dados da empresa, cai no nome do site e na página d
 
 test('páginas padrão: o site substitui (mesmo caminho) ou desliga ("paginasPadrao")', () => {
   A.criarSite(ID, { carros: [A.carro()], site: {
-    paginas: [{ caminho: 'contato', titulo: 'Fale', blocos: [{ tipo: 'texto', html: '<p>CONTATO PRÓPRIO</p>' }] }],
+    paginas: [{ caminho: 'contato', titulo: 'Fale', secoes: [{ tipo: 'texto', html: '<p>CONTATO PRÓPRIO</p>' }] }],
     paginasPadrao: { 'politica-de-cookies': false },
   } });
   build();
@@ -514,13 +520,52 @@ test('aviso de cookies: vai no config.json; "avisoCookies": false desliga; texto
   assert.equal(A.lerJSON(ID, 'config.json').avisoCookies, null);
 });
 
-test('template sem os blocos obrigatórios é recusado com mensagem clara', () => {
-  const tpl = path.join(A.raiz(), 'templates', 'incompleto');
-  fs.mkdirSync(path.join(tpl, 'paginas'), { recursive: true });
-  for (const p of ['home', 'multipla', 'carro', 'vendido', 'pagina']) fs.writeFileSync(path.join(tpl, 'paginas', `${p}.html`), '<html></html>');
-  A.criarSite(ID, { carros: [A.carro()], site: { template: 'incompleto' } });
-  assert.throws(() => build(), /falta blocos\/banner\.html.*blocos\/lojas\.html/);
+test('tema sem as seções obrigatórias é recusado com mensagem clara', () => {
+  const tpl = path.join(A.raiz(), 'temas', 'incompleto');
+  fs.mkdirSync(path.join(tpl, 'templates'), { recursive: true });
+  for (const p of ['home', 'multipla', 'carro', 'vendido', 'pagina']) fs.writeFileSync(path.join(tpl, 'templates', `${p}.html`), '<html></html>');
+  A.criarSite(ID, { carros: [A.carro()], site: { tema: 'incompleto' } });
+  assert.throws(() => build(), /falta config\/settings_schema\.json, secoes\/banner\.html.*secoes\/lojas\.html/);
   fs.rmSync(tpl, { recursive: true });
+});
+
+test('padrão Shopify: tema e site com os nomes antigos dão erro claro; ferramentas/migrar-temas.js converte e a saída é a mesma', () => {
+  const Migrar = require('../ferramentas/migrar-temas');
+  const paginas = [{ caminho: '', titulo: 'Home', secoes: [{ tipo: 'banner', titulo: 'Oi' }] }, { caminho: 'sobre', titulo: 'Sobre', secoes: [{ tipo: 'texto', html: '<p>x</p>' }] }];
+  const site = { configuracoes: { cor: '#123456', logo: 'assets/logo.png' }, pagina404: { titulo: '404', secoes: [{ tipo: 'texto', html: '<p>não achei</p>' }] }, estoque: { secoesAntes: [{ tipo: 'banner', titulo: 'Estoque' }] } };
+  // referência: tema e site já nos nomes novos
+  A.criarSite(ID, { carros: [A.carro()], site: { ...site, paginas } });
+  build({ completo: true });
+  const saidaDe = () => Object.fromEntries(A.listar(A.saida(ID)).map((f) => [path.relative(A.saida(ID), f), fs.readFileSync(f, 'utf8')]));
+  const referencia = saidaDe();
+  // o mesmo tema na estrutura antiga (template.json, paginas/, blocos/, css/ na raiz; {{tema.logo}}; "blocos" nas páginas padrão)
+  const dir = path.join(A.raiz(), 'temas', 'velho');
+  fs.cpSync(path.join(__dirname, 'fixtures', 'temas', 'teste'), dir, { recursive: true });
+  for (const [novo, velho] of [['config/settings_schema.json', 'template.json'], ['templates', 'paginas'], ['secoes', 'blocos'], ['assets/css', 'css']]) fs.renameSync(path.join(dir, novo), path.join(dir, velho));
+  for (const f of A.listar(dir)) {
+    const t = fs.readFileSync(f, 'utf8');
+    fs.writeFileSync(f, f.endsWith('.json') ? t.replace(/"secoes"/g, '"blocos"') : t.replace(/\{\{([#^/]?)configuracoes\./g, '{{$1tema.').replace(/secoes(Antes|Depois)/g, 'blocos$1'));
+  }
+  // o site nos nomes antigos: "template", "tema" {…}, "blocos", "blocosAntes"
+  const cfg = A.lerSite(ID);
+  const { tema: _t, configuracoes, ...resto } = cfg;
+  A.gravarSite(ID, { template: 'velho', tema: configuracoes, ...resto, pagina404: { titulo: '404', blocos: site.pagina404.secoes } });
+  for (const f of A.listar(path.join(A.raiz(), 'sites-config', ID, 'web'))) fs.writeFileSync(f, fs.readFileSync(f, 'utf8').replace(/"secoes(Antes|Depois)?"/g, '"blocos$1"'));
+  assert.throws(() => build(), /"template" agora se chama "tema".*migrar-temas/);
+  A.gravarSite(ID, { ...A.lerSite(ID), template: undefined, tema: 'velho', configuracoes });
+  const cfgOk = A.lerSite(ID); delete cfgOk.template; A.gravarSite(ID, cfgOk);
+  assert.throws(() => build(), /Tema "velho" com a estrutura antiga \(template\.json, paginas, blocos\).*migrar-temas/);
+  // volta o site ao antigo e migra tudo
+  A.gravarSite(ID, { template: 'velho', tema: configuracoes, ...resto, pagina404: { titulo: '404', blocos: site.pagina404.secoes } });
+  A.silencioso(() => { Migrar.migrarTema(dir); Migrar.migrarSite(ID); });
+  const migrado = A.lerSite(ID);
+  assert.deepEqual([migrado.tema, migrado.configuracoes, migrado.template, migrado.pagina404.secoes.length], ['velho', configuracoes, undefined, 1]);
+  assert.ok(fs.existsSync(path.join(dir, 'config', 'settings_schema.json')) && fs.existsSync(path.join(dir, 'assets', 'css')) && !fs.existsSync(path.join(dir, 'paginas')));
+  build({ completo: true });
+  const depois = saidaDe(); depois['config.json'] = depois['config.json'].replace('"template":"velho"', '"template":"teste"'); // só o nome do tema muda
+  assert.deepEqual(Object.keys(depois).filter((k) => depois[k] !== referencia[k]).concat(Object.keys(referencia).filter((k) => !(k in depois))), [], 'depois de migrar, o site sai idêntico');
+  assert.equal(A.silencioso(() => Migrar.migrarSite(ID)).r, false, 'rodar de novo não mexe em nada');
+  fs.rmSync(dir, { recursive: true });
 });
 
 // ---------- páginas livres dos web designers (core/paginas-livres.js) ----------
@@ -587,39 +632,39 @@ test('designer: comentários opcionais (titulo, descricao, rotulo no rodapé, mo
 test('designer: página do template vale para todos os sites; o site troca ou desliga', () => {
   const extras = path.join(A.raiz(), 'templates-extra');
   // template de teste com paginas-extras (cópia do "teste" para não sujar o fixture)
-  fs.cpSync(path.join(__dirname, 'fixtures', 'templates', 'teste'), path.join(extras, 'com-extras'), { recursive: true });
+  fs.cpSync(path.join(__dirname, 'fixtures', 'temas', 'teste'), path.join(extras, 'com-extras'), { recursive: true });
   escrever(path.join(extras, 'com-extras', 'paginas-extras', 'financiamento.html'), '<h1>Financiamento padrão</h1>');
-  fs.symlinkSync(path.join(extras, 'com-extras'), path.join(A.raiz(), 'templates', 'com-extras'));
+  fs.symlinkSync(path.join(extras, 'com-extras'), path.join(A.raiz(), 'temas', 'com-extras'));
   try {
-    A.criarSite(ID, { carros: [A.carro()], site: { template: 'com-extras' } });
-    A.criarSite('outro.com.br', { carros: [A.carro()], site: { template: 'com-extras', paginasPadrao: { financiamento: false } } });
-    A.criarSite('terceiro.com.br', { carros: [A.carro()], site: { template: 'com-extras' } });
+    A.criarSite(ID, { carros: [A.carro()], site: { tema: 'com-extras' } });
+    A.criarSite('outro.com.br', { carros: [A.carro()], site: { tema: 'com-extras', paginasPadrao: { financiamento: false } } });
+    A.criarSite('terceiro.com.br', { carros: [A.carro()], site: { tema: 'com-extras' } });
     escrever(A.pastaPaginas('terceiro.com.br', 'financiamento.html'), '<h1>Financiamento do terceiro</h1>');
     A.silencioso(() => construir({}));
     assert.match(A.ler(ID, 'paginas/financiamento/index.html'), /Financiamento padrão/);
     assert.ok(!A.existe('outro.com.br', 'paginas/financiamento/index.html'), 'desligado pelo site');
     assert.match(A.ler('terceiro.com.br', 'paginas/financiamento/index.html'), /Financiamento do terceiro/, 'o site troca a do template');
-  } finally { fs.rmSync(path.join(A.raiz(), 'templates', 'com-extras')); fs.rmSync(extras, { recursive: true }); }
+  } finally { fs.rmSync(path.join(A.raiz(), 'temas', 'com-extras')); fs.rmSync(extras, { recursive: true }); }
 });
 
 test('designer: editar página do template NÃO refaz as páginas de carro (2500 sites)', () => {
   const extras = path.join(A.raiz(), 'templates-extra2');
-  fs.cpSync(path.join(__dirname, 'fixtures', 'templates', 'teste'), path.join(extras, 'com-extras'), { recursive: true });
+  fs.cpSync(path.join(__dirname, 'fixtures', 'temas', 'teste'), path.join(extras, 'com-extras'), { recursive: true });
   const arq = path.join(extras, 'com-extras', 'paginas-extras', 'financiamento.html');
   escrever(arq, '<h1>v1</h1>');
-  fs.symlinkSync(path.join(extras, 'com-extras'), path.join(A.raiz(), 'templates', 'com-extras'));
+  fs.symlinkSync(path.join(extras, 'com-extras'), path.join(A.raiz(), 'temas', 'com-extras'));
   try {
-    A.criarSite(ID, { carros: [A.carro(), A.carro()], site: { template: 'com-extras' } });
+    A.criarSite(ID, { carros: [A.carro(), A.carro()], site: { tema: 'com-extras' } });
     build();
     escrever(arq, '<h1>v2</h1>');
     const f = build();
     assert.equal(f.resumo.base, false, 'páginas de carro intactas');
     assert.match(A.ler(ID, 'paginas/financiamento/index.html'), /v2/);
-  } finally { fs.rmSync(path.join(A.raiz(), 'templates', 'com-extras')); fs.rmSync(extras, { recursive: true }); }
+  } finally { fs.rmSync(path.join(A.raiz(), 'temas', 'com-extras')); fs.rmSync(extras, { recursive: true }); }
 });
 
 test('designer: x.json e x.html na mesma pasta é erro claro; nome inválido e duplicado dão erro; página apagada some', () => {
-  A.criarSite(ID, { carros: [A.carro()], site: { paginas: [{ caminho: 'x', titulo: 'do json', blocos: [{ tipo: 'texto', html: '<p>JSON</p>' }] }] } });
+  A.criarSite(ID, { carros: [A.carro()], site: { paginas: [{ caminho: 'x', titulo: 'do json', secoes: [{ tipo: 'texto', html: '<p>JSON</p>' }] }] } });
   escrever(pastaLivre('x.html'), '<p>ARQUIVO</p>');
   assert.throws(() => build(), /"x" duplicada.*x\.json.*x\.html/);
   fs.rmSync(pastaLivre('x.html'));
@@ -678,15 +723,15 @@ test('páginas padrão novas: financiamento e avaliação (com as lojas do site 
 
 test('páginas padrão vêm do TEMPLATE: editar o texto atualiza a página sem refazer as páginas de carro', () => {
   // cópia do template "teste" (o original é compartilhado entre os testes)
-  const dir = path.join(A.raiz(), 'templates', 'teste-padrao');
-  fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'templates', 'teste'), dir, { recursive: true });
-  A.criarSite(ID, { carros: [A.carro(), A.carro()], site: { template: 'teste-padrao' } });
+  const dir = path.join(A.raiz(), 'temas', 'teste-padrao');
+  fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'temas', 'teste'), dir, { recursive: true });
+  A.criarSite(ID, { carros: [A.carro(), A.carro()], site: { tema: 'teste-padrao' } });
   build();
   assert.ok(A.existe(ID, 'paginas/lgpd/index.html'));
   assert.ok(!A.existe(ID, 'paginas-padrao/lgpd.json'), 'o JSON da página não vai para o site');
   const arq = path.join(dir, 'paginas-padrao', 'lgpd.json');
   const j = JSON.parse(fs.readFileSync(arq, 'utf8'));
-  j.blocos.push({ tipo: 'texto', html: '<p>Texto oficial do jurídico</p>' });
+  j.secoes.push({ tipo: 'texto', html: '<p>Texto oficial do jurídico</p>' });
   fs.writeFileSync(arq, JSON.stringify(j));
   A.limparPendentes();
   const f = build();
@@ -701,7 +746,7 @@ test('páginas padrão vêm do TEMPLATE: editar o texto atualiza a página sem r
 
 test('páginas ficam em /paginas/<nome>/; links simples ("contato/", "/lojas/") são ajustados', () => {
   A.criarSite(ID, { carros: [A.carro()], site: { cabecalho: { menu: [{ rotulo: 'Lojas', link: 'lojas/' }, { rotulo: 'Estoque', link: 'multipla/' }] },
-    paginas: [{ caminho: 'lojas', titulo: 'Lojas', blocos: [{ tipo: 'lojas' }] }] } });
+    paginas: [{ caminho: 'lojas', titulo: 'Lojas', secoes: [{ tipo: 'lojas' }] }] } });
   const pasta = A.pastaPaginas(ID);
   fs.writeFileSync(path.join(pasta, 'feirao.html'), '<h1>Feirão</h1><a href="/lojas/">lojas</a> <a href="/multipla/">estoque</a>');
   build();
@@ -716,7 +761,7 @@ test('páginas ficam em /paginas/<nome>/; links simples ("contato/", "/lojas/") 
 });
 
 test('páginas só em /paginas/: nada na raiz; redirecionamento antigo na raiz é apagado', () => {
-  A.criarSite(ID, { carros: [A.carro()], site: { paginas: [{ caminho: 'lojas', blocos: [{ tipo: 'lojas' }] }] } });
+  A.criarSite(ID, { carros: [A.carro()], site: { paginas: [{ caminho: 'lojas', secoes: [{ tipo: 'lojas' }] }] } });
   build({ hoje: '2026-01-01' });
   for (const p of ['lojas', 'contato', 'lgpd', 'financiamento']) {
     assert.ok(A.existe(ID, `paginas/${p}/index.html`), `/paginas/${p}/`);

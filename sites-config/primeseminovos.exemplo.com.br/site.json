@@ -3,8 +3,8 @@
   "nome": "Prime Seminovos",
   "slogan": "A partir de R$ 90 mil, em São Paulo e Rio",
   "motor": "v3",
-  "template": "template-basico",
-  "tema": {
+  "tema": "template-basico",
+  "configuracoes": {
     "cor": "#111827",
     "fundo": "#f4f5f7",
     "raio": 8,

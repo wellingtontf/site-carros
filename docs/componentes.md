@@ -1,7 +1,7 @@
 # Componentes
 
-Peças prontas que **qualquer template e qualquer página** usam, todas da pasta `componentes/` (não existe componente por
-template). Cada componente é configurável por opções: cores, layout, textos e o que aparece.
+Peças prontas que **qualquer tema e qualquer página** usam, todas da pasta `componentes/` (não existe componente por
+tema). Cada componente é configurável por opções: cores, layout, textos e o que aparece.
 
 | Componente | O que é |
 |---|---|
@@ -9,26 +9,26 @@ template). Cada componente é configurável por opções: cores, layout, textos 
 | `estoque` | a lista de carros (cards), com contagem, ordenação e "carregar mais" |
 | `filtros-ativos` | as etiquetas ("chips") dos filtros aplicados, com ✕ para tirar cada um e "Limpar busca" |
 
-Os 4 templates usam os três na `/multipla/`. Para ver as opções no terminal: `node core/cli.js componentes`.
+Os 3 temas usam os três na `/multipla/`. Para ver as opções no terminal: `node core/cli.js componentes`.
 
 ## Como usar
 
-**No template** (`templates/<nome>/paginas/*.html`):
+**No tema** (`temas/<nome>/templates/*.html`):
 ```html
 {{componente filtro layout="topo" cor="#c00000"}}
 {{componente estoque titulo="{{listagem.h1}}" tituloTag="h1" colunas=280 campos="ano,km,cambio" estiloCampos="chips"}}
 ```
 Texto vai entre aspas e pode usar dados do site (`"{{site.nome}}"`). Número e `true`/`false` vão sem aspas.
 
-**Numa página de blocos** (`web/index.json`, `web/paginas/<nome>.json`, ou `PUT /v1/sites/<d>/paginas/<nome>`):
+**Numa página de seções** (`web/index.json`, `web/paginas/<nome>.json`, ou `PUT /v1/sites/<d>/paginas/<nome>`):
 ```json
-{ "titulo": "Home", "blocos": [
+{ "titulo": "Home", "secoes": [
   { "tipo": "componente", "nome": "estoque", "opcoes": { "titulo": "Destaques", "porPagina": 8, "ordenacao": false, "botaoEstoque": "Ver estoque completo" } }
 ] }
 ```
 
 **Na listagem** (`web/multipla.json`, ou `PUT /v1/sites/<d>/multipla`): opções só desta página para os componentes que o
-template põe na `/multipla/`:
+tema põe na `/multipla/`:
 ```json
 { "componentes": { "filtro": { "checkbox": "estado,cidade,marca,modelo,carroceria" }, "filtros-ativos": { "rotulos": true } } }
 ```
@@ -40,8 +40,8 @@ template põe na `/multipla/`:
 
 ### Quem vale mais
 
-**padrão do componente < template < site (`componentes/<nome>.json`) < página** (bloco da página, ou `"componentes"` do
-`web/multipla.json`). Exemplo: o template pede 24 carros por vez, o site pede 6 e a home pede 2 → a listagem mostra 6 e
+**padrão do componente < tema < site (`componentes/<nome>.json`) < página** (seção da página, ou `"componentes"` do
+`web/multipla.json`). Exemplo: o tema pede 24 carros por vez, o site pede 6 e a home pede 2 → a listagem mostra 6 e
 a home mostra 2.
 
 ### O build cuida sozinho de
@@ -63,7 +63,7 @@ continuam "até X"). Precisa do **motor v3**; com motor antigo, o campo continua
   marcadas e o quadro aberto.
 - Valor do link sem carro no estoque aparece marcado (a lista mostra "Nenhum carro encontrado").
 - Exemplo real: a lojateste usa caixas em estado, cidade, marca, modelo e carroceria (no `web/multipla.json` dela), e a
-  primeseminovos, com o mesmo template, continua com combos.
+  primeseminovos, com o mesmo tema, continua com combos.
 
 ## Filtros ativos ("chips")
 
@@ -71,9 +71,9 @@ O `filtros-ativos` mostra uma etiqueta para cada filtro aplicado (cada valor: Cu
 buscado. O ✕ tira só aquele valor; "Limpar busca" tira todos. Fica **sincronizado** com o `filtro`: tirar a etiqueta
 desmarca a caixa/zera o combo, e mexer no filtro atualiza as etiquetas e o endereço. Some quando não há filtro.
 
-- Os 4 templates o põem logo acima do estoque: `<section>{{componente filtros-ativos}}{{componente estoque ...}}</section>`.
+- Os 3 temas o põem logo acima do estoque: `<section>{{componente filtros-ativos}}{{componente estoque ...}}</section>`.
 - Para tirar de um site: `{ "mostrar": false }` em `componentes/filtros-ativos.json` (site inteiro) ou
-  `{ "componentes": { "filtros-ativos": { "mostrar": false } } }` no `web/multipla.json`. Para todos os sites de um template:
+  `{ "componentes": { "filtros-ativos": { "mostrar": false } } }` no `web/multipla.json`. Para todos os sites de um tema:
   apagar a chamada do `multipla.html`, ou `{{componente filtros-ativos mostrar=false}}`.
 
 ## Todas as opções
@@ -142,7 +142,7 @@ desmarca a caixa/zera o combo, e mexer no filtro atualiza as etiquetas e o ender
 componentes/<nome>/
   componente.json   { "nome", "descricao", "scripts": [...], "opcoes": { "<opcao>": { "padrao", "tipo", "valores", "css", "unidade", "descricao" } } }
   <nome>.html       o HTML, com as opções em {{op.<opcao>}} e {{#op.<opcao>}}...{{/op.<opcao>}}, e tudo do site ({{site.nome}}, {{estoque.total}}...)
-  <nome>.css        opcional; use classes com prefixo c-<nome> para não brigar com o template
+  <nome>.css        opcional; use classes com prefixo c-<nome> para não brigar com o tema
   <nome>.js         opcional
 ```
 

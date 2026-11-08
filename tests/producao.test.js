@@ -26,7 +26,7 @@ test('404.html: existe, não indexa, links a partir da raiz do domínio e todos 
 });
 
 test('404 personalizada pelo site ("pagina404")', () => {
-  gerar({ site: { pagina404: { titulo: 'Ops', blocos: [{ tipo: 'texto', html: '<p>Sumiu!</p>' }] } } });
+  gerar({ site: { pagina404: { titulo: 'Ops', secoes: [{ tipo: 'texto', html: '<p>Sumiu!</p>' }] } } });
   assert.match(A.ler(ID, '404.html'), /Sumiu!/);
 });
 

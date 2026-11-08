@@ -1,4 +1,4 @@
-// Ajudas de tela compartilhadas pelos templates (o motor não toca em tela).
+// Ajudas de tela compartilhadas pelos temas (o motor não toca em tela).
 window.UI = (() => {
   // Se a foto não carregar (ainda não subiu pro S3, por ex.), mostra um placeholder.
   function fallback(img) {

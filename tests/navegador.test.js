@@ -13,7 +13,7 @@ const L = require('../core/ui/link-carro.js');
 const CHROME = ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', process.env.CHROME].filter(Boolean)
   .find((c) => { try { execFileSync('which', [c], { stdio: 'ignore' }); return true; } catch (e) { return false; } });
 const pular = process.env.SEM_NAVEGADOR ? 'SEM_NAVEGADOR definido (npm run test:rapido)' : !CHROME && 'Chrome/Chromium não encontrado (defina CHROME=/caminho)';
-const templates = fs.readdirSync(path.join(A.PROJETO, 'templates'));
+const templates = fs.readdirSync(path.join(A.PROJETO, 'temas'));
 const TOTAL = 30;
 
 let srv, base;
@@ -22,7 +22,7 @@ before(async () => {
   for (const t of templates) {
     const carros = Array.from({ length: TOTAL }, (_, i) => A.carro({ marca: i % 3 ? 'Toyota' : 'Honda', modelo: i % 3 ? 'Corolla' : 'Civic', loja: i % 2 ? 'sul' : 'centro', ordem: TOTAL - i }));
     carros[TOTAL - 1].link = `carros/Link/Do/Revenda-Mais/${t}-especial-1.html`; // o primeiro na tela (ordem 1) usa link vindo do estoque
-    A.criarSite(`${t}.teste.com.br`, { carros, site: { template: t, fotosBase: '', motor: 'v3' } });
+    A.criarSite(`${t}.teste.com.br`, { carros, site: { tema: t, fotosBase: '', motor: 'v3' } });
     // estado em caixas de marcar (opção "checkbox" do componente filtro, configurada na PÁGINA: web/multipla.json)
     A.gravarMultipla(`${t}.teste.com.br`, { componentes: { filtro: { checkbox: 'estado' } } });
   }

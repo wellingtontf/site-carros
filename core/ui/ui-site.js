@@ -1,7 +1,7 @@
-// Comportamento comum a TODAS as páginas de TODOS os sites (o core garante; o template só precisa carregar este arquivo):
+// Comportamento comum a TODAS as páginas de TODOS os sites (o core garante; o tema só precisa carregar este arquivo):
 //   - aviso de cookies (LGPD): aparece até a pessoa clicar em "Entendi"; texto e link vêm do config.json
 //   - formulários .js-form-zap: juntam "Rótulo: valor" dos campos preenchidos e abrem o WhatsApp (site estático, sem servidor)
-// O visual do aviso pode ser trocado no CSS do template (classes .aviso-cookies, .aviso-cookies-ok).
+// O visual do aviso pode ser trocado no CSS do tema (classes .aviso-cookies, .aviso-cookies-ok).
 (async () => {
   const REL = document.body.dataset.rel || '';
   let cfg = {};

@@ -1,7 +1,7 @@
 {
   "titulo": "Contato | Grupo Servopa Seminovos",
   "descricao": "Fale com um especialista Servopa.",
-  "blocos": [
+  "secoes": [
     {
       "tipo": "titulo",
       "titulo": "Contato",

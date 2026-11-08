@@ -1,7 +1,7 @@
 {
   "titulo": "Quem somos | Grupo Servopa Seminovos",
   "descricao": "Conheça o Grupo Servopa Seminovos.",
-  "blocos": [
+  "secoes": [
     {
       "tipo": "titulo",
       "titulo": "Quem somos"

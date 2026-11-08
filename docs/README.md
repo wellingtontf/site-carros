@@ -11,7 +11,7 @@ para a CDN.
 |---|---|
 | novo no projeto | [Visão geral](visao-geral.md) → [Como o build funciona](como-o-build-funciona.md) |
 | quem configura um site (cadastro, lojas, filtros) | [Configurar um site](configurar-um-site.md) |
-| web designer (páginas, visual) | [Páginas](paginas.md) → [Templates](templates.md) → [Componentes](componentes.md) |
+| web designer (páginas, visual) | [Páginas](paginas.md) → [Temas](temas.md) → [Componentes](componentes.md) |
 | quem integra outro sistema (CRM, ERP) | [API](api.md) |
 | dev do motor de busca / listagem | [Listagem, busca e rotas](listagem-e-busca.md) |
 | quem cuida do dia a dia do estoque | [Estoque e atualização](estoque-e-atualizacao.md) |
@@ -25,8 +25,8 @@ para a CDN.
 | [visao-geral.md](visao-geral.md) | o que é, arquitetura, pastas, glossário, decisões |
 | [como-o-build-funciona.md](como-o-build-funciona.md) | `sites-config/` → build → `sites-public/` → publicação, passo a passo |
 | [configurar-um-site.md](configurar-um-site.md) | `site.json` campo a campo, lojas, filtros, restrições, formato do `estoque.json` |
-| [paginas.md](paginas.md) | pasta `web/`: home, listagem e páginas; páginas de blocos, livres (designer) e padrão; blocos de cada template |
-| [templates.md](templates.md) | os 5 arquivos de um template, marcadores, card, tema, como criar um template |
+| [paginas.md](paginas.md) | pasta `web/`: home, listagem e páginas; páginas de seções, livres (designer) e padrão; seções de cada tema |
+| [temas.md](temas.md) | estrutura de um tema (padrão Shopify), os 5 templates, marcadores, card, configurações, como criar um tema |
 | [componentes.md](componentes.md) | filtro, estoque e filtros ativos: opções, camadas de configuração, como criar um |
 | [listagem-e-busca.md](listagem-e-busca.md) | rotas da `/multipla/`, filtros com vários valores, busca, motor e suas versões |
 | [estoque-e-atualizacao.md](estoque-e-atualizacao.md) | atualizar estoque, validações e travas, carros vendidos, links de carro, fotos |

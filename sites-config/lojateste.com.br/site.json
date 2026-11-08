@@ -3,12 +3,12 @@
   "nome": "lojateste.com.br",
   "slogan": "O maior estoque de seminovos do Sul do Brasil",
   "motor": "v3",
-  "template": "template-basico",
+  "tema": "template-basico",
   "formatoEstoque": "compacto",
   "url": "https://lojateste.com.br",
   "whatsapp": "5508009992000",
   "fotosBase": "https://fotos.exemplo.com.br/",
-  "tema": {
+  "configuracoes": {
     "cor": "#0533ce",
     "fundo": "#f4f5f7",
     "texto": "#1c1c1c",

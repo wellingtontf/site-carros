@@ -49,7 +49,7 @@ test('motor v3: vários valores no mesmo filtro (OU), cascata respeitada, valor 
 
 test('build: links de filtro saem como rota; nenhuma página depois de /multipla/; rotas não contam como link quebrado', () => {
   const id = 'rotas2.teste.com.br';
-  A.criarSite(id, { carros: [A.carro({ marca: 'Fiat' }), A.carro({ marca: 'Kia', loja: 'sul' })], site: { motor: 'v3', paginas: [{ caminho: '', blocos: [{ tipo: 'lojas' }] }] } });
+  A.criarSite(id, { carros: [A.carro({ marca: 'Fiat' }), A.carro({ marca: 'Kia', loja: 'sul' })], site: { motor: 'v3', paginas: [{ caminho: '', secoes: [{ tipo: 'lojas' }] }] } });
   A.silencioso(() => construir({ sites: [id] }));
   assert.match(A.ler(id, 'index.html'), /href="multipla\/loja\/loja%20sul"/);
   assert.ok(!/href="[^"]*multipla\/[^"]*_/.test(A.ler(id, 'index.html')), 'nenhum "_" nos links da listagem');

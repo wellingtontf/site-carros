@@ -8,7 +8,7 @@
   arquivo) e o build refaz **só o site que mudou** e, nele, **só as páginas que mudaram**.
 - **Agnóstica.** A plataforma não conhece o sistema de origem (Revenda Mais, outro CRM, ERP): quem integra converte os
   dados para o formato da API.
-- **Multi-tenant.** Vários inquilinos (Revenda Mais, Webmotors, terceiros), cada um com seus sites, tokens, templates e
+- **Multi-tenant.** Vários inquilinos (Revenda Mais, Webmotors, terceiros), cada um com seus sites, tokens, temas e
   configuração de hospedagem.
 - **Compatível com o Revenda Mais.** Os links já indexados no Google continuam valendo: página de carro no mesmo endereço
   (campo `link`), rotas da listagem com os nomes do Revenda Mais (`/multipla/revenda-cidade-nome/curitiba`).
@@ -19,7 +19,7 @@
  sistema externo ──API /v1──▶ sites-config/<dominio>/     (a FONTE de cada site)
  (Revenda Mais...)             site.json  estoque.json  web/  componentes/  assets/
                                         │
-          templates/<nome>/ ────────────┤
+          temas/<nome>/ ────────────┤
           componentes/<nome>/ ──────────┤   core/build.js  (incremental)
           core/motor/<versão>/ ─────────┘
                                         ▼
@@ -46,16 +46,16 @@ core/                      SÓ CÓDIGO, isolado (não importa nada de api/; um t
   componentes.js  paginas-livres.js  sitemap.js  robots.js  fotos.js  atualizar.js  operacoes.js  inquilinos.js ...
 api/                       API HTTP (portas e adaptadores): só traduz HTTP ↔ core
 sites-config/<dominio>/    A FONTE de cada site (o nome da pasta é o domínio e o id do site)
-  site.json                  cadastro: template, motor, tema, textos, lojas, filtros, restrições...
+  site.json                  cadastro: tema, motor, configuracoes, textos, lojas, filtros, restrições...
   estoque.json               o ÚNICO arquivo de carros do site
   web/                       ESPELHO do site público: index.json (home), multipla.json (listagem), paginas/
   componentes/               opções dos componentes no site inteiro (<nome>.json)
   assets/                    logo, banners, favicon, fontes
-templates/<nome>/          UM VISUAL, autocontido (barra-topo, lateral, trokey, template-basico)
-componentes/<nome>/        peças usadas por todos os templates e páginas (filtro, estoque, filtros-ativos)
-inquilinos/<id>/           configuração e templates próprios de cada inquilino
+temas/<nome>/              UM TEMA, autocontido, estrutura do Shopify (barra-topo, lateral, template-basico)
+componentes/<nome>/        peças usadas por todos os temas e páginas (filtro, estoque, filtros-ativos)
+inquilinos/<id>/           configuração e temas próprios de cada inquilino
 config/                    configuração global (copie os .exemplo.json)
-ferramentas/               servidor-local, auditar-sites, mover-paginas, gerar-exemplo, scripts de infra
+ferramentas/               servidor-local, auditar-sites, mover-paginas, migrar-temas, gerar-exemplo, scripts de infra
 infra/                     Docker, Kubernetes, função de borda do CloudFront
 docs/                      esta documentação
 tests/                     testes automatizados (npm test)
@@ -71,9 +71,12 @@ Gerados e fora do git: `sites-public/` (sites prontos), `.estado/` (estado do bu
 | **site** | uma pasta `sites-config/<dominio>/`; o domínio é o id |
 | **fonte / saída** | `sites-config/` (o que se edita) / `sites-public/` (o que o build gera e vai para o ar) |
 | **build** | `core/build.js`: transforma a fonte na saída ([passo a passo](como-o-build-funciona.md)) |
-| **template** | o visual de um grupo de sites (`templates/<nome>/`) |
+| **tema** | o visual de um grupo de sites (`temas/<nome>/`, estrutura do Shopify; ver [temas.md](temas.md)) |
+| **configurações** | o que muda de uma revenda para outra dentro do tema: cor, fonte, logo (`"configuracoes"` no `site.json`) |
+| **template** | o arquivo de um tipo de página dentro do tema (`templates/home.html`...) |
 | **componente** | peça reutilizável com opções (`componentes/<nome>/`: filtro, estoque, filtros-ativos) |
-| **bloco** | pedaço de página de conteúdo (banner, vitrine, texto...), um HTML por tipo no template |
+| **seção** | pedaço de página (banner, vitrine, texto...), um HTML por tipo em `secoes/` do tema; as páginas listam em `"secoes"` |
+| **snippet** | pedaço pequeno reaproveitado (head, cabeçalho, card), em `snippets/` (`{{> nome}}`) |
 | **multipla** | a listagem do estoque, sempre em `/multipla/` |
 | **rota** | filtros no endereço da listagem: `/multipla/marca/audi|bmw/revenda-estado-cod/pr` |
 | **motor** | o JavaScript de busca e filtros (`core/motor/<versão>/engine.js`), versionado |
@@ -83,16 +86,17 @@ Gerados e fora do git: `sites-public/` (sites prontos), `.estado/` (estado do bu
 
 ## Decisões de arquitetura (do Wellington)
 
-- **Pastas são prioridade:** core isolado; cada site em `sites-config/<dominio>/` com subpastas; cada template inteiro
-  em `templates/<nome>/`; componentes numa pasta só; caminho novo vai em `core/caminhos.js`.
+- **Pastas são prioridade:** core isolado; cada site em `sites-config/<dominio>/` com subpastas; cada tema inteiro
+  em `temas/<nome>/`; componentes numa pasta só; caminho novo vai em `core/caminhos.js`.
 - **`sites-config` é a base de tudo que é gerado:** pasta em `sites-public/` sem site em `sites-config/` é sobra.
 - **Um estoque por site:** `estoque.json` é o único arquivo de carros; cada carro diz a sua loja.
 - **`web/` é o espelho do site público:** home, listagem e páginas ficam ali, como arquivos (o web designer cria uma página
   criando um arquivo). Páginas de conteúdo têm endereço `/paginas/<nome>/`; só a home fica na raiz.
 - **Listagem sempre em `/multipla/`**, com os filtros como rota (nomes do Revenda Mais com `-`, valores minúsculos).
   O build não gera arquivo depois de `/multipla/`: a hospedagem entrega a listagem para qualquer rota.
-- **Um arquivo por tipo de página no template:** `home.html`, `multipla.html`, `carro.html`, `vendido.html`, `pagina.html`.
-- **Páginas padrão (contato, LGPD...) são do template**, não há pasta global.
+- **Nomes do Shopify** (2026-11-08): tema, `templates/`, `secoes/`, `snippets/`, `assets/`, `config/settings_schema.json`; no `site.json`, `"tema"` e `"configuracoes"`.
+- **Um arquivo por tipo de página no tema:** `home.html`, `multipla.html`, `carro.html`, `vendido.html`, `pagina.html`.
+- **Páginas padrão (contato, LGPD...) são do tema**, não há pasta global.
 - **Motor versionado:** edita-se só o rascunho; versões congeladas são imutáveis; cada site fixa a sua.
 - **Fotos só no S3**, nunca no servidor.
 - **Tudo é JSON**; não há mais feed XML.

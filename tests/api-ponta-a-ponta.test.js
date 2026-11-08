@@ -39,14 +39,14 @@ const esperar = async (cond, ms = 20000) => { const fim = Date.now() + ms; while
 
 // o que o "sistema externo" manda
 const CADASTRO = {
-  nome: 'Auto Completo Seminovos', slogan: 'Tudo pela API', template: 'barra-topo', motor: 'v2',
+  nome: 'Auto Completo Seminovos', slogan: 'Tudo pela API', tema: 'barra-topo', motor: 'v2',
   url: `https://${D}`, whatsapp: '5541999990000', fotosBase: `https://fotos.${D}/`,
   empresa: { razaoSocial: 'Auto Completo Comércio de Veículos LTDA', cnpj: '12.345.678/0001-90', email: 'privacidade@api-completo.com.br', encarregado: 'Maria Souza' },
   lojas: {
     matriz: { nome: 'Matriz Centro', cidade: 'Curitiba', uf: 'PR', endereco: 'Rua XV, 100 - Curitiba - PR', whatsapp: '5541999990001' },
     sul: { nome: 'Loja Sul', cidade: 'Porto Alegre', uf: 'RS', endereco: 'Av. Ipiranga, 200 - Porto Alegre - RS', whatsapp: '5551999990002' },
   },
-  tema: { cor: '#c00000', logo: 'assets/logo.png', favicon: 'assets/favicon.ico' },
+  configuracoes: { cor: '#c00000', logo: 'assets/logo.png', favicon: 'assets/favicon.ico' },
   cabecalho: { menu: [{ rotulo: 'Estoque', link: 'multipla/' }, { rotulo: 'Lojas', link: 'lojas/' }] },
   filtros: ['estado', 'cidade', 'loja', 'marca', 'modelo', 'preco'],
 };
@@ -79,10 +79,10 @@ test('1) cria o site, manda arquivos, páginas e estoque, ajusta o cadastro: tud
   }
 
   const paginas = [
-    ['index', { titulo: 'Auto Completo', descricao: 'Seminovos em Curitiba e Porto Alegre', blocos: [
+    ['index', { titulo: 'Auto Completo', descricao: 'Seminovos em Curitiba e Porto Alegre', secoes: [
       { tipo: 'banner', imagem: 'assets/banners/home.webp', alt: 'Ofertas', titulo: 'Ofertas' },
       { tipo: 'vitrine', titulo: 'Destaques', quantidade: 4, botao: 'Ver estoque' }] }],
-    ['lojas', { titulo: 'Nossas lojas', rotulo: 'Lojas', blocos: [{ tipo: 'titulo', titulo: 'Nossas lojas' }, { tipo: 'lojas' }] }],
+    ['lojas', { titulo: 'Nossas lojas', rotulo: 'Lojas', secoes: [{ tipo: 'titulo', titulo: 'Nossas lojas' }, { tipo: 'lojas' }] }],
   ];
   for (const [nome, pg] of paginas) {
     const r = await pedir('PUT', `/v1/sites/${D}/paginas/${nome}`, pg);
@@ -91,13 +91,13 @@ test('1) cria o site, manda arquivos, páginas e estoque, ajusta o cadastro: tud
   const html = await pedir('PUT', `/v1/sites/${D}/paginas/feirao`, '<h1>Feirão</h1><p>Confira as <a href="/lojas/">lojas</a> e o <a href="/multipla/">estoque</a>.</p>', { tipo: 'text/html' });
   assert.equal(html.status, 202, JSON.stringify(html.j));
   assert.equal(html.j.endereco, '/paginas/feirao/');
-  // listagem (/multipla/): blocos antes da lista → web/multipla.json
-  const mul = await pedir('PUT', `/v1/sites/${D}/multipla`, { blocosAntes: [{ tipo: 'texto', html: '<p>OFERTAS-DA-SEMANA</p>' }] });
+  // listagem (/multipla/): secoes antes da lista → web/multipla.json
+  const mul = await pedir('PUT', `/v1/sites/${D}/multipla`, { secoesAntes: [{ tipo: 'texto', html: '<p>OFERTAS-DA-SEMANA</p>' }] });
   assert.equal(mul.status, 202, JSON.stringify(mul.j));
   assert.equal(mul.j.endereco, '/multipla/');
-  assert.equal((await pedir('PUT', `/v1/sites/${D}/multipla`, { blocosAntes: [{ tipo: 'nao-existe' }] })).status, 422, 'bloco que o template não tem');
+  assert.equal((await pedir('PUT', `/v1/sites/${D}/multipla`, { secoesAntes: [{ tipo: 'nao-existe' }] })).status, 422, 'bloco que o template não tem');
   assert.equal((await pedir('PUT', `/v1/sites/${D}/multipla`, { titulo: 'x' })).status, 422, 'campo desconhecido');
-  assert.equal((await pedir('PATCH', `/v1/sites/${D}`, { estoque: { blocosAntes: [] } })).status, 422, '"estoque" não vai no cadastro');
+  assert.equal((await pedir('PATCH', `/v1/sites/${D}`, { estoque: { secoesAntes: [] } })).status, 422, '"estoque" não vai no cadastro');
   assert.match(JSON.stringify((await pedir('GET', `/v1/sites/${D}/multipla`)).j), /OFERTAS-DA-SEMANA/);
 
   LINK_RM = 'carros/Toyota/Corolla/Xei-20/Toyota-Corolla-Xei-20-2022-Curitiba-Parana-C1.html';
@@ -192,17 +192,17 @@ test('6) recusas claras: arquivo que não é o que diz, SVG com script, página 
   assert.match(svg.j.erro, /SVG com código/);
   assert.equal((await pedir('PUT', `/v1/sites/${D}/assets/ok.svg`, '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>', { tipo: 'image/svg+xml' })).status, 202);
   for (const nome of ['../site.json', 'Logo Grande.png', 'x.exe']) assert.equal((await pedir('PUT', `/v1/sites/${D}/assets/${encodeURIComponent(nome)}`, png(), { tipo: 'image/png' })).status, 422, nome);
-  const bloco = await pedir('PUT', `/v1/sites/${D}/paginas/x`, { titulo: 'x', blocos: [{ tipo: 'nao-existe' }] });
+  const bloco = await pedir('PUT', `/v1/sites/${D}/paginas/x`, { titulo: 'x', secoes: [{ tipo: 'nao-existe' }] });
   assert.equal(bloco.status, 422);
-  assert.match(bloco.j.erros[0], /não existe no template "barra-topo"/);
-  assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/multipla`, { blocos: [] })).status, 422, 'nome reservado');
-  assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/Maiuscula`, { blocos: [] })).status, 422);
-  assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/index`, '<p>home</p>', { tipo: 'text/html' })).status, 422, 'home é página de blocos');
+  assert.match(bloco.j.erros[0], /não existe no tema "barra-topo"/);
+  assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/multipla`, { secoes: [] })).status, 422, 'nome reservado');
+  assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/Maiuscula`, { secoes: [] })).status, 422);
+  assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/index`, '<p>home</p>', { tipo: 'text/html' })).status, 422, 'home é página de secoes');
   const aviso = await pedir('PATCH', `/v1/sites/${D}`, { whatsap: '5541900000000' });
   assert.equal(aviso.status, 202);
   assert.match(aviso.j.avisos[0], /campo "whatsap" não é usado/);
   // página no outro formato substitui (não fica duplicada)
-  assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/promo`, { titulo: 'Promo', blocos: [] })).status, 202);
+  assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/promo`, { titulo: 'Promo', secoes: [] })).status, 202);
   assert.equal((await pedir('PUT', `/v1/sites/${D}/paginas/promo?esperar=30`, '<h1>Promo HTML</h1>', { tipo: 'text/html' })).status, 200);
   assert.ok(!fs.existsSync(A.pastaPaginas(D, 'promo.json')));
   assert.match(A.ler(D, 'paginas/promo/index.html'), /Promo HTML/);

@@ -20,11 +20,11 @@ function gerar() {
     combustivel: 'Flex', fotos: 2, opcionais: ['Teto solar'], descricao: 'Único dono.', loja: 'centro', ...extra });
   A.criarSite(ID, {
     carros: [c('S1', { ordem: 2, destaque: true, carroceria: 'Sedan' }), c('S2', { ordem: 1, modelo: 'City', loja: 'sul' }), c('S3', { fotos: 0 })],
-    site: { tema: { logo: 'assets/logo.png' }, cabecalho: { menu: [{ rotulo: 'Estoque', link: 'multipla/' }] },
-      estoque: { blocosAntes: [{ tipo: 'banner', titulo: 'Estoque' }] },
+    site: { configuracoes: { logo: 'assets/logo.png' }, cabecalho: { menu: [{ rotulo: 'Estoque', link: 'multipla/' }] },
+      estoque: { secoesAntes: [{ tipo: 'banner', titulo: 'Estoque' }] },
       paginas: [
-        { caminho: '', titulo: 'Home', blocos: [{ tipo: 'banner', titulo: 'Oi', imagem: 'assets/logo.png' }, { tipo: 'vitrine', titulo: 'Destaques', quantidade: 2, botao: 'Ver' }, { tipo: 'lojas' }] },
-        { caminho: 'sobre', titulo: 'Sobre', blocos: [{ tipo: 'texto', html: '<p>Texto</p>' }, { tipo: 'listagem', quantidade: 2 }] },
+        { caminho: '', titulo: 'Home', secoes: [{ tipo: 'banner', titulo: 'Oi', imagem: 'assets/logo.png' }, { tipo: 'vitrine', titulo: 'Destaques', quantidade: 2, botao: 'Ver' }, { tipo: 'lojas' }] },
+        { caminho: 'sobre', titulo: 'Sobre', secoes: [{ tipo: 'texto', html: '<p>Texto</p>' }, { tipo: 'listagem', quantidade: 2 }] },
       ] },
   });
   A.silencioso(() => construir({ sites: [ID], hoje: '2026-01-01' }));

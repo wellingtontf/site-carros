@@ -1,14 +1,14 @@
-// Páginas criadas pelos web designers, sem mexer no core. TODA página de um site que não é padrão do template mora
+// Páginas criadas pelos web designers, sem mexer no core. TODA página de um site que não é padrão do tema mora
 // em sites-config/<dominio>/paginas/ (o site.json não tem lista de páginas):
 //
 //   sites-config/<dominio>/paginas/            páginas SÓ deste site
-//   templates/<nome>/paginas-extras/    páginas livres de TODOS os sites do template
+//   temas/<nome>/paginas-extras/        páginas livres de TODOS os sites do tema
 //
-// Páginas de BLOCOS (JSON, os blocos do template: lojas, vitrine, listagem, formulário...):
+// Páginas de SEÇÕES (JSON, as seções do tema: lojas, vitrine, listagem, formulário...):
 //   index.json                          → / (a home)
 //   lojas.json                          → /lojas/
 //   sobre/nos.json                      → /sobre/nos/
-//   conteúdo: { "titulo": "...", "descricao": "...", "rotulo": "...", "blocos": [ { "tipo": "lojas" }, ... ] }
+//   conteúdo: { "titulo": "...", "descricao": "...", "rotulo": "...", "secoes": [ { "tipo": "lojas" }, ... ] }
 //
 // Páginas LIVRES (HTML normal). Formatos (o designer escolhe):
 //   feirao.html                         → /feirao/
@@ -17,7 +17,7 @@
 //   promocoes/feirao/index.html         → /promocoes/feirao/
 //
 // O que o build faz sozinho:
-//   - só o conteúdo (sem <html>)  → entra no cabeçalho/rodapé do site (paginas/pagina.html do template)
+//   - só o conteúdo (sem <html>)  → entra no cabeçalho/rodapé do site (templates/pagina.html do tema)
 //   - documento completo (<html>) → página livre; o build só acrescenta o essencial (viewport, aviso de cookies)
 //   - links começando com "/" (href="/multipla/") viram relativos: funciona em qualquer hospedagem e no teste local
 //   - título: <title>, senão o primeiro <h1>, senão o nome do arquivo. Descrição: <meta name="description">
@@ -105,7 +105,7 @@ function completarLivre(html, rel, { titulo = '', descricao = '', canon = '' } =
   return h;
 }
 
-// páginas de blocos (*.json) de uma pasta → [{ caminho, arquivo }]. Pasta que é página HTML (tem index.html) é dela:
+// páginas de seções (*.json) de uma pasta → [{ caminho, arquivo }]. Pasta que é página HTML (tem index.html) é dela:
 // um .json lá dentro é arquivo da página, não outra página.
 function lerPaginasJson(raiz) {
   const paginas = [];
@@ -123,7 +123,7 @@ function lerPaginasJson(raiz) {
   return paginas;
 }
 
-// páginas de blocos de um site: web/index.json (home) + web/paginas/**/*.json. A home NÃO fica em web/paginas/index.json
+// páginas de seções de um site: web/index.json (home) + web/paginas/**/*.json. A home NÃO fica em web/paginas/index.json
 // (o endereço /paginas/ não é página): isso e a pasta antiga sites-config/<d>/paginas/ dão erro claro.
 function paginasJsonDoSite(C, id) {
   if (fs.existsSync(C.paginasAntigasSite(id))) throw new Error(`sites-config/${id}/paginas/ mudou para sites-config/${id}/web/paginas/ (e a home para web/index.json). Para mover: node ferramentas/mover-paginas.js ${id}`);

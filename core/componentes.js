@@ -1,4 +1,4 @@
-// Componentes: pedaços prontos do site (filtro, estoque...) que QUALQUER template e QUALQUER página usam, todos da
+// Componentes: pedaços prontos do site (filtro, estoque...) que QUALQUER tema e QUALQUER página usam, todos da
 // mesma pasta (componentes/<nome>/), altamente customizáveis por opções (cores, layout, textos, o que aparece).
 //
 //   componentes/<nome>/componente.json   { "nome", "descricao", "opcoes": { "<opcao>": { "padrao", "tipo", "valores", "css", "descricao" } } }
@@ -6,13 +6,13 @@
 //   componentes/<nome>/<nome>.css        opcional: entra sozinho no <head> da página que usa o componente
 //   componentes/<nome>/<nome>.js         opcional: entra sozinho no fim do <body>
 //   "scripts" no componente.json         scripts do site que o componente precisa (ex.: o motor do estoque): o build põe
-//                                        no fim do <body> se a página ainda não tiver (funciona em qualquer template)
+//                                        no fim do <body> se a página ainda não tiver (funciona em qualquer tema)
 //
 // Como chamar:
-//   template:  {{componente estoque colunas=280 whatsapp=false titulo="{{listagem.h1}}"}}   (valor pode ter {{ }} do site)
+//   tema:      {{componente estoque colunas=280 whatsapp=false titulo="{{listagem.h1}}"}}   (valor pode ter {{ }} do site)
 //   página:    { "tipo": "componente", "nome": "estoque", "opcoes": { "porPagina": 8 } }
 //   site:      sites-config/<dominio>/componentes/estoque.json  { "cor": "#c00000" }  (vale para todas as páginas do site)
-// Camadas (cada uma vale mais que a anterior): padrão do componente < template < site (componentes/<nome>.json) < página.
+// Camadas (cada uma vale mais que a anterior): padrão do componente < tema < site (componentes/<nome>.json) < página.
 //
 // Tipos de opção: "texto" (padrão), "numero", "booleano", "cor" (#rgb, #rrggbb, rgb(), hsl(), var(--x)), "lista" (texto
 // separado por vírgula, vira lista para {{#op.x}}). "valores": [...] restringe. "css": "--c-cor" põe o valor numa variável
@@ -108,10 +108,10 @@ function renderizar(nome, camadas, ctx, render, onde) {
   return render(c.html, { ...ctx, op: opRender, componente: { nome, estilo } });
 }
 
-// troca cada {{componente ...}} do texto do template pelo HTML do componente → { texto, usados }
+// troca cada {{componente ...}} do texto do tema pelo HTML do componente → { texto, usados }
 const TAG = /\{\{componente\s+([a-z0-9-]+)((?:\s+[a-zA-Z]\w*=(?:"[^"]*"|'[^']*'|[^\s"'}]+))*)\s*\}\}/g;
-// camadas: template (atributos) < site (componentes/<nome>.json) < página (opcoesPagina: ex. web/multipla.json "componentes")
-function expandir(texto, ctx, render, { opcoesSite = {}, opcoesPagina = {}, ondePagina = 'página', onde = 'template' } = {}) {
+// camadas: tema (atributos) < site (componentes/<nome>.json) < página (opcoesPagina: ex. web/multipla.json "componentes")
+function expandir(texto, ctx, render, { opcoesSite = {}, opcoesPagina = {}, ondePagina = 'página', onde = 'tema' } = {}) {
   const usados = new Set();
   const saida = texto.replace(TAG, (_, nome, atributos) => {
     usados.add(nome);

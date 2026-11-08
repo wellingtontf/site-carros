@@ -15,10 +15,10 @@ beforeEach(() => A.limpar());
 const build = () => A.silencioso(() => construir({ sites: [ID] })).r.feitos[0];
 // template de teste que usa os componentes na listagem (cópia do "teste", com multipla.html chamando componentes)
 function templateComComponentes(nome, multipla) {
-  const dir = path.join(A.raiz(), 'templates', nome);
+  const dir = path.join(A.raiz(), 'temas', nome);
   fs.rmSync(dir, { recursive: true, force: true });
-  fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'templates', 'teste'), dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, 'paginas', 'multipla.html'), `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>{{listagem.titulo}}</title></head><body data-rel="{{rel}}" data-base="{{base}}" data-filtro="{{listagem.filtro}}">${multipla}<script src="{{rel}}motor/ui-site.js"></script></body></html>`);
+  fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'temas', 'teste'), dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'templates', 'multipla.html'), `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>{{listagem.titulo}}</title></head><body data-rel="{{rel}}" data-base="{{base}}" data-filtro="{{listagem.filtro}}">${multipla}<script src="{{rel}}motor/ui-site.js"></script></body></html>`);
   return nome;
 }
 
@@ -38,7 +38,7 @@ test('camadas de opções: componente < template < site.json < página; erros cl
 
 test('template chama {{componente}}: HTML, cores só do que foi definido, css/scripts entram sozinhos (sem duplicar)', () => {
   const tpl = templateComComponentes('com-comp', '<h1>X</h1>{{componente filtro layout="topo" cor="#c00000"}}{{componente estoque titulo="{{site.nome}}" colunas=300 campos="ano,km" estiloCampos="chips" whatsapp=false}}');
-  A.criarSite(ID, { carros: [A.carro(), A.carro({ marca: 'Honda', modelo: 'Civic' })], site: { template: tpl } });
+  A.criarSite(ID, { carros: [A.carro(), A.carro({ marca: 'Honda', modelo: 'Civic' })], site: { tema: tpl } });
   build();
   const h = A.ler(ID, 'multipla/index.html');
   assert.match(h, /class="c-filtro c-filtro--topo"[^>]*style="--c-cor:#c00000"/, 'cor do filtro só no filtro');
@@ -56,8 +56,8 @@ test('template chama {{componente}}: HTML, cores só do que foi definido, css/sc
 
 test('sites-config/<d>/componentes/<nome>.json muda o componente no site inteiro; página com bloco "componente" vale mais', () => {
   const tpl = templateComComponentes('com-comp2', '{{componente filtro}}{{componente estoque porPagina=12}}');
-  A.criarSite(ID, { carros: [A.carro(), A.carro()], site: { template: tpl, componentes: { estoque: { preco: '#0533ce', porPagina: 6 } },
-    paginas: [{ caminho: '', titulo: 'Home', blocos: [{ tipo: 'componente', nome: 'estoque', opcoes: { titulo: 'Na home', porPagina: 2, ordenacao: false, botaoEstoque: 'Ver tudo' } }] }] } });
+  A.criarSite(ID, { carros: [A.carro(), A.carro()], site: { tema: tpl, componentes: { estoque: { preco: '#0533ce', porPagina: 6 } },
+    paginas: [{ caminho: '', titulo: 'Home', secoes: [{ tipo: 'componente', nome: 'estoque', opcoes: { titulo: 'Na home', porPagina: 2, ordenacao: false, botaoEstoque: 'Ver tudo' } }] }] } });
   build();
   assert.match(A.ler(ID, 'multipla/index.html'), /data-pagina="6"/, 'site.json vale mais que o template');
   assert.match(A.ler(ID, 'multipla/index.html'), /--c-preco:#0533ce/);
@@ -73,24 +73,24 @@ test('sites-config/<d>/componentes/<nome>.json muda o componente no site inteiro
 
 test('erros: opção inválida no template, no site.json e na página param o build com o lugar do erro; id repetido também', () => {
   const tpl = templateComComponentes('com-comp3', '{{componente filtro}}{{componente estoque corDoPreco="#fff"}}');
-  A.criarSite(ID, { carros: [A.carro()], site: { template: tpl } });
+  A.criarSite(ID, { carros: [A.carro()], site: { tema: tpl } });
   assert.throws(() => build(), /multipla\.html: .*não tem a opção "corDoPreco"/);
   templateComComponentes('com-comp3', '{{componente estoque}}{{componente estoque}}');
   assert.throws(() => build(), /o id "[a-z-]+" aparece 2 vezes/);
   templateComComponentes('com-comp3', '{{componente nao-existe}}');
   assert.throws(() => build(), /componente "nao-existe" não existe/);
   // cadastro e página (o que a API usa): recusa antes de gravar
-  assert.match(Sites.validarSite({ nome: 'x', motor: 'v2', template: 'teste', componentes: { estoque: {} } }, ID).join(' '), /não vai no cadastro.*componentes\/<nome>\.json/);
+  assert.match(Sites.validarSite({ nome: 'x', motor: 'v2', tema: 'teste', componentes: { estoque: {} } }, ID).join(' '), /não vai no cadastro.*componentes\/<nome>\.json/);
   // arquivo do site com opção inválida: o build para dizendo o arquivo
   A.criarSite(ID, { carros: [A.carro()], site: { componentes: { estoque: { cor: 'vermelho' } } } });
   assert.throws(() => build(), /sites-config\/comp\.teste\.com\.br\/componentes\/estoque\.json: .*cor inválida "vermelho"/);
-  assert.match(Sites.validarPagina(ID, 'x', { blocos: [{ tipo: 'componente', nome: 'estoque', opcoes: { colunas: 'duas' } }] }).join(' '), /colunas: precisa ser número/);
-  assert.deepEqual(Sites.validarPagina(ID, 'x', { blocos: [{ tipo: 'componente', nome: 'estoque', opcoes: { colunas: 320 } }] }), []);
+  assert.match(Sites.validarPagina(ID, 'x', { secoes: [{ tipo: 'componente', nome: 'estoque', opcoes: { colunas: 'duas' } }] }).join(' '), /colunas: precisa ser número/);
+  assert.deepEqual(Sites.validarPagina(ID, 'x', { secoes: [{ tipo: 'componente', nome: 'estoque', opcoes: { colunas: 320 } }] }), []);
 });
 
 test('todos os templates do projeto usam os componentes na listagem', () => {
-  for (const t of fs.readdirSync(path.join(A.PROJETO, 'templates'))) {
-    const h = fs.readFileSync(path.join(A.PROJETO, 'templates', t, 'paginas', 'multipla.html'), 'utf8');
+  for (const t of fs.readdirSync(path.join(A.PROJETO, 'temas'))) {
+    const h = fs.readFileSync(path.join(A.PROJETO, 'temas', t, 'templates', 'multipla.html'), 'utf8');
     assert.match(h, /\{\{componente filtro/, `${t}: filtro`);
     assert.match(h, /\{\{componente estoque/, `${t}: estoque`);
   }
@@ -98,7 +98,7 @@ test('todos os templates do projeto usam os componentes na listagem', () => {
 
 test('filtro: opção "checkbox" (campos com várias escolhas) no template, no site ou na PÁGINA (web/multipla.json "componentes")', () => {
   const ID2 = 'checkbox.teste.com.br';
-  A.criarSite(ID2, { carros: [A.carro(), A.carro({ loja: 'sul' })], site: { motor: 'v3', template: 'barra-topo' } });
+  A.criarSite(ID2, { carros: [A.carro(), A.carro({ loja: 'sul' })], site: { motor: 'v3', tema: 'barra-topo' } });
   const { construir } = require('../core/build.js');
   const gerar = () => A.silencioso(() => construir({ sites: [ID2] }));
   gerar();

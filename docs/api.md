@@ -37,8 +37,8 @@ O site é identificado pelo **domínio** (ex.: `loja1.com.br`), que é o nome da
 | POST | `/v1/sites` | **cria um site novo com toda a estrutura**: sem domínio = próximo rascunho (`siteN.carro57.com.br`); ou `{"dominio": "novaloja.com.br"}` (ver "Site novo") |
 | PUT | `/v1/sites/{dominio}` | **grava o `site.json` inteiro**: cria o site, se não existir, ou substitui o cadastro (ver "Cadastro do site"), e gera o site |
 | PATCH | `/v1/sites/{dominio}` | **grava só os campos enviados** do `site.json`; o resto fica como está (ver "Cadastro do site") |
-| GET / PUT / DELETE | `/v1/sites/{dominio}/paginas/{nome}` | **páginas do site** (home, lojas, empresa, feirão...): blocos em JSON ou HTML (ver "Páginas e arquivos") |
-| GET / PUT / DELETE | `/v1/sites/{dominio}/multipla` | **listagem do estoque** (`/multipla/`): `{ "blocosAntes": [...], "blocosDepois": [...], "componentes": {...} }` (arquivo `web/multipla.json`) |
+| GET / PUT / DELETE | `/v1/sites/{dominio}/paginas/{nome}` | **páginas do site** (home, lojas, empresa, feirão...): seções em JSON ou HTML (ver "Páginas e arquivos") |
+| GET / PUT / DELETE | `/v1/sites/{dominio}/multipla` | **listagem do estoque** (`/multipla/`): `{ "secoesAntes": [...], "secoesDepois": [...], "componentes": {...} }` (arquivo `web/multipla.json`) |
 | GET / PUT / DELETE | `/v1/sites/{dominio}/componentes/{nome}` | **opções de um componente no site inteiro** (`filtro`, `estoque`, `filtros-ativos`): cores, layout, caixas de marcar, campos do card... |
 | GET / PUT / DELETE | `/v1/sites/{dominio}/assets/{arquivo}` | **arquivos do site** (logo, favicon, banners, fontes) (ver "Páginas e arquivos") |
 | POST | `/v1/sites/{dominio}/promover` | **rascunho → site definitivo**: `{"dominio": "lojafinal.com.br"}` (ver "Rascunho e promoção") |
@@ -70,7 +70,7 @@ Parâmetros das rotas que alteram dados:
 
 `POST /v1/sites` com `{"dominio": "novaloja.com.br"}` cria **toda a estrutura** de um site: a pasta com cadastro, o estoque vazio, `assets/`, `web/paginas/` e `componentes/`. Em seguida gera o site (home, estoque, páginas padrão, sitemap, robots.txt) e roda o comando `criar` da infraestrutura (hospedagem, certificado, DNS). Exige token com acesso a todos os sites (`*`).
 
-- **Só o domínio é obrigatório.** O resto vem do modelo da casa (`config/site-modelo.json`): nome = domínio, url = `https://<domínio>`, motor = a última versão. Para já mandar mais coisa, use `{"dominio": "...", "cadastro": {"nome": "...", "template": "template-basico", "lojas": {...}}}` (o mesmo formato de "Cadastro do site"); isso vale mais que o modelo.
+- **Só o domínio é obrigatório.** O resto vem do modelo da casa (`config/site-modelo.json`): nome = domínio, url = `https://<domínio>`, motor = a última versão. Para já mandar mais coisa, use `{"dominio": "...", "cadastro": {"nome": "...", "tema": "template-basico", "lojas": {...}}}` (o mesmo formato de "Cadastro do site"); isso vale mais que o modelo.
 - O site pode nascer **sem lojas**. Nesse caso, ele sobe sem estoque, e o estoque só é aceito depois que as lojas forem cadastradas (`PUT /v1/sites/{dominio}`).
 - Nasce em **rascunho** (fora do Google) se o modelo disser `"rascunho": true` (o padrão). Para criar já definitivo, mande `"cadastro": {"rascunho": false}`.
 - Respostas: **202** aceito; com `?esperar`, **201** criado. **409** se o domínio já existe e **422** se o domínio ou o cadastro forem inválidos (nada é criado).
@@ -80,13 +80,13 @@ Parâmetros das rotas que alteram dados:
 
 Tudo o que forma um site entra pela API e fica em `sites-config/<dominio>/`. São cinco partes: cadastro (`site.json`), estoque, **páginas**, **componentes** e **arquivos**.
 
-**Listagem (`/multipla/`):** `PUT /v1/sites/{dominio}/multipla` grava `web/multipla.json`: blocos antes e depois da lista
-e opções dos componentes só desta página (ex.: filtro com caixas de marcar). Bloco que o template não tem, campo ou opção
+**Listagem (`/multipla/`):** `PUT /v1/sites/{dominio}/multipla` grava `web/multipla.json`: seções antes e depois da lista (`secoesAntes`, `secoesDepois`)
+e opções dos componentes só desta página (ex.: filtro com caixas de marcar). Seção que o tema não tem, campo ou opção
 desconhecidos voltam 422; `GET` devolve o que está gravado; `DELETE` volta ao padrão.
 
 ```
 PUT /v1/sites/loja1.com.br/multipla
-{ "blocosAntes": [ { "tipo": "banner", "imagem": "assets/banner-estoque.webp", "alt": "..." } ],
+{ "secoesAntes": [ { "tipo": "banner", "imagem": "assets/banner-estoque.webp", "alt": "..." } ],
   "componentes": { "filtro": { "checkbox": "estado,cidade,marca" } } }
 ```
 
@@ -94,24 +94,24 @@ PUT /v1/sites/loja1.com.br/multipla
 
 ```
 PUT /v1/sites/loja1.com.br/paginas/lojas            content-type: application/json
-{ "titulo": "Nossas lojas", "descricao": "...", "rotulo": "Lojas", "blocos": [ { "tipo": "titulo", "titulo": "Nossas lojas" }, { "tipo": "lojas" } ] }
+{ "titulo": "Nossas lojas", "descricao": "...", "rotulo": "Lojas", "secoes": [ { "tipo": "titulo", "titulo": "Nossas lojas" }, { "tipo": "lojas" } ] }
 
 PUT /v1/sites/loja1.com.br/paginas/feirao           content-type: text/html
 <h1>Feirão</h1><p>Veja as <a href="/lojas/">lojas</a>.</p>
 ```
 
-- **Componentes:** um bloco `{ "tipo": "componente", "nome": "estoque", "opcoes": { "porPagina": 8 } }` põe um componente (`filtro`, `estoque`, `filtros-ativos`) na página, com as opções que quiser. Para o site inteiro, use `PUT /v1/sites/{dominio}/componentes/estoque` com as opções (`{ "preco": "#0533ce" }`); `GET .../componentes` lista e `DELETE` volta ao padrão. O cadastro (`site.json`) não aceita `"componentes"`. Opção ou valor inválido volta 422. Lista de opções: [componentes.md](componentes.md).
-- **Blocos (JSON):** os tipos são os do template do site (`banner`, `vitrine`, `listagem`, `lojas`, `titulo`, `texto`, `formulario`...). Bloco que o template não tem volta 422. `rotulo` põe a página no rodapé.
+- **Componentes:** uma seção `{ "tipo": "componente", "nome": "estoque", "opcoes": { "porPagina": 8 } }` põe um componente (`filtro`, `estoque`, `filtros-ativos`) na página, com as opções que quiser. Para o site inteiro, use `PUT /v1/sites/{dominio}/componentes/estoque` com as opções (`{ "preco": "#0533ce" }`); `GET .../componentes` lista e `DELETE` volta ao padrão. O cadastro (`site.json`) não aceita `"componentes"`. Opção ou valor inválido volta 422. Lista de opções: [componentes.md](componentes.md).
+- **Seções (JSON, `{ "titulo", "secoes": [...] }`):** os tipos são os do tema do site (`banner`, `vitrine`, `listagem`, `lojas`, `titulo`, `texto`, `formulario`...). Seção que o tema não tem volta 422; o nome antigo `"blocos"` também (com explicação). `rotulo` põe a página no rodapé.
 - **HTML:** conteúdo livre, que entra com o cabeçalho e o rodapé do site; um documento completo (`<html>`) vai sozinho. Links como `href="/lojas/"` são ajustados para a página certa.
-- Gravar no outro formato substitui a página (não fica duplicada). A home só aceita blocos.
+- Gravar no outro formato substitui a página (não fica duplicada). A home só aceita seções (JSON).
 - Nome: minúsculas, números, hífen e `/` (`sobre/nos`). `multipla`, `carros`, `assets`, `paginas` e outros são reservados.
 - `GET /v1/sites/{dominio}/paginas` lista (nome, formato e endereço); `GET .../paginas/{nome}` devolve a página; `DELETE` tira.
 
-**Arquivos:** `PUT /v1/sites/{dominio}/assets/{arquivo}`, com o arquivo no corpo (até 10 MB). No cadastro e nos blocos, use `assets/{arquivo}`:
+**Arquivos:** `PUT /v1/sites/{dominio}/assets/{arquivo}`, com o arquivo no corpo (até 10 MB). No cadastro e nas seções, use `assets/{arquivo}`:
 
 ```
 PUT /v1/sites/loja1.com.br/assets/logo.png          (corpo = o PNG)
-PATCH /v1/sites/loja1.com.br   { "tema": { "logo": "assets/logo.png", "favicon": "assets/favicon.ico" } }
+PATCH /v1/sites/loja1.com.br   { "configuracoes": { "logo": "assets/logo.png", "favicon": "assets/favicon.ico" } }
 ```
 
 - Tipos: png, jpg, webp, gif, avif, svg, ico, woff, woff2. O tipo é **conferido pelo conteúdo**: um `logo.png` que não é PNG volta 422.
@@ -126,7 +126,7 @@ Toda alteração de página ou arquivo refaz o site (pedido; `?esperar=N` espera
 O fluxo normal de um site novo: ele nasce como **rascunho** num endereço provisório da sequência `site1.carro57.com.br`, `site2.carro57.com.br`, `site3.carro57.com.br`...
 
 ```
-POST /v1/sites                     {"cadastro": {"nome": "Loja do João", "template": "template-basico"}}   (ou corpo vazio)
+POST /v1/sites                     {"cadastro": {"nome": "Loja do João", "tema": "template-basico"}}   (ou corpo vazio)
 → 202 { "pedido": "...", "site": "site14.carro57.com.br", ... }
 ```
 
@@ -155,7 +155,7 @@ Para um site que **já está no ar** e muda de domínio (caso raro; rascunho usa
 
 ## Cadastro do site
 
-**PUT ou PATCH?** O `PUT` substitui o `site.json` inteiro: use quando o seu sistema é o dono do cadastro todo. O `PATCH` muda só os campos enviados: use quando o seu sistema cuida de **parte** do cadastro (telefone, WhatsApp, lojas...) e outros mantêm o resto (cabeçalho, rodapé e tema montados pelo designer). Um `PUT` parcial apagaria esses campos.
+**PUT ou PATCH?** O `PUT` substitui o `site.json` inteiro: use quando o seu sistema é o dono do cadastro todo. O `PATCH` muda só os campos enviados: use quando o seu sistema cuida de **parte** do cadastro (telefone, WhatsApp, lojas...) e outros mantêm o resto (cabeçalho, rodapé e configurações montados pelo designer). Um `PUT` parcial apagaria esses campos.
 
 ```
 PATCH /v1/sites/loja1.com.br
@@ -169,19 +169,19 @@ O `PATCH` segue o JSON Merge Patch (RFC 7396): objeto mescla campo a campo (no e
 ```json
 {
   "nome": "Loja Nova Seminovos",
-  "template": "template-basico",
+  "tema": "template-basico",
   "motor": "v3",
   "url": "https://lojanova.com.br",
   "whatsapp": "5541999990000",
   "fotosBase": "https://fotos.plataforma.com.br/",
-  "tema": { "cor": "#0533ce", "logo": "https://cdn.lojanova.com.br/logo.webp" },
+  "configuracoes": { "cor": "#0533ce", "logo": "https://cdn.lojanova.com.br/logo.webp" },
   "lojas": {
     "matriz": { "nome": "Matriz", "cidade": "Curitiba", "uf": "PR", "endereco": "Rua X, 100", "whatsapp": "5541999990001" }
   }
 }
 ```
 
-Obrigatórios: `nome`, `template` e `motor`. As `lojas` são opcionais num site novo (cada uma com `nome`, `cidade` e `uf`); sem loja, o site não aceita estoque. Os opcionais (`cabecalho`, `rodape`, `filtros`, `tema`...) seguem o mesmo formato do `site.json` ([configurar-um-site.md](configurar-um-site.md)). As **páginas não vão no cadastro**: cada página é um arquivo em `sites-config/<dominio>/web/` (`web/index.json` = home, `web/paginas/...`), criado pelo web designer (um cadastro com `"paginas"` ou `"estoque"` volta 422; a listagem é `PUT /v1/sites/{dominio}/multipla`). A API recusa (422, nada gravado): template ou motor inexistente, bloco que o template não tem, `url` sem https e loja removida que ainda tem carros no estoque. O cadastro anterior fica guardado como cópia de segurança.
+Obrigatórios: `nome`, `tema` e `motor`. As `lojas` são opcionais num site novo (cada uma com `nome`, `cidade` e `uf`); sem loja, o site não aceita estoque. Os opcionais (`cabecalho`, `rodape`, `filtros`, `configuracoes`...) seguem o mesmo formato do `site.json` ([configurar-um-site.md](configurar-um-site.md)). As **páginas não vão no cadastro**: cada página é um arquivo em `sites-config/<dominio>/web/` (`web/index.json` = home, `web/paginas/...`), criado pelo web designer (um cadastro com `"paginas"` ou `"estoque"` volta 422; a listagem é `PUT /v1/sites/{dominio}/multipla`). A API recusa (422, nada gravado): tema ou motor inexistente, nome antigo (`template`, `tema` com cores, `blocos`: ver [temas.md](temas.md)), seção que o tema não tem, `url` sem https e loja removida que ainda tem carros no estoque. O cadastro anterior fica guardado como cópia de segurança.
 
 ## Vários sites numa chamada
 
@@ -229,7 +229,7 @@ Sitemap: {{sitemap}}
 | `POST /v1/build` `{"sites": ["a.com.br", "b.com.br"]}` | os sites da lista |
 | `POST /v1/build` `{}` | todos os sites do inquilino do token (lote; o admin alcança a plataforma toda ou um inquilino com `?inquilino=`) |
 
-Sem opção, o build é **incremental**: reescreve só o que mudou (cadastro, template, estoque). Com `"completo": true` (ou `?completo=1`), regera **todas** as páginas, mesmo sem mudança detectada. Use depois de uma correção que o build não enxerga, ou para garantir tudo fresco. Nos dois casos o **histórico é mantido**: páginas de vendido e redirecionamentos continuam, então link compartilhado e Google não quebram.
+Sem opção, o build é **incremental**: reescreve só o que mudou (cadastro, tema, estoque). Com `"completo": true` (ou `?completo=1`), regera **todas** as páginas, mesmo sem mudança detectada. Use depois de uma correção que o build não enxerga, ou para garantir tudo fresco. Nos dois casos o **histórico é mantido**: páginas de vendido e redirecionamentos continuam, então link compartilhado e Google não quebram.
 
 ## Operações em todos os sites (lotes)
 

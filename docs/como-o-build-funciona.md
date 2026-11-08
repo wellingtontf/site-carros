@@ -7,7 +7,7 @@ transforma a **fonte** de um site (`sites-config/<dominio>/`) no **site pronto**
 acontece depois até o site estar no ar.
 
 **Resumo em uma linha:**
-`sites-config/<d>/` (site.json + estoque.json + web/ + componentes/ + assets/) + `templates/<nome>/` + `componentes/` +
+`sites-config/<d>/` (site.json + estoque.json + web/ + componentes/ + assets/) + `temas/<nome>/` + `componentes/` +
 `core/motor/<versão>/` → **`core/build.js`** → `sites-public/<d>/` + `.estado/` (o que mudou) → publicação → CloudFront.
 
 ---
@@ -46,16 +46,19 @@ tempo; sites diferentes rodam em paralelo.
 
 ## 2. Ler e validar a configuração do site
 
-1. **`site.json`:** template, motor, tema, textos, lojas, filtros, restrições, `url`, `fotosBase`, inquilino.
-2. **Inquilino:** decide de onde vem o template. Template próprio do inquilino (`inquilinos/<id>/templates/<nome>/`)
-   vale mais que o de `templates/` com o mesmo nome.
-3. **Template completo?** Precisa dos 5 arquivos de `paginas/` (`home.html`, `multipla.html`, `carro.html`,
-   `vendido.html`, `pagina.html`) e dos blocos obrigatórios. Faltou: o build para com "falta paginas/x.html".
+1. **`site.json`:** tema, motor, configurações, textos, lojas, filtros, restrições, `url`, `fotosBase`, inquilino.
+2. **Inquilino:** decide de onde vem o tema. Tema próprio do inquilino (`inquilinos/<id>/temas/<nome>/`)
+   vale mais que o de `temas/` com o mesmo nome.
+3. **Tema completo?** Precisa do `config/settings_schema.json`, dos 5 arquivos de `templates/` (`home.html`,
+   `multipla.html`, `carro.html`, `vendido.html`, `pagina.html`) e das seções obrigatórias. Faltou: o build para com
+   "falta templates/x.html". Tema na estrutura antiga (`template.json`, `paginas/`, `blocos/`...) também para.
 4. **Motor:** confere que `core/motor/<versao>/engine.js` existe.
 5. **Recusas com explicação** (a mensagem manda rodar `node ferramentas/mover-paginas.js`):
    - `"paginas"` ou `"estoque"` dentro do `site.json`;
    - a pasta antiga `sites-config/<d>/paginas/`;
    - home em `web/paginas/index.json` (a home fica em `web/index.json`).
+   - nomes de antes do padrão Shopify: `"template"` (agora `"tema"`), objeto `"tema"` com cores (agora
+     `"configuracoes"`) e `"blocos"` (agora `"secoes"`). Aqui a mensagem manda rodar `node ferramentas/migrar-temas.js`.
 
 ---
 
@@ -66,18 +69,18 @@ A pasta `sites-config/<d>/web/` é o **espelho do site público**: cada arquivo 
 ```
 sites-config/<dominio>/web/
   index.json              →  /                 (home)
-  multipla.json           →  /multipla/        (blocos antes/depois da lista + opções dos componentes)
-  paginas/lojas.json      →  /paginas/lojas/   (página de blocos)
+  multipla.json           →  /multipla/        (seções antes/depois da lista + opções dos componentes)
+  paginas/lojas.json      →  /paginas/lojas/   (página de seções)
   paginas/feirao.html     →  /paginas/feirao/  (HTML livre do designer)
   paginas/feirao/index.html (com imagens/css junto) → /paginas/feirao/
 ```
 
 1. **Listagem:** lê `web/multipla.json`. Arquivo vazio = sem configuração.
-2. **Páginas de blocos do site:** `web/index.json` (home) e `web/paginas/**/*.json`.
+2. **Páginas de seções do site:** `web/index.json` (home) e `web/paginas/**/*.json`.
 3. **Páginas livres (HTML do designer).** Mesmo nome em dois lugares: vale o primeiro.
    1. `web/paginas/*.html` ou `web/paginas/<nome>/index.html` (deste site);
-   2. `templates/<nome>/paginas-extras/` (todos os sites do template).
-4. **Páginas padrão do template** (`templates/<nome>/paginas-padrao/`: contato, financiamento, avaliação, privacidade,
+   2. `temas/<nome>/paginas-extras/` (todos os sites do tema).
+4. **Páginas padrão do tema** (`temas/<nome>/paginas-padrao/`: contato, financiamento, avaliação, privacidade,
    cookies, LGPD):
    - entram se o site não tem uma página com o mesmo nome e não desligou (`"paginasPadrao": { "lgpd": false }`);
    - são preenchidas com `{{site.nome}}`, `{{empresa.cnpj}}`...
@@ -100,7 +103,7 @@ sites-config/<dominio>/web/
 
 1. **Estado anterior:** `.estado/sites-public/<dominio>.json` guarda o que foi gerado da última vez (hash de cada carro,
    links, vendidos, redirecionamentos, datas).
-2. **Hash do visual (`baseHash`):** template, componentes, opções dos componentes, nome, tema, textos, cabeçalho,
+2. **Hash do visual (`baseHash`):** tema, componentes, opções dos componentes, nome, configurações, textos, cabeçalho,
    rodapé, lojas e `VERSAO_HTML`.
    - Mudou → refaz **todas** as páginas de carro ("visual/config mudou: 1500 páginas refeitas").
    - Não mudou → refaz **só** os carros cujo hash mudou.
@@ -113,7 +116,7 @@ sites-config/<dominio>/web/
 | De | Para | O quê |
 |---|---|---|
 | `core/motor/<versão>/engine.js` + `core/ui/` | `motor/` | motor da versão do site, `ui-lista.js`, `rotas.js`, `link-carro.js`, `formato-estoque.js`... |
-| `templates/<nome>/` | `css/`, `js/`, `img/` | tudo do template, menos `paginas/`, `blocos/`, `parciais/` e `template.json` |
+| `temas/<nome>/assets/` | `css/`, `js/`, `img/` (na raiz) | os arquivos do tema; o resto do tema (`templates/`, `secoes/`, `snippets/`, `config/`) não vai para o site |
 | `sites-config/<d>/assets/` | `assets/` | logo, banners e fontes do site |
 | `componentes/<nome>/<nome>.css` | `componentes/` | CSS dos componentes usados |
 
@@ -130,11 +133,11 @@ css e js saem com `?v=<hash do conteúdo>` no endereço: a CDN guarda por muito 
 
 ---
 
-## 8. Montar o contexto que os templates usam
+## 8. Montar o contexto que os templates do tema usam
 
 1. **`estoque.*`:** total, destaques, listas de marcas, cidades, carrocerias, combustíveis e lojas, cada item com o link
    da rota (`multipla/marca/audi`).
-2. **`site.*`:** nome, slogan, textos, cabeçalho e rodapé (links ajustados), links das páginas legais.
+2. **`site.*`** e **`configuracoes.*`:** nome, slogan, textos, cabeçalho e rodapé (links ajustados), links das páginas legais.
 3. **Links escritos à mão são ajustados:**
    - `"contato/"` → `paginas/contato/` (`paraPagina`);
    - `"multipla/?carroceria=Moto"` → `multipla/carroceria/moto` (`paraFiltro`).
@@ -145,14 +148,14 @@ css e js saem com `?v=<hash do conteúdo>` no endereço: a CDN guarda por muito 
 
 ### 9.1 Listagem: `multipla/index.html`
 
-1. Usa `templates/<nome>/paginas/multipla.html`.
+1. Usa `temas/<nome>/templates/multipla.html`.
 2. **Expande os componentes** (`{{componente filtro}}`, `{{componente filtros-ativos}}`, `{{componente estoque}}`).
    As opções se somam, valendo mais a última:
    1. padrão do componente (`componentes/<nome>/componente.json`);
-   2. template (atributos na chamada);
+   2. tema (atributos na chamada, no template);
    3. site (`sites-config/<d>/componentes/<nome>.json`);
    4. página (`"componentes"` do `web/multipla.json`).
-3. Põe os blocos de `web/multipla.json` (`blocosAntes` e `blocosDepois`).
+3. Põe as seções de `web/multipla.json` (`secoesAntes` e `secoesDepois`).
 4. **Injeta sozinho:**
    - o CSS dos componentes no `<head>` e os scripts no fim do `<body>`, sem repetir;
    - o script do `<base>`, que faz as rotas fundas (`/multipla/a/b/c`) acharem css, js e `estoque.json`.
@@ -164,8 +167,8 @@ css e js saem com `?v=<hash do conteúdo>` no endereço: a CDN guarda por muito 
 
 ### 9.2 Páginas de conteúdo
 
-1. A home usa `home.html`; as outras usam `pagina.html` (a moldura).
-2. Cada bloco é renderizado com `templates/<nome>/blocos/<tipo>.html`.
+1. A home usa o template `home.html`; as outras usam `pagina.html` (a moldura).
+2. Cada seção é renderizada com `temas/<nome>/secoes/<tipo>.html`.
 3. Página livre: o HTML do designer, com links `/x` ajustados e moldura opcional.
 4. Canonical com a `url` do site.
 
@@ -177,7 +180,7 @@ A do site (`pagina404` no `site.json`) ou a padrão, com `noindex`.
 
 ## 10. Limpar o que saiu
 
-1. **Arquivos copiados** que não existem mais na origem (css tirado do template, imagem de página do designer).
+1. **Arquivos copiados** que não existem mais na origem (css tirado do tema, imagem de página do designer).
 2. **Páginas que deixaram de existir** (arquivo removido de `web/paginas/`, páginas fixas de filtro antigas).
 3. **Redirecionamentos HTML antigos na raiz.**
 
@@ -248,7 +251,7 @@ Para testar igual à produção na máquina: `node ferramentas/servidor-local.js
 | home, páginas, listagem | `sites-config/<d>/web/` |
 | opções de um componente no site inteiro | `sites-config/<d>/componentes/<nome>.json` |
 | logo, banners | `sites-config/<d>/assets/` |
-| visual de todos os sites de um template | `templates/<nome>/` |
-| filtro, estoque, filtros ativos (todos os templates) | `componentes/<nome>/` |
+| visual de todos os sites de um tema | `temas/<nome>/` |
+| filtro, estoque, filtros ativos (todos os temas) | `componentes/<nome>/` |
 | busca e filtros (lógica) | `core/motor/rascunho/` → `node core/cli.js congelar vN` → `aplicar vN` |
 | regras do endereço (rotas, 301) | `infra/cloudfront/roteador.js` e `core/ui/rotas.js` |

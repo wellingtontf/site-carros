@@ -12,8 +12,8 @@
   // O motor não repassa campos que não conhece, então os links são guardados aqui ao carregar o estoque.json.
   const linkDe = new Map();
   // estoque.json compacto ("formatoEstoque": "compacto"): carrega motor/formato-estoque.js na hora e desempacota para a
-  // lista de sempre (o motor recebe os mesmos dados; funciona com HTML antigo, sem o template precisar do script)
-  // scripts do core que só esta página precisa: carregados na hora (o template não precisa listar)
+  // lista de sempre (o motor recebe os mesmos dados; funciona com HTML antigo, sem o tema precisar do script)
+  // scripts do core que só esta página precisa: carregados na hora (o tema não precisa listar)
   const script = (arq, nome) => window[nome] ? Promise.resolve(window[nome]) : new Promise((ok, erro) => {
     const s = document.createElement('script'); s.src = `${REL}motor/${arq}`;
     s.onload = () => ok(window[nome]); s.onerror = erro; document.head.appendChild(s);
@@ -100,7 +100,7 @@
     selects[f.campo] = sel;
   });
 
-  // card: o template define o HTML com [[campos]]
+  // card: o tema define o HTML com [[campos]]
   const tplCard = $('#tpl-card').textContent;
   const preencher = (tpl, o) => tpl.replace(/\[\[(\w+)\]\]/g, (_, k) => (k === 'imgattrs' ? o[k] : esc(o[k] ?? ''))); // [[zap]] = link do WhatsApp do carro
   function dadosCard(d) {

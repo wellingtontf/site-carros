@@ -7,13 +7,13 @@ const path = require('path');
 const PROJETO = path.resolve(__dirname, '..');
 let RAIZ = null;
 
-// cria uma pasta de dados vazia (sites-config/, config/) com os templates reais + o template "teste", e aponta o core para ela
+// cria uma pasta de dados vazia (sites-config/, config/) com os temas reais + o tema "teste", e aponta o core para ela
 function prepararRaiz() {
   RAIZ = fs.mkdtempSync(path.join(os.tmpdir(), 'site-carros-teste-'));
-  for (const d of ['sites-config', 'config', 'templates']) fs.mkdirSync(path.join(RAIZ, d));
-  for (const t of fs.readdirSync(path.join(PROJETO, 'templates'))) fs.symlinkSync(path.join(PROJETO, 'templates', t), path.join(RAIZ, 'templates', t));
-  fs.symlinkSync(path.join(__dirname, 'fixtures', 'templates', 'teste'), path.join(RAIZ, 'templates', 'teste'));
-  fs.symlinkSync(path.join(PROJETO, 'componentes'), path.join(RAIZ, 'componentes')); // componentes que todo template usa
+  for (const d of ['sites-config', 'config', 'temas']) fs.mkdirSync(path.join(RAIZ, d));
+  for (const t of fs.readdirSync(path.join(PROJETO, 'temas'))) fs.symlinkSync(path.join(PROJETO, 'temas', t), path.join(RAIZ, 'temas', t));
+  fs.symlinkSync(path.join(__dirname, 'fixtures', 'temas', 'teste'), path.join(RAIZ, 'temas', 'teste'));
+  fs.symlinkSync(path.join(PROJETO, 'componentes'), path.join(RAIZ, 'componentes')); // componentes que todo tema usa
   process.env.SITE_CARROS_RAIZ = RAIZ;
   process.on('exit', () => { try { fs.rmSync(RAIZ, { recursive: true, force: true }); } catch (e) { /* tanto faz */ } });
   return RAIZ;
@@ -55,7 +55,7 @@ function criarSite(id, { site = {}, carros = [] } = {}) {
   const dir = path.join(RAIZ, 'sites-config', id);
   fs.mkdirSync(dir, { recursive: true });
   const { paginas, componentes, estoque, ...resto } = site;
-  const cfg = { nome: `Site ${id}`, slogan: 'Seminovos de teste', motor: 'v2', template: 'teste', url: `https://${id}`, whatsapp: '5511999999999', fotosBase: 'https://fotos.teste/', lojas: LOJAS, ...resto };
+  const cfg = { nome: `Site ${id}`, slogan: 'Seminovos de teste', motor: 'v2', tema: 'teste', url: `https://${id}`, whatsapp: '5511999999999', fotosBase: 'https://fotos.teste/', lojas: LOJAS, ...resto };
   fs.writeFileSync(path.join(dir, 'site.json'), JSON.stringify(cfg, null, 2));
   fs.writeFileSync(path.join(dir, 'estoque.json'), JSON.stringify({ carros }));
   if (paginas) gravarPaginas(id, paginas);
@@ -86,7 +86,7 @@ function listar(dir) {
 // e comentários HTML (que documentam esses campos)
 const semModelos = (html) => html.replace(/<script type="text\/html"[\s\S]*?<\/script>/g, '').replace(/<!--[\s\S]*?-->/g, '');
 
-// marcadores do mini-renderer que sobraram na saída = template quebrado ou campo com nome errado
+// marcadores do mini-renderer que sobraram na saída = tema quebrado ou campo com nome errado
 function marcadoresSobrando(html) {
   return [...semModelos(html).matchAll(/\{\{[^}]*\}\}|\[\[[a-z]+\]\]/g)].map((m) => m[0]);
 }

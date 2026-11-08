@@ -7,7 +7,7 @@
 //   carregarTodos()      → [cadastro, ...]
 //   lojas(dominio)       → ids das lojas do site
 //   estoque(dominio)     → { carros: [...] } atual (vazio se não houver)
-//   resumo(dominio)      → { site, nome, template, motor, url, carros, lojas, atualizado }
+//   resumo(dominio)      → { site, nome, tema, motor, url, carros, lojas, atualizado }
 //   resumos(filtro?)     → [resumo, ...]
 //
 // Cadastro:
@@ -49,7 +49,7 @@ const estoque = (d) => lerJSON(C.estoque(d), { carros: [] });
 function resumo(d) {
   const s = lerJSON(C.siteJson(d), {});
   const e = estoque(d);
-  return { site: d, inquilino: s.inquilino || Inq.PADRAO, nome: s.nome || '', rascunho: !!s.rascunho, template: s.template || '', motor: s.motor || '', url: s.url || '', carros: (e.carros || []).length, lojas: Object.keys(s.lojas || {}).length, atualizado: e.atualizado || null };
+  return { site: d, inquilino: s.inquilino || Inq.PADRAO, nome: s.nome || '', rascunho: !!s.rascunho, tema: typeof s.tema === 'string' ? s.tema : '', motor: s.motor || '', url: s.url || '', carros: (e.carros || []).length, lojas: Object.keys(s.lojas || {}).length, atualizado: e.atualizado || null };
 }
 const resumos = (filtro = () => true) => listar().filter(filtro).map(resumo);
 
@@ -92,44 +92,50 @@ function registrarRascunho(d) {
 // ---------- cadastro ----------
 // campos que a plataforma usa no site.json. Campo fora da lista não é erro (o site gera do mesmo jeito), mas volta como
 // AVISO: "whatsap" escrito errado gravaria sem efeito e o site ficaria sem WhatsApp sem ninguém perceber.
-const CAMPOS_SITE = new Set(['inquilino', 'nome', 'slogan', 'template', 'motor', 'url', 'whatsapp', 'fotosBase', 'cor', 'tema', 'textos',
+const CAMPOS_SITE = new Set(['inquilino', 'nome', 'slogan', 'tema', 'motor', 'url', 'whatsapp', 'fotosBase', 'cor', 'configuracoes', 'textos',
   'cabecalho', 'rodape', 'lojas', 'empresa', 'vendedores', 'busca', 'filtros', 'ordenacao', 'restricoes',
   'avisoCookies', 'paginasPadrao', 'pagina404', 'retencaoVendidosDias', 'retencaoRedirecionamentoDias', 'robots', 'formatoEstoque', 'rascunho']);
 const avisosSite = (s) => (s && typeof s === 'object' ? Object.keys(s).filter((k) => !CAMPOS_SITE.has(k)).map((k) => `campo "${k}" não é usado pela plataforma (erro de digitação?)`) : []);
 
-// página de blocos de um site (sites-config/<dominio>/paginas/<caminho>.json): formato e blocos que o template do site tem
+// nomes antigos (antes do padrão Shopify, 2026-11-08): erro claro com o caminho da migração
+const MIGRAR = 'node ferramentas/migrar-temas.js';
+const erroSecoes = (o) => (o && typeof o === 'object' && o.blocos !== undefined ? [`"blocos" agora se chama "secoes" (${MIGRAR})`] : []);
+// página de seções de um site (sites-config/<dominio>/web/paginas/<caminho>.json): formato e seções que o tema do site tem
 function validarPagina(dominio, caminho, pagina) {
   const erros = [];
   if (caminho !== '' && !/^([a-z0-9][a-z0-9-]*)(\/[a-z0-9][a-z0-9-]*)*$/.test(String(caminho))) erros.push(`nome de página inválido "${caminho}" (minúsculas, números, hífen e /)`);
-  if (!pagina || typeof pagina !== 'object' || Array.isArray(pagina)) return [...erros, 'a página precisa ser um objeto { "titulo", "blocos": [...] }'];
+  if (!pagina || typeof pagina !== 'object' || Array.isArray(pagina)) return [...erros, 'a página precisa ser um objeto { "titulo", "secoes": [...] }'];
+  erros.push(...erroSecoes(pagina));
   if ('caminho' in pagina) erros.push('"caminho" não vai na página: ele é o endereço da chamada');
-  if (!Array.isArray(pagina.blocos)) erros.push('falta "blocos" (lista)');
+  if (!Array.isArray(pagina.secoes) && pagina.blocos === undefined) erros.push('falta "secoes" (lista)');
   const s = existe(dominio) ? carregar(dominio) : null;
-  if (s && Array.isArray(pagina.blocos)) {
-    const dir = Inq.dirTemplate(Inq.doSite(s), s.template);
-    pagina.blocos.forEach((b, i) => {
+  if (s && Array.isArray(pagina.secoes)) {
+    const dir = Inq.dirTema(Inq.doSite(s), s.tema);
+    pagina.secoes.forEach((b, i) => {
       if (b && b.tipo === 'componente') { require('./componentes').validar(b.nome, b.opcoes, `bloco ${i + 1}`).forEach((x) => erros.push(`bloco ${i + 1}: ${x}`)); return; }
-      if (!b || !/^[a-z0-9-]+$/.test(String(b.tipo)) || !fs.existsSync(path.join(dir, 'blocos', `${b.tipo}.html`))) erros.push(`bloco ${i + 1}: tipo "${b && b.tipo}" não existe no template "${s.template}"`);
+      if (!b || !/^[a-z0-9-]+$/.test(String(b.tipo)) || !fs.existsSync(path.join(dir, C.TEMA.secoes, `${b.tipo}.html`))) erros.push(`seção ${i + 1}: tipo "${b && b.tipo}" não existe no tema "${s.tema}"`);
     });
-    if (pagina.blocos.filter((b) => b && b.tipo === 'listagem').length > 1) erros.push('só pode ter um bloco "listagem" por página');
+    if (pagina.secoes.filter((b) => b && b.tipo === 'listagem').length > 1) erros.push('só pode ter uma seção "listagem" por página');
   }
   return erros;
 }
 
-// web/multipla.json (listagem do estoque): { "blocosAntes": [...], "blocosDepois": [...] }, blocos do template do site
+// web/multipla.json (listagem do estoque): { "secoesAntes": [...], "secoesDepois": [...] }, seções do tema do site
 function validarMultipla(dominio, cfg) {
-  if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) return ['a multipla precisa ser um objeto { "blocosAntes": [...], "blocosDepois": [...] }'];
-  const fora = Object.keys(cfg).filter((k) => !['blocosAntes', 'blocosDepois', 'componentes'].includes(k));
-  const erros = fora.map((k) => `campo "${k}" não existe na multipla (use blocosAntes, blocosDepois e componentes)`);
-  // opções dos componentes SÓ desta página (valem mais que as do template e as do site): { "filtro": { "checkbox": "marca,cidade" } }
+  if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) return ['a multipla precisa ser um objeto { "secoesAntes": [...], "secoesDepois": [...] }'];
+  const antigos = Object.keys(cfg).filter((k) => k === 'blocosAntes' || k === 'blocosDepois');
+  const fora = Object.keys(cfg).filter((k) => !['secoesAntes', 'secoesDepois', 'componentes', ...antigos].includes(k));
+  const erros = [...antigos.map((k) => `"${k}" agora se chama "${k.replace('blocos', 'secoes')}" (${MIGRAR})`),
+    ...fora.map((k) => `campo "${k}" não existe na multipla (use secoesAntes, secoesDepois e componentes)`)];
+  // opções dos componentes SÓ desta página (valem mais que as do tema e as do site): { "filtro": { "checkbox": "marca,cidade" } }
   if (cfg.componentes != null) {
     if (typeof cfg.componentes !== 'object' || Array.isArray(cfg.componentes)) erros.push('"componentes" deve ser um objeto { "<componente>": { opções } }');
     else for (const [n, op] of Object.entries(cfg.componentes)) erros.push(...require('./componentes').validar(n, op, `componentes.${n}`));
   }
-  for (const k of ['blocosAntes', 'blocosDepois']) {
+  for (const k of ['secoesAntes', 'secoesDepois']) {
     if (cfg[k] == null) continue;
-    if (!Array.isArray(cfg[k])) { erros.push(`"${k}" deve ser lista de blocos`); continue; }
-    erros.push(...validarPagina(dominio, '', { blocos: cfg[k] }).map((x) => `${k}: ${x}`));
+    if (!Array.isArray(cfg[k])) { erros.push(`"${k}" deve ser lista de seções`); continue; }
+    erros.push(...validarPagina(dominio, '', { secoes: cfg[k] }).map((x) => `${k}: ${x}`));
   }
   return erros;
 }
@@ -145,9 +151,13 @@ function validarSite(s, dominio) {
   const inq = s.inquilino && Inq.existe(s.inquilino) ? s.inquilino : Inq.PADRAO;
   const donoRascunho = inquilinoDoRascunho(dominio);
   if (donoRascunho && donoRascunho !== inq) e(`"${dominio}" é endereço de rascunho de outro inquilino`);
-  if (!txt(s.template)) e('"template" vazio ou ausente');
-  else if (!Inq.templatePermitido(inq, s.template)) e(`o template "${s.template}" não está liberado para o inquilino "${inq}"`);
-  else if (!/^[a-z0-9-]+$/.test(s.template) || !fs.existsSync(path.join(Inq.dirTemplate(inq, s.template), 'template.json'))) e(`template "${s.template}" não existe`);
+  // padrão Shopify (2026-11-08): "template" virou "tema" (o nome do tema) e o antigo objeto "tema" virou "configuracoes"
+  if (s.template !== undefined) e(`"template" agora se chama "tema" ("tema": "${s.template}") e as cores/logo vão em "configuracoes" (${MIGRAR})`);
+  else if (s.tema && typeof s.tema === 'object') e(`"tema" agora é o NOME do tema (ex.: "template-basico"); cores, fonte e logo vão em "configuracoes" (${MIGRAR})`);
+  else if (!txt(s.tema)) e('"tema" vazio ou ausente (ex.: "tema": "template-basico")');
+  else if (!Inq.temaPermitido(inq, s.tema)) e(`o tema "${s.tema}" não está liberado para o inquilino "${inq}"`);
+  else if (!/^[a-z0-9-]+$/.test(s.tema) || !fs.existsSync(path.join(Inq.dirTema(inq, s.tema), C.TEMA.schema))) e(`tema "${s.tema}" não existe`);
+  if (s.configuracoes != null && (typeof s.configuracoes !== 'object' || Array.isArray(s.configuracoes))) e('"configuracoes" deve ser um objeto (ex.: { "cor": "#0b5fff", "logo": "assets/logo.png" })');
   if (!txt(s.motor)) e('"motor" vazio ou ausente (ex.: "v2")');
   else if (!/^[a-z0-9]+$/.test(s.motor) || !fs.existsSync(path.join(C.motor(s.motor), 'engine.js'))) e(`motor "${s.motor}" não existe`);
   if (s.url != null && !(typeof s.url === 'string' && /^https:\/\/[^\s/]+\/?$/i.test(s.url))) e('"url" precisa ser https://dominio (sem caminho)');
@@ -168,15 +178,15 @@ function validarSite(s, dominio) {
     if (!ID_LOJA.test(id)) e(`loja "${id}": id só com minúsculas, números e hífen`);
     if (!l || !txt(l.nome) || !txt(l.cidade) || !/^[A-Z]{2}$/.test(String(l && l.uf))) e(`loja "${id}": precisa de "nome", "cidade" e "uf" (2 letras maiúsculas)`);
   }
-  // trocar de template: os blocos das páginas do site (sites-config/<dominio>/web/) precisam existir no template novo
-  if (txt(s.template) && ID_SITE.test(String(dominio))) {
+  // trocar de tema: as seções das páginas do site (sites-config/<dominio>/web/) precisam existir no tema novo
+  if (txt(s.tema) && ID_SITE.test(String(dominio))) {
     let pags = [];
     try { pags = require('./paginas-livres').paginasJsonDoSite(C, dominio); } catch (x) { e(x.message); }
     if (fs.existsSync(C.multipla(dominio))) pags.push({ caminho: 'multipla', arquivo: C.multipla(dominio), multipla: true });
     for (const p of pags) {
       const j = lerJSON(p.arquivo, {});
-      for (const b of p.multipla ? [...(j.blocosAntes || []), ...(j.blocosDepois || [])] : Array.isArray(j.blocos) ? j.blocos : []) {
-        if (!b || !/^[a-z0-9-]+$/.test(String(b.tipo)) || !fs.existsSync(path.join(Inq.dirTemplate(inq, s.template), 'blocos', `${b.tipo}.html`))) e(`página "${p.caminho || '(home)'}": bloco "${b && b.tipo}" não existe no template "${s.template}"`);
+      for (const b of p.multipla ? [...(j.secoesAntes || []), ...(j.secoesDepois || [])] : Array.isArray(j.secoes) ? j.secoes : []) {
+        if (!b || !/^[a-z0-9-]+$/.test(String(b.tipo)) || !fs.existsSync(path.join(Inq.dirTema(inq, s.tema), C.TEMA.secoes, `${b.tipo}.html`))) e(`página "${p.caminho || '(home)'}": seção "${b && b.tipo}" não existe no tema "${s.tema}"`);
       }
     }
   }
@@ -195,7 +205,7 @@ function validarSite(s, dominio) {
 function cadastroNovo(dominio, parcial = {}, inquilino = Inq.PADRAO) {
   const modelo = Inq.lerConfig(inquilino, 'site-modelo.json', {});
   const limpo = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith('_'))); // "_comentario" no modelo
-  return { ...limpo(modelo), ...parcial, ...(inquilino !== Inq.PADRAO ? { inquilino } : {}), ...(ehDominioRascunho(dominio) ? { rascunho: true } : {}), nome: parcial.nome || dominio, url: parcial.url || `https://${dominio}`, motor: parcial.motor || modelo.motor || ultimaVersao(), template: parcial.template || modelo.template || 'barra-topo' };
+  return { ...limpo(modelo), ...parcial, ...(inquilino !== Inq.PADRAO ? { inquilino } : {}), ...(ehDominioRascunho(dominio) ? { rascunho: true } : {}), nome: parcial.nome || dominio, url: parcial.url || `https://${dominio}`, motor: parcial.motor || modelo.motor || ultimaVersao(), tema: parcial.tema || modelo.tema || 'barra-topo' };
 }
 
 // JSON Merge Patch (RFC 7396): objeto mescla campo a campo, null apaga o campo, o resto (texto, número, lista) substitui

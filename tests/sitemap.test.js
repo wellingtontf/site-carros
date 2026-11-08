@@ -13,7 +13,7 @@ beforeEach(() => A.limpar());
 const build = (hoje = '2026-03-01') => A.silencioso(() => construir({ sites: [ID], hoje }));
 
 test('build gera o sitemap com páginas e carros (e lastmod); gerarSitemap(dominio) reconstrói igual', () => {
-  A.criarSite(ID, { carros: [A.carro({ id: 'S1' }), A.carro({ id: 'S2' })], site: { paginas: [{ caminho: 'lojas', blocos: [{ tipo: 'lojas' }] }] } });
+  A.criarSite(ID, { carros: [A.carro({ id: 'S1' }), A.carro({ id: 'S2' })], site: { paginas: [{ caminho: 'lojas', secoes: [{ tipo: 'lojas' }] }] } });
   build();
   const sm = A.ler(ID, 'sitemap.xml');
   assert.match(sm, new RegExp(`<loc>https://${ID.replace(/\./g, '\\.')}/</loc><lastmod>2026-03-01</lastmod>`));

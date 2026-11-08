@@ -3,7 +3,7 @@
 //   node ferramentas/auditar-sites.js [pasta=sites-public]        (sai com código 1 se houver PROBLEMA)
 //   require('./ferramentas/auditar-sites.js').auditar(pasta) → { resumo, resultados: [{ chave, nivel, item, detalhe }] }
 // Cada verificação diz: OK, ATENÇÃO (funciona, mas tem risco) ou PROBLEMA (quebra em produção).
-// O tests/sites-e-templates.test.js roda isto nos sites reais: um PROBLEMA novo derruba os testes.
+// O tests/sites-e-temas.test.js roda isto nos sites reais: um PROBLEMA novo derruba os testes.
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');

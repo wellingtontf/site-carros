@@ -225,7 +225,7 @@ function criarRotas({ fila }) {
     }
 
     // ATUALIZAR SÓ ALGUNS CAMPOS do site.json (outro sistema que cuida de parte do cadastro: telefone, lojas, WhatsApp...)
-    // sem apagar o que outros mantêm (cabeçalho, rodapé, tema do designer). JSON Merge Patch (RFC 7396):
+    // sem apagar o que outros mantêm (cabeçalho, rodapé, configurações do designer). JSON Merge Patch (RFC 7396):
     //   {"whatsapp": "5541...", "lojas": {"centro": {"whatsapp": "..."}}, "slogan": null}   (null apaga o campo)
     if (m === 'PATCH' && resto === '') {
       const d = site(dominio);
@@ -245,8 +245,8 @@ function criarRotas({ fila }) {
 
     // PÁGINAS do site (sites-config/<dominio>/web/: index = web/index.json, o resto em web/paginas/): o que o web designer faz na pasta, um sistema faz por aqui.
     //   GET    /v1/sites/<d>/paginas              lista (nome, formato, endereço público)
-    //   GET    /v1/sites/<d>/paginas/<nome>       uma (JSON de blocos ou o HTML)
-    //   PUT    /v1/sites/<d>/paginas/<nome>       grava: JSON { titulo, blocos } ou HTML (content-type text/html). "index" = home
+    //   GET    /v1/sites/<d>/paginas/<nome>       uma (JSON de seções ou o HTML)
+    //   PUT    /v1/sites/<d>/paginas/<nome>       grava: JSON { titulo, secoes } ou HTML (content-type text/html). "index" = home
     //   DELETE /v1/sites/<d>/paginas/<nome>       tira
     if (resto === '/paginas' && m === 'GET') return enviar(res, 200, { paginas: Arq.listarPaginas(d) });
     let rp = /^\/paginas\/(.+)$/.exec(resto);
@@ -263,7 +263,7 @@ function criarRotas({ fila }) {
       if (m === 'PUT') {
         const html = /text\/html/i.test(req.headers['content-type'] || '');
         if (html) {
-          if (nome === 'index') throw new Erro(422, 'a home ("index") é página de blocos (JSON), não HTML');
+          if (nome === 'index') throw new Erro(422, 'a home ("index") é página de seções (JSON), não HTML');
           const t = await corpo(req, LIMITE.site);
           if (!t.trim()) throw new Erro(400, 'HTML vazio');
           try { Arq.gravarPagina(d, nome, 'html', t); } catch (e) { throw new Erro(e.conflito ? 409 : 500, e.message); }
@@ -271,7 +271,7 @@ function criarRotas({ fila }) {
           const pg = await corpoJSON(req, LIMITE.site);
           const erros = Arq.validarPagina(d, nome === 'index' ? '' : nome, pg);
           if (erros.length) throw new Erro(422, 'página inválida: nada foi gravado', { erros });
-          try { Arq.gravarPagina(d, nome, 'blocos', pg); } catch (e) { throw new Erro(e.conflito ? 409 : 500, e.message); }
+          try { Arq.gravarPagina(d, nome, 'secoes', pg); } catch (e) { throw new Erro(e.conflito ? 409 : 500, e.message); }
         }
         return responderPedido(res, url, refazer(), 202, 200, { endereco: nome === 'index' ? '/' : `/paginas/${nome}/` });
       }
@@ -281,8 +281,8 @@ function criarRotas({ fila }) {
       }
     }
 
-    // LISTAGEM do estoque (sites-config/<dominio>/web/multipla.json → /multipla/): blocos antes/depois da lista
-    //   GET|PUT|DELETE /v1/sites/<d>/multipla   corpo do PUT: { "blocosAntes": [...], "blocosDepois": [...] }
+    // LISTAGEM do estoque (sites-config/<dominio>/web/multipla.json → /multipla/): seções antes/depois da lista
+    //   GET|PUT|DELETE /v1/sites/<d>/multipla   corpo do PUT: { "secoesAntes": [...], "secoesDepois": [...] }
     if (resto === '/multipla') {
       if (m === 'GET') return enviar(res, 200, Arq.lerMultipla(d) || {});
       if (m === 'PUT') {

@@ -7,12 +7,14 @@
 //     site.json                  configuração do site (inclui as lojas)
 //     estoque.json               o único JSON de carros do site
 //     assets/                    imagens próprias do site (logo, banner...) → <site>/assets/
-//     paginas/                   páginas do site (index.json = home, <nome>.json de blocos, <nome>.html livre)
+//     web/                       espelho do site público: index.json (home), multipla.json, paginas/ (<nome>.json de seções, <nome>.html livre)
 //     componentes/               opções dos componentes no site inteiro (<nome>.json, ex.: estoque.json)
-//   componentes/<nome>/      componentes (filtro, estoque...) que todo template e toda página usam: {{componente nome}}
-//   templates/<nome>/         visual (o web designer só mexe aqui)
-//     template.json, paginas/{home,multipla,carro,vendido,pagina}.html, blocos/, parciais/, css/, js/, img/
-//     paginas-extras/            páginas livres de TODOS os sites do template
+//   componentes/<nome>/      componentes (filtro, estoque...) que todo tema e toda página usam: {{componente nome}}
+//   temas/<nome>/             o TEMA (visual; estrutura no padrão Shopify; o web designer só mexe aqui)
+//     config/settings_schema.json  nome, descrição e opções do tema
+//     templates/{home,multipla,carro,vendido,pagina}.html  um por tipo de página
+//     secoes/  snippets/  assets/ (css/, js/, img/ → raiz do site gerado)
+//     paginas-padrao/, paginas-extras/  páginas de TODOS os sites do tema
 //   inquilinos/<id>/          multi-tenant: inquilino.json + config/ própria (fotos, infra, publicação, robots, modelo de site)
 //   config/                   configuração global (e a do inquilino "padrao"): fontes.json, publicacao.json, historico.json, clientes.json
 //   .estado/                  estado do build incremental, travas, cópias de segurança
@@ -20,27 +22,27 @@
 //   sites-public/             saída: os sites gerados, uma pasta por domínio (é o que vai para o ar)
 const path = require('path');
 
-// SITE_CARROS_RAIZ troca a pasta de dados (sites-config/, templates/, config/, .estado/, sites-public/): usado pelos testes.
+// SITE_CARROS_RAIZ troca a pasta de dados (sites-config/, temas/, config/, .estado/, sites-public/): usado pelos testes.
 // O código (core/motor, core/ui) vem sempre daqui.
 const ROOT = process.env.SITE_CARROS_RAIZ ? path.resolve(process.env.SITE_CARROS_RAIZ) : path.resolve(__dirname, '..');
 const CORE = __dirname;
 const SITES = path.join(ROOT, 'sites-config');
 const PUBLICO = 'sites-public';
-// componentes (filtro, estoque...) usados por todos os templates e páginas; código versionado, vai na imagem como os templates
+// componentes (filtro, estoque...) usados por todos os temas e páginas; código versionado, vai na imagem como os temas
 const COMPONENTES = process.env.SITE_CARROS_COMPONENTES ? path.resolve(process.env.SITE_CARROS_COMPONENTES) : path.join(ROOT, 'componentes'); // nome da pasta de saída (relativo à raiz): C.saida(C.PUBLICO) = <raiz>/sites-public
-// templates (com as páginas padrão de cada um em templates/<nome>/paginas-padrao/) são CÓDIGO versionado: na imagem
-// Docker eles vêm junto (SITE_CARROS_TEMPLATES aponta para dentro da imagem); os DADOS ficam no volume (EFS)
-const TEMPLATES = process.env.SITE_CARROS_TEMPLATES ? path.resolve(process.env.SITE_CARROS_TEMPLATES) : path.join(ROOT, 'templates');
+// temas (com as páginas padrão de cada um em temas/<nome>/paginas-padrao/) são CÓDIGO versionado: na imagem
+// Docker eles vêm junto (SITE_CARROS_TEMAS aponta para dentro da imagem); os DADOS ficam no volume (EFS)
+const TEMAS = process.env.SITE_CARROS_TEMAS ? path.resolve(process.env.SITE_CARROS_TEMAS) : path.join(ROOT, 'temas');
 const CONFIG = path.join(ROOT, 'config');
 const ESTADO = path.join(ROOT, '.estado');
 const INQUILINOS = path.join(ROOT, 'inquilinos'); // multi-tenant: inquilinos/<id>/{inquilino.json, config/}
 
 module.exports = {
-  ROOT, CORE, SITES, TEMPLATES, CONFIG, ESTADO, INQUILINOS, PUBLICO, COMPONENTES,
+  ROOT, CORE, SITES, TEMAS, CONFIG, ESTADO, INQUILINOS, PUBLICO, COMPONENTES,
   inquilino: (id) => path.join(INQUILINOS, id),
   inquilinoJson: (id) => path.join(INQUILINOS, id, 'inquilino.json'),
   inquilinoConfig: (id, arquivo) => path.join(INQUILINOS, id, 'config', arquivo),
-  inquilinoTemplates: (id) => path.join(INQUILINOS, id, 'templates'), // templates PRÓPRIOS do inquilino (no volume: sem deploy)
+  inquilinoTemas: (id) => path.join(INQUILINOS, id, 'temas'), // temas PRÓPRIOS do inquilino (no volume: sem deploy)
   MOTOR: path.join(CORE, 'motor'),
   UI: path.join(CORE, 'ui'),
   motor: (versao) => path.join(CORE, 'motor', versao),
@@ -51,13 +53,16 @@ module.exports = {
   // web/ = ESPELHO do site público (sites-public/<dominio>/): cada arquivo é um endereço (decisão do Wellington)
   web: (id) => path.join(SITES, id, 'web'),
   home: (id) => path.join(SITES, id, 'web', 'index.json'), // → /
-  multipla: (id) => path.join(SITES, id, 'web', 'multipla.json'), // → /multipla/ (blocosAntes, blocosDepois)
+  multipla: (id) => path.join(SITES, id, 'web', 'multipla.json'), // → /multipla/ (secoesAntes, secoesDepois)
   paginasLivresSite: (id) => path.join(SITES, id, 'web', 'paginas'), // → /paginas/<nome>/ (.json de blocos ou .html livre)
   paginasAntigasSite: (id) => path.join(SITES, id, 'paginas'), // lugar antigo (ferramentas/mover-paginas.js leva para web/)
   componentesSite: (id) => path.join(SITES, id, 'componentes'), // opções dos componentes no site inteiro: <nome>.json
-  paginasLivresTemplate: (nome) => path.join(TEMPLATES, nome, 'paginas-extras'),
-  template: (nome) => path.join(TEMPLATES, nome),
-  pagina: (nome, arquivo) => path.join(TEMPLATES, nome, 'paginas', arquivo),
+  tema: (nome) => path.join(TEMAS, nome),
+  // estrutura de um tema (padrão Shopify): o resto do core usa estes nomes, nunca o texto da pasta
+  TEMA: { schema: path.join('config', 'settings_schema.json'), templates: 'templates', secoes: 'secoes', snippets: 'snippets', assets: 'assets',
+    paginasPadrao: 'paginas-padrao', paginasExtras: 'paginas-extras' },
+  // estrutura antiga (antes de 2026-11-08): só para dar erro claro e migrar (ferramentas/migrar-temas.js)
+  TEMA_ANTIGO: ['template.json', 'paginas', 'blocos', 'parciais'],
   config: (arquivo) => path.join(CONFIG, arquivo),
   clientes: () => path.join(CONFIG, 'clientes.json'),
   robots: () => path.join(CONFIG, 'robots.txt'), // modelo do robots.txt de todos os sites (core/robots.js)

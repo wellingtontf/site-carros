@@ -15,7 +15,7 @@ const build = () => A.silencioso(() => construir({ sites: [ID] })).r.feitos[0];
 const escreve = (arq, txt) => { fs.mkdirSync(path.dirname(arq), { recursive: true }); fs.writeFileSync(arq, txt); };
 
 test('cada parte de sites-config/<dominio>/ aparece em sites-public/<dominio>/ (e o que sai da fonte sai da saída)', () => {
-  A.criarSite(ID, { carros: [A.carro({ id: 'K1', preco: 100000 }), A.carro({ id: 'K2' })], site: { nome: 'Loja Contrato', tema: { logo: 'assets/logo.png' } } });
+  A.criarSite(ID, { carros: [A.carro({ id: 'K1', preco: 100000 }), A.carro({ id: 'K2' })], site: { nome: 'Loja Contrato', configuracoes: { logo: 'assets/logo.png' } } });
   escreve(fonte('assets', 'logo.png'), 'logo-v1');
   build();
   const pub = (p) => A.ler(ID, p);
@@ -34,8 +34,8 @@ test('cada parte de sites-config/<dominio>/ aparece em sites-public/<dominio>/ (
   assert.ok(A.lerJSON(ID, 'estoque.json').some((c) => c.i === 'K1' && c.p === 123456), 'estoque.json → estoque.json');
   assert.ok(!A.lerJSON(ID, 'estoque.json').some((c) => c.i === 'K2'), 'carro que saiu da fonte sai da lista');
 
-  // paginas/ (blocos e HTML)
-  escreve(fonte('web', 'paginas', 'promocoes.json'), JSON.stringify({ titulo: 'Promoções', blocos: [{ tipo: 'texto', html: '<p>PROMO</p>' }] }));
+  // paginas/ (secoes e HTML)
+  escreve(fonte('web', 'paginas', 'promocoes.json'), JSON.stringify({ titulo: 'Promoções', secoes: [{ tipo: 'texto', html: '<p>PROMO</p>' }] }));
   escreve(fonte('web', 'paginas', 'feirao.html'), '<h1>Feirão</h1>');
   build();
   assert.match(pub('paginas/promocoes/index.html'), /PROMO/, 'paginas/<nome>.json → /paginas/<nome>/');
@@ -46,7 +46,7 @@ test('cada parte de sites-config/<dominio>/ aparece em sites-public/<dominio>/ (
 
   // componentes/
   escreve(fonte('componentes', 'estoque.json'), JSON.stringify({ preco: '#123456' }));
-  escreve(fonte('web', 'index.json'), JSON.stringify({ titulo: 'Home', blocos: [{ tipo: 'componente', nome: 'estoque', opcoes: { porPagina: 1 } }] }));
+  escreve(fonte('web', 'index.json'), JSON.stringify({ titulo: 'Home', secoes: [{ tipo: 'componente', nome: 'estoque', opcoes: { porPagina: 1 } }] }));
   build();
   assert.match(pub('index.html'), /--c-preco:#123456/, 'componentes/<nome>.json → componente no site');
   assert.match(pub('index.html'), /data-pagina="1"/, 'opção da página vale mais');
