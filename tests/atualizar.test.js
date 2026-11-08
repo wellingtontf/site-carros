@@ -43,12 +43,12 @@ beforeEach(() => {
 test('estoque recebido válido: grava e refaz SÓ o site dele', async () => {
   const novo = estoqueDe(ID).carros.slice(0, 11);
   novo[0].preco = 1;
-  const antesOutro = fs.statSync(A.saida(OUTRO, 'carros.json')).mtimeMs;
+  const antesOutro = fs.statSync(A.saida(OUTRO, 'estoque.json')).mtimeMs;
   const r = await rodar({ recebidos: { [ID]: { carros: novo } } });
   assert.equal(r.estoques[0].status, 'atualizado');
   assert.deepEqual(r.sites, [ID]);
   assert.equal(estoqueDe(ID).carros.length, 11);
-  assert.equal(fs.statSync(A.saida(OUTRO, 'carros.json')).mtimeMs, antesOutro, 'outro site não foi tocado');
+  assert.equal(fs.statSync(A.saida(OUTRO, 'estoque.json')).mtimeMs, antesOutro, 'outro site não foi tocado');
   assert.ok(fs.existsSync(path.join(A.raiz(), '.estado', 'estoques-anteriores', `${ID}.json`)), 'guarda o anterior');
 });
 
@@ -167,9 +167,9 @@ test('publicar: {lista} só com os arquivos que mudaram (publicação incrementa
   config('publicacao.json', { comandoSite: `echo {lista} > '${log}'` });
   await A.silenciosoAsync(() => publicarPendentes({ log: () => {} }));
   const lista = fs.readFileSync(log, 'utf8').trim().split(',');
-  assert.ok(lista.includes('carros.json'));
+  assert.ok(lista.includes('estoque.json'));
   assert.ok(lista.some((x) => x.startsWith('carros/') && x.endsWith('.html')));
-  assert.ok(lista.length <= 6, `lista pequena, veio: ${lista}`); // carro, carros.json, estoque.xml, home, /multipla, 404 (vitrine)
+  assert.ok(lista.length <= 6, `lista pequena, veio: ${lista}`); // carro, estoque.json, home, /multipla, 404 (vitrine)
 });
 
 test('publicar: nome de arquivo com aspas não injeta comando no shell', async () => {

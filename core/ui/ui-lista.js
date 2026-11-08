@@ -8,12 +8,19 @@
   const { brl, num, esc, foto, placeholder } = Motor.util;
   const BASE = document.body.dataset.base || '';
   const REL = document.body.dataset.rel || ''; // a listagem pode ficar numa subpasta (ex.: /estoque/): REL leva à raiz do site
-  // link de cada carro: o "l" do carros.json (link vindo do estoque, ex.: o do Revenda Mais) ou a regra do link-carro.js.
-  // O motor não repassa campos que não conhece, então os links são guardados aqui ao carregar o carros.json.
+  // link de cada carro: o "l" do estoque.json (link vindo do estoque, ex.: o do Revenda Mais) ou a regra do link-carro.js.
+  // O motor não repassa campos que não conhece, então os links são guardados aqui ao carregar o estoque.json.
   const linkDe = new Map();
-  const carregar = (u) => fetch(u).then((r) => r.json()).then((j) => { if (Array.isArray(j)) j.forEach((d) => d.l && linkDe.set(d.i, d.l)); return j; });
+  // estoque.json compacto ("formatoEstoque": "compacto"): carrega motor/formato-estoque.js na hora e desempacota para a
+  // lista de sempre (o motor recebe os mesmos dados; funciona com HTML antigo, sem o template precisar do script)
+  const formato = () => window.FormatoEstoque ? Promise.resolve(window.FormatoEstoque) : new Promise((ok, erro) => {
+    const s = document.createElement('script'); s.src = `${REL}motor/formato-estoque.js`;
+    s.onload = () => ok(window.FormatoEstoque); s.onerror = erro; document.head.appendChild(s);
+  });
+  const lista = (j) => (Array.isArray(j) ? j : formato().then((F) => F.descompactar(j)));
+  const carregar = (u) => fetch(u).then((r) => r.json()).then(lista).then((j) => { if (Array.isArray(j)) j.forEach((d) => d.l && linkDe.set(d.i, d.l)); return j; });
   const [motor, cfg] = await Promise.all([
-    Motor.criar({ dados: `${REL}carros.json`, config: `${REL}config.json`, carregar }),
+    Motor.criar({ dados: `${REL}estoque.json`, config: `${REL}config.json`, carregar }),
     Motor.carregarConfig(`${REL}config.json`), // para o WhatsApp de cada card ([[zap]])
   ]);
   const idLoja = Object.fromEntries(Object.entries(cfg.lojas || {}).map(([id, l]) => [l.nome, id]));

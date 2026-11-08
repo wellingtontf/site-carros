@@ -19,9 +19,8 @@
 //   <caminho>/index.html                 ← templates/<nome>/paginas/pagina.html + blocos/<tipo>.html (sites-config/<dominio>/paginas/<caminho>.json)
 //   multipla/<campo>/<valor>/index.html  ← páginas fixas de filtro (marca, cidade, carroceria): a listagem já filtrada,
 //                                          com título próprio e os carros no HTML (SEO). "paginasFiltro" no site.json
-//   carros.json, config.json, sitemap.xml (com <lastmod> = quando cada página mudou de verdade), robots.txt (core/robots.js)
-//   estoque.xml                          ← o estoque em XML, para quem só lê XML (portais, catálogos, integrações antigas).
-//                                          "feedXml": { "caminho": "xml/estoque.xml" } muda o endereço; "feedXml": false desliga
+//   estoque.json (os carros que o motor lê; era carros.json), config.json, sitemap.xml (com <lastmod> = quando cada página
+//   mudou de verdade), robots.txt (core/robots.js)
 //
 // Páginas de conteúdo (home institucional, lojas, "quero vender"...) são ARQUIVOS em sites-config/<dominio>/paginas/:
 //   index.json (home), lojas.json, sobre/nos.json → { "titulo": "...", "blocos": [ { "tipo": "banner", "imagem": "assets/x.webp" }, ... ] }
@@ -37,6 +36,7 @@ const path = require('path');
 const crypto = require('crypto');
 const C = require('./caminhos');
 const LinkCarro = require('./ui/link-carro.js'); // regra do link da página do carro (a mesma usada no navegador)
+const FormatoEstoque = require('./ui/formato-estoque.js'); // "formatoEstoque": "compacto" no site.json (mesmo arquivo desempacota no navegador)
 const PL = require('./paginas-livres'); // páginas livres dos web designers (HTML normal)
 const Fotos = require('./fotos'); // fotos por URL: quantas já estão prontas
 const Robots = require('./robots');
@@ -111,7 +111,9 @@ const HOME_PADRAO = (site) => [
   { tipo: 'banner', titulo: site.nome, subtitulo: site.slogan || '' },
   { tipo: 'vitrine', titulo: 'Destaques', quantidade: 8, botao: 'Ver estoque completo' },
 ];
-const RESERVADOS = new Set(['carro', 'paginas', LinkCarro.PASTA, CAMINHO_ESTOQUE, 'motor', 'css', 'js', 'img', 'assets', 'carros.json', 'config.json', 'sitemap.xml', 'robots.txt']);
+// arquivo com os carros que o motor lê (core/ui/ui-lista.js busca este nome)
+const ARQ_ESTOQUE = 'estoque.json';
+const RESERVADOS = new Set(['carro', 'paginas', LinkCarro.PASTA, CAMINHO_ESTOQUE, 'motor', 'css', 'js', 'img', 'assets', ARQ_ESTOQUE, 'config.json', 'sitemap.xml', 'robots.txt']);
 const CAMINHO_OK = /^([a-z0-9][a-z0-9-]*)(\/[a-z0-9][a-z0-9-]*)*$/;
 const CHAVES_LINK = new Set(['link', 'imagem', 'foto', 'logo', 'logoRodape', 'banner', 'favicon']);
 const RETENCAO_PADRAO_DIAS = 30; // quanto tempo a página de um carro que saiu continua mostrando "indisponível"
@@ -120,15 +122,13 @@ const REDIRECIONAMENTO_PADRAO_DIAS = 180; // quanto tempo um link antigo de carr
 const sha = (s) => crypto.createHash('sha1').update(s).digest('hex');
 // HTML sem os modelos de card (<script type="text/html">) e comentários: para contar ids sem pegar os [[campos]] dos modelos
 const A_semModelos = (html) => html.replace(/<script type="text\/html"[\s\S]*?<\/script>/g, '').replace(/<!--[\s\S]*?-->/g, '');
-// XML: tira caracteres que o XML não aceita (controle) e escapa os especiais
-const xmlEsc = (s) => String(s).replace(/[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD\u{10000}-\u{10FFFF}]/gu, '')
-  .replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
-const FEED_OK = /^[a-z0-9][a-z0-9_-]*(\/[a-z0-9][a-z0-9_-]*)*\.xml$/;
+// arquivos que versões anteriores do build geravam e não existem mais: saem da saída (e são despublicados)
+const OBSOLETOS = ['carros.json', 'estoque.xml'];
 // VERSAO_HTML: aumente quando uma mudança NESTE arquivo alterar o HTML/JSON gerado. Mudar a versão refaz as páginas de
 // TODOS os sites (com 2500 sites, ~1 milhão de arquivos para publicar), então não amarramos isso ao arquivo inteiro:
 // um comentário ou refatoração não deve refazer nada. O teste tests/snapshot-html.test.js avisa se a saída mudou e a
 // versão não (e vice-versa). Templates, tema, textos e dados do site já entram no hash de cada site por conta própria.
-const VERSAO_HTML = 8; // 8: componentes (filtro, estoque) nos templates; 7: páginas de conteúdo em /paginas/<nome>/ (endereço antigo redireciona); 6: estoque.xml; 2: cards no HTML, filtros, <lastmod>; 3: páginas padrão; 4: link do estoque, URLs codificadas, formato revendamais; 5: 404.html, ?v= nos css/js, canonical nas páginas livres
+const VERSAO_HTML = 9; // 9: estoque.json (era carros.json), sem estoque.xml; 8: componentes (filtro, estoque) nos templates; 7: páginas de conteúdo em /paginas/<nome>/ (endereço antigo redireciona); 6: estoque.xml; 2: cards no HTML, filtros, <lastmod>; 3: páginas padrão; 4: link do estoque, URLs codificadas, formato revendamais; 5: 404.html, ?v= nos css/js, canonical nas páginas livres
 const RENDER_VERSION = `html-${VERSAO_HTML}`;
 
 const lerJSON = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -473,29 +473,16 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
 
     // dados que o motor lê
     escreverSe(
-      path.join(out, 'carros.json'),
+      path.join(out, ARQ_ESTOQUE),
       // r = posição na ordem de exibição (ordenação "destaque" do motor); cr = carroceria
-      JSON.stringify(carros.map((c, r) => ({ i: c.id, m: c.marca, o: c.modelo, v: c.versao, a: c.ano, p: c.preco, k: c.km, c: c.cor, b: c.cambio, f: c.combustivel, n: c.fotos, u: c.loja, cd: c.cidade, uf: c.uf, r, ...(c.carroceria ? { cr: c.carroceria } : {}), ...(c.link ? { l: c.link } : {}) }))), // l = link vindo do estoque
-      rel('carros.json'), mud
+      // "formatoEstoque": "compacto" → dicionário + colunas (core/ui/formato-estoque.js; ~4x menor sem gzip); o navegador
+      // desempacota para exatamente esta mesma lista antes de entregar ao motor (busca e filtros iguais)
+      ((lista) => JSON.stringify(site.formatoEstoque === 'compacto' ? FormatoEstoque.compactar(lista) : lista))(
+        carros.map((c, r) => ({ i: c.id, m: c.marca, o: c.modelo, v: c.versao, a: c.ano, p: c.preco, k: c.km, c: c.cor, b: c.cambio, f: c.combustivel, n: c.fotos, u: c.loja, cd: c.cidade, uf: c.uf, r, ...(c.carroceria ? { cr: c.carroceria } : {}), ...(c.link ? { l: c.link } : {}) }))), // l = link vindo do estoque
+      rel(ARQ_ESTOQUE), mud
     );
-    // estoque em XML (compatibilidade): mesma ordem do site, links e fotos com endereço completo. Só com "url".
-    // Entra em "estaticos": se o caminho mudar ou o feed for desligado, o arquivo antigo é apagado (e despublicado).
-    const feed = site.feedXml === false ? null : { caminho: 'estoque.xml', ...(site.feedXml && typeof site.feedXml === 'object' ? site.feedXml : {}) };
-    if (feed && site.url) {
-      if (!FEED_OK.test(feed.caminho) || feed.caminho === 'sitemap.xml' || RESERVADOS.has(feed.caminho.split('/')[0]))
-        throw new Error(`Site "${site.id}": feedXml.caminho inválido "${feed.caminho}" (ex.: "estoque.xml" ou "xml/estoque.xml")`);
-      const raiz = site.url.replace(/\/$/, '');
-      const t = (k, v) => (v === '' || v == null ? '' : `<${k}>${xmlEsc(v)}</${k}>`);
-      const veiculo = (c, i) => `  <veiculo>${[
-        t('id', c.id), t('ordem', i + 1), t('marca', c.marca), t('modelo', c.modelo), t('versao', c.versao), t('ano', c.ano), t('preco', c.preco),
-        t('km', c.km), t('cor', c.cor), t('cambio', c.cambio), t('combustivel', c.combustivel), t('carroceria', c.carroceria), t('destaque', c.destaque ? 'sim' : 'nao'),
-        t('loja', c.loja), t('cidade', c.cidade), t('uf', c.uf), t('link', `${raiz}/${url(caminhoCarro(c))}`),
-        base && c.fotos ? `<fotos>${Array.from({ length: c.fotos }, (_, k) => t('foto', foto(base, c.id, k + 1, 1600))).join('')}</fotos>` : '',
-        c.opcionais.length ? `<opcionais>${c.opcionais.map((o) => t('opcional', o)).join('')}</opcionais>` : '', t('descricao', c.descricao),
-      ].join('')}</veiculo>`;
-      escreverSe(path.join(out, feed.caminho), `<?xml version="1.0" encoding="UTF-8"?>\n<estoque site="${xmlEsc(site.id)}" total="${carros.length}">\n${carros.map(veiculo).join('\n')}${carros.length ? '\n' : ''}</estoque>\n`, rel(feed.caminho), mud);
-      estaticos.add(feed.caminho);
-    }
+    // nomes antigos (carros.json; estoque.xml, o feed XML que saiu da plataforma): apaga e despublica
+    for (const velho of OBSOLETOS) if (fs.existsSync(path.join(out, velho))) { fs.rmSync(path.join(out, velho)); mud.removidos.push(rel(velho)); }
     const usadas = [...new Set(carros.map((c) => c.lojaId))].sort();
     escreverSe(
       path.join(out, 'config.json'),
@@ -895,12 +882,12 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     }
 
     const resumo = { novos, alterados, saiu, inalterados, escritos: mud.escritos.length, removidos: mud.removidos.length, completo: !incremental, base: incremental && baseMudou };
-    const kb = (fs.statSync(path.join(out, 'carros.json')).size / 1024).toFixed(0);
+    const kb = (fs.statSync(path.join(out, ARQ_ESTOQUE)).size / 1024).toFixed(0);
     const detalhe = !incremental ? 'gerado do zero'
       : resumo.base ? `visual/config mudou: ${carros.length} páginas refeitas`
       : mud.escritos.length || mud.removidos.length ? `+${novos} novos ~${alterados} alterados -${saiu} saíram${redir ? ` · ${redir} link(s) antigo(s) redirecionando` : ''} · ${mud.escritos.length} arquivo(s) escrito(s)`
       : 'sem mudanças';
-    console.log(`${site.id}: ${carros.length} carros · ${detalhe} · template ${nomeTpl} · motor ${versao} · carros.json ${kb} KB`);
+    console.log(`${site.id}: ${carros.length} carros · ${detalhe} · template ${nomeTpl} · motor ${versao} · ${ARQ_ESTOQUE} ${kb} KB`);
     feitos.push({ site, total: carros.length, motor: versao, template: nomeTpl, resumo });
   }
 
@@ -934,7 +921,7 @@ function sobrasNaSaida(pasta = C.PUBLICO) {
   return fs.readdirSync(DIST, { withFileTypes: true }).filter((e) => e.isDirectory() && !sitesFonte.has(e.name)).map((e) => e.name).sort();
 }
 
-module.exports = { sobrasNaSaida, atualizarIndice, construir, render, resolverLinks, problemasProducao, registrarPendente, VERSAO_HTML };
+module.exports = { ARQ_ESTOQUE, sobrasNaSaida, atualizarIndice, construir, render, resolverLinks, problemasProducao, registrarPendente, VERSAO_HTML };
 
 if (require.main === module) {
   const a = process.argv.slice(2);

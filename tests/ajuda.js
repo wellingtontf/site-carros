@@ -122,8 +122,8 @@ function carregarMotor(dirSite) {
   const m = { exports: {} };
   new Function('module', 'exports', fs.readFileSync(path.join(dirSite, 'motor', 'engine.js'), 'utf8'))(m, m.exports);
   const Motor = m.exports;
-  const carregar = async (u) => JSON.parse(fs.readFileSync(path.join(dirSite, u), 'utf8'));
-  return { Motor, criar: () => Motor.criar({ dados: 'carros.json', config: 'config.json', carregar }) };
+  const carregar = async (u) => require('../core/ui/formato-estoque.js').descompactar(JSON.parse(fs.readFileSync(path.join(dirSite, u), 'utf8')));
+  return { Motor, criar: () => Motor.criar({ dados: 'estoque.json', config: 'config.json', carregar }) };
 }
 
 // pendências de publicação de um site

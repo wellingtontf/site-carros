@@ -55,7 +55,7 @@ test('validação: lista de URLs vale; protocolo estranho, espaço e mais de 60 
 test('baixa, converte e renumera só as que deram certo; o build passa a contar as fotos prontas', async () => {
   A.criarSite(ID, { carros: [A.carro({ id: 'C1', fotos: [`${base}/ok1`, `${base}/sumiu`, `${base}/ok2`, `${base}/html`] })] });
   A.silencioso(() => construir({ sites: [ID] }));
-  assert.equal(A.lerJSON(ID, 'carros.json')[0].n, 0, 'antes de processar: sem foto (nada de imagem quebrada)');
+  assert.equal(A.lerJSON(ID, 'estoque.json')[0].n, 0, 'antes de processar: sem foto (nada de imagem quebrada)');
   const r = await F.processarSite(ID, silencioso);
   assert.deepEqual(r.processados, ['C1']);
   assert.deepEqual(fs.readdirSync(dirCarro('C1')).sort(), ['1-1600.webp', '1-400.webp', '1-800.webp', '2-1600.webp', '2-400.webp', '2-800.webp']);
@@ -63,7 +63,7 @@ test('baixa, converte e renumera só as que deram certo; o build passa a contar 
   assert.equal(res.pendentes, 0);
   assert.equal(res.comErro[0].erros.length, 2, JSON.stringify(res)); // 404 e "não é imagem"
   A.silencioso(() => construir({ sites: [ID] }));
-  assert.equal(A.lerJSON(ID, 'carros.json')[0].n, 2);
+  assert.equal(A.lerJSON(ID, 'estoque.json')[0].n, 2);
 });
 
 test('mesmas URLs: não baixa de novo; lista menor: as fotos que sobraram somem', async () => {
@@ -81,7 +81,7 @@ test('carro com a quantidade (formato antigo) continua igual e não é tocado', 
   A.criarSite(ID, { carros: [A.carro({ id: 'C1', fotos: 5 })] });
   assert.deepEqual(F.pendentes(ID), []);
   A.silencioso(() => construir({ sites: [ID] }));
-  assert.equal(A.lerJSON(ID, 'carros.json')[0].n, 5);
+  assert.equal(A.lerJSON(ID, 'estoque.json')[0].n, 5);
 });
 
 test('SSRF: endereço da rede interna é recusado (IP direto, metadados da AWS, IPv6)', async () => {
@@ -160,7 +160,7 @@ test('pela API: PUT de carro com URLs → site no ar sem foto → fotos prontas 
     delete carro.id;
     const r = await fetch(`http://127.0.0.1:${porta}/v1/sites/${ID}/carros/NOVO?esperar=20`, { method: 'PUT', body: JSON.stringify(carro), headers: { authorization: `Bearer ${tok}` } });
     assert.equal(r.status, 200, await r.text());
-    const n = () => (A.lerJSON(ID, 'carros.json').find((c) => c.i === 'NOVO') || {}).n;
+    const n = () => (A.lerJSON(ID, 'estoque.json').find((c) => c.i === 'NOVO') || {}).n;
     assert.ok(await esperar(() => n() === 2), `fotos não chegaram ao site (n=${n()}):\n${saida}`);
     assert.ok(fs.existsSync(path.join(dirCarro('NOVO'), '2-1600.webp')));
     const info = await (await fetch(`http://127.0.0.1:${porta}/v1/sites/${ID}`, { headers: { authorization: `Bearer ${tok}` } })).json();

@@ -31,8 +31,8 @@ test('cada parte de sites-config/<dominio>/ aparece em sites-public/<dominio>/ (
   const est = JSON.parse(fs.readFileSync(fonte('estoque.json'), 'utf8')); est.carros[0].preco = 123456; est.carros.pop();
   fs.writeFileSync(fonte('estoque.json'), JSON.stringify(est));
   build();
-  assert.ok(A.lerJSON(ID, 'carros.json').some((c) => c.i === 'K1' && c.p === 123456), 'estoque.json → carros.json');
-  assert.ok(!A.lerJSON(ID, 'carros.json').some((c) => c.i === 'K2'), 'carro que saiu da fonte sai da lista');
+  assert.ok(A.lerJSON(ID, 'estoque.json').some((c) => c.i === 'K1' && c.p === 123456), 'estoque.json → estoque.json');
+  assert.ok(!A.lerJSON(ID, 'estoque.json').some((c) => c.i === 'K2'), 'carro que saiu da fonte sai da lista');
 
   // paginas/ (blocos e HTML)
   escreve(fonte('paginas', 'promocoes.json'), JSON.stringify({ titulo: 'Promoções', blocos: [{ tipo: 'texto', html: '<p>PROMO</p>' }] }));

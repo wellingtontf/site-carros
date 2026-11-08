@@ -67,7 +67,7 @@ Parâmetros das rotas que alteram dados:
 
 ## Site novo
 
-`POST /v1/sites` com `{"dominio": "novaloja.com.br"}` cria **toda a estrutura** de um site: a pasta com cadastro, o estoque vazio, `assets/` e `paginas/`. Em seguida gera o site (home, estoque, páginas padrão, sitemap, robots.txt, estoque.xml) e roda o comando `criar` da infraestrutura (hospedagem, certificado, DNS). Exige token com acesso a todos os sites (`*`).
+`POST /v1/sites` com `{"dominio": "novaloja.com.br"}` cria **toda a estrutura** de um site: a pasta com cadastro, o estoque vazio, `assets/` e `paginas/`. Em seguida gera o site (home, estoque, páginas padrão, sitemap, robots.txt) e roda o comando `criar` da infraestrutura (hospedagem, certificado, DNS). Exige token com acesso a todos os sites (`*`).
 
 - **Só o domínio é obrigatório.** O resto vem do modelo da casa (`config/site-modelo.json`): nome = domínio, url = `https://<domínio>`, motor = a última versão. Para já mandar mais coisa, use `{"dominio": "...", "cadastro": {"nome": "...", "template": "servopa", "lojas": {...}}}` (o mesmo formato de "Cadastro do site"); isso vale mais que o modelo.
 - O site pode nascer **sem lojas**. Nesse caso, ele sobe sem estoque, e o estoque só é aceito depois que as lojas forem cadastradas (`PUT /v1/sites/{dominio}`).

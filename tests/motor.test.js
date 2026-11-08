@@ -16,7 +16,7 @@ function carregar(v) {
   new Function('module', 'exports', fs.readFileSync(path.join(DIR, v, 'engine.js'), 'utf8').replace(/__VERSAO__/g, v))(m, m.exports);
   return m.exports;
 }
-// carros.json usa chaves curtas
+// estoque.json usa chaves curtas
 const C = (i, m, o, v, a, p, k, extra = {}) => ({ i, m, o, v, a, p, k, c: 'Prata', b: 'Automático', f: 'Flex', n: 1, u: 'Loja Centro', cd: 'Curitiba', uf: 'PR', ...extra });
 const DADOS = [
   C('a', 'Honda', 'Civic', 'EXL 2.0', 2020, 100000, 50000),

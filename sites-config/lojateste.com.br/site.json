@@ -4,6 +4,7 @@
   "slogan": "O maior estoque de seminovos do Sul do Brasil",
   "motor": "v2",
   "template": "template-basico",
+  "formatoEstoque": "compacto",
   "url": "https://lojateste.com.br",
   "whatsapp": "5508009992000",
   "fotosBase": "https://fotos.exemplo.com.br/",

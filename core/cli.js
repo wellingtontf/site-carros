@@ -22,6 +22,7 @@ const Sites = require('./sites');
 const { versoesMotor } = require('./versoes');
 const C = require('./caminhos');
 const LinkCarro = require('./ui/link-carro.js');
+const FormatoEstoque = require('./ui/formato-estoque.js');
 
 const ROOT = C.ROOT;
 const BOOL = new Set(['todos', 'dry', 'forcar', 'sem-teste', 'completo', 'publicar', 'aplicar']);
@@ -102,23 +103,24 @@ async function testarSite(pasta, id) {
   const m = { exports: {} };
   new Function('module', 'exports', fs.readFileSync(path.join(dir, 'motor', 'engine.js'), 'utf8'))(m, m.exports);
   const Motor = m.exports;
-  const carregar = async (u) => lerJSON(path.join(dir, u));
+  const ler = (u) => (u.endsWith('estoque.json') ? FormatoEstoque.descompactar(lerJSON(path.join(dir, u))) : lerJSON(path.join(dir, u))); // aceita o compacto
+  const carregar = async (u) => ler(u);
   const cfg = lerJSON(path.join(dir, 'config.json'));
-  const novo = () => Motor.criar({ dados: 'carros.json', config: 'config.json', carregar });
+  const novo = () => Motor.criar({ dados: 'estoque.json', config: 'config.json', carregar });
   const motor = await novo();
 
   ok(motor.total > 0, 'site sem carros');
   ok(motor.versao === cfg.motor, `versão do motor (${motor.versao}) diferente da configurada (${cfg.motor})`);
   ok(motor.resultado().length === motor.total, 'resultado inicial deveria ter todos os carros');
   ok(fs.existsSync(path.join(dir, 'index.html')), 'index.html não foi gerado');
-  const linkDe = new Map(lerJSON(path.join(dir, 'carros.json')).filter((d) => d.l).map((d) => [d.i, d.l])); // link vindo do estoque
+  const linkDe = new Map(ler('estoque.json').filter((d) => d.l).map((d) => [d.i, d.l])); // link vindo do estoque
   const caminho = (c) => linkDe.get(c.id) || LinkCarro.caminho(c);
   const semPagina = motor.resultado().filter((c) => !fs.existsSync(path.join(dir, caminho(c))));
   ok(!semPagina.length, `faltam páginas de carros (${semPagina.length}), ex.: ${semPagina[0] && caminho(semPagina[0])}`);
 
-  // ordenação "destaque": a lista sai na ordem do estoque (carros.json já vem nessa ordem; campo r)
+  // ordenação "destaque": a lista sai na ordem do estoque (estoque.json já vem nessa ordem; campo r)
   if (motor.ordens[0] && motor.ordens[0].chave === 'destaque') {
-    const brutos = lerJSON(path.join(dir, 'carros.json'));
+    const brutos = ler('estoque.json');
     ok(motor.resultado().every((c, i) => c.id === brutos[i].i), 'ordem padrão (destaque) diferente da ordem do estoque');
   }
   const primeiro = motor.resultado()[0];

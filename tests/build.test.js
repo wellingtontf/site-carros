@@ -52,7 +52,7 @@ test('incremental: rodar de novo não escreve nada', () => {
   assert.equal(f.resumo.completo, false);
 });
 
-test('preço muda: refaz só a página daquele carro + carros.json', () => {
+test('preço muda: refaz só a página daquele carro + estoque.json', () => {
   const carros = [A.carro(), A.carro(), A.carro()];
   A.criarSite(ID, { carros });
   build();
@@ -62,11 +62,11 @@ test('preço muda: refaz só a página daquele carro + carros.json', () => {
   const f = build();
   assert.equal(f.resumo.alterados, 1);
   const escritos = A.pendente(ID).escritos;
-  assert.ok(escritos.includes(`${ID}/${linkDe(carros[1])}`) && escritos.includes(`${ID}/carros.json`));
-  // nenhuma OUTRA página de carro; o resto é o que mostra o preço (home, 404 e /multipla têm cards no HTML; estoque.xml) e o sitemap (lastmod)
+  assert.ok(escritos.includes(`${ID}/${linkDe(carros[1])}`) && escritos.includes(`${ID}/estoque.json`));
+  // nenhuma OUTRA página de carro; o resto é o que mostra o preço (home, 404 e /multipla têm cards no HTML) e o sitemap (lastmod)
   assert.deepEqual(escritos.filter((e) => e.includes('/carros/')), [`${ID}/${linkDe(carros[1])}`]);
   // (o sitemap só muda se mudar o dia: o <lastmod> é por dia)
-  assert.deepEqual(escritos.filter((e) => !e.includes('/carros/')).sort(), [`${ID}/404.html`, `${ID}/carros.json`, `${ID}/estoque.xml`, `${ID}/index.html`, `${ID}/multipla/index.html`].sort());
+  assert.deepEqual(escritos.filter((e) => !e.includes('/carros/')).sort(), [`${ID}/404.html`, `${ID}/estoque.json`, `${ID}/index.html`, `${ID}/multipla/index.html`].sort());
 });
 
 test('carro que sai: página "indisponível" (noindex) no mesmo link; some do sitemap; apagada após a retenção', () => {
@@ -164,9 +164,9 @@ test('ordem: campo "ordem" manda; sem ele, a posição no arquivo; empates pela 
   const cs = [A.carro({ ordem: 3 }), A.carro(), A.carro({ ordem: 1 }), A.carro(), A.carro({ ordem: 1 })];
   A.criarSite(ID, { carros: cs });
   build();
-  const ids = A.lerJSON(ID, 'carros.json').map((c) => c.i);
+  const ids = A.lerJSON(ID, 'estoque.json').map((c) => c.i);
   assert.deepEqual(ids, [cs[2].id, cs[4].id, cs[0].id, cs[1].id, cs[3].id]);
-  assert.deepEqual(A.lerJSON(ID, 'carros.json').map((c) => c.r), [0, 1, 2, 3, 4]);
+  assert.deepEqual(A.lerJSON(ID, 'estoque.json').map((c) => c.r), [0, 1, 2, 3, 4]);
 });
 
 test('vitrine segue a ordem do estoque; somenteDestaques filtra', () => {
@@ -626,8 +626,8 @@ test('link do estoque: a página do carro fica EXATAMENTE no link informado (inc
   assert.ok(A.existe(ID, linkDe(c)));
   const sm = A.ler(ID, 'sitemap.xml');
   assert.ok(sm.includes('/carros/Ram/Rampage/R/t-Hurric/Ram-Rampage-R/t-Hurric-2025-Ponta-Grossa-Parana-8635550.html<'));
-  assert.equal(A.lerJSON(ID, 'carros.json').find((x) => x.i === b.id).l, 'carros/Ram/Rampage/R/t-Hurric/Ram-Rampage-R/t-Hurric-2025-Ponta-Grossa-Parana-8635550.html');
-  assert.ok(!('l' in A.lerJSON(ID, 'carros.json').find((x) => x.i === c.id)), 'sem link no estoque: sem "l"');
+  assert.equal(A.lerJSON(ID, 'estoque.json').find((x) => x.i === b.id).l, 'carros/Ram/Rampage/R/t-Hurric/Ram-Rampage-R/t-Hurric-2025-Ponta-Grossa-Parana-8635550.html');
+  assert.ok(!('l' in A.lerJSON(ID, 'estoque.json').find((x) => x.i === c.id)), 'sem link no estoque: sem "l"');
   assert.deepEqual(A.verificarSiteGerado(ID), [], 'cards e links apontam para as páginas certas');
 });
 

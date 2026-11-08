@@ -1,7 +1,7 @@
 // Ponta a ponta: um site montado SÓ pela API (como um sistema externo faria), do zero, sem ninguém mexer em arquivo.
 // Confere que o que passa pela API é suficiente para gerar tudo da aplicação: site.json, estoque.json, páginas, arquivos
-// (sites-config/<dominio>/) e o site gerado (config.json, carros.json, páginas, LGPD com os dados da empresa, sitemap, robots,
-// estoque.xml, fotos), sem link quebrado e sem PROBLEMA de produção.
+// (sites-config/<dominio>/) e o site gerado (config.json, estoque.json, páginas, LGPD com os dados da empresa, sitemap, robots,
+// fotos), sem link quebrado e sem PROBLEMA de produção.
 const A = require('./ajuda');
 A.prepararRaiz();
 const { test, before, after } = require('node:test');
@@ -104,7 +104,7 @@ test('1) cria o site, manda arquivos, páginas e estoque, ajusta o cadastro: tud
   assert.equal(p.status, 200, JSON.stringify(p.j));
 
   // fotos por URL ficam prontas em segundo plano e o site é refeito sozinho
-  assert.ok(await esperar(() => { try { return A.lerJSON(D, 'carros.json').find((x) => x.i === 'C1').n === 2; } catch (e) { return false; } }), `fotos não ficaram prontas:\n${saida.slice(-2000)}`);
+  assert.ok(await esperar(() => { try { return A.lerJSON(D, 'estoque.json').find((x) => x.i === 'C1').n === 2; } catch (e) { return false; } }), `fotos não ficaram prontas:\n${saida.slice(-2000)}`);
 });
 
 test('2) os JSONs da aplicação (sites-config/<dominio>/) são exatamente o que veio pela API', () => {
@@ -127,7 +127,7 @@ test('3) o site gerado tem tudo: home, estoque, carros (com o link do Revenda Ma
   const cfg = A.lerJSON(D, 'config.json');
   assert.equal(cfg.whatsapp, '5541988887777');
   assert.deepEqual(Object.values(cfg.lojas).map((l) => l.nome).sort(), ['Loja Sul', 'Matriz Centro']);
-  const carros = A.lerJSON(D, 'carros.json');
+  const carros = A.lerJSON(D, 'estoque.json');
   assert.deepEqual(carros.map((c) => [c.i, c.n]), [['C1', 2], ['C2', 1], ['C3', 0]], 'ordem do estoque e fotos prontas');
   assert.ok(A.existe(D, LINK_RM), 'página do carro no endereço que o Revenda Mais já usa');
   assert.match(A.ler(D, LINK_RM), /<link rel="canonical" href="https:\/\/api-completo\.com\.br\/carros\/Toyota/);
@@ -146,7 +146,8 @@ test('3) o site gerado tem tudo: home, estoque, carros (com o link do Revenda Ma
   const sm = A.ler(D, 'sitemap.xml');
   for (const u of ['/paginas/lojas/', '/paginas/feirao/', `/${LINK_RM}`]) assert.ok(sm.includes(u), u);
   assert.match(A.ler(D, 'robots.txt'), /Sitemap: https:\/\/api-completo\.com\.br\/sitemap\.xml/);
-  assert.equal((A.ler(D, 'estoque.xml').match(/<veiculo>/g) || []).length, 3);
+  assert.equal(A.lerJSON(D, 'estoque.json').length, 3, 'estoque.json gerado com os 3 carros');
+  assert.ok(!A.existe(D, 'estoque.xml'), 'sem feed XML');
   assert.deepEqual(A.verificarSiteGerado(D), [], 'nenhum link quebrado');
   const { auditar } = require('../ferramentas/auditar-sites.js');
   const problemas = auditar(path.join(A.raiz(), 'sites-public')).resultados.filter((r) => r.nivel === 'PROBLEMA');

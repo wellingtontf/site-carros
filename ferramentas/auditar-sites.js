@@ -19,7 +19,7 @@ const anotar = (chave, nivel, item, detalhe) => resultados.push({ chave, nivel, 
 const total = { arquivos: 0, bytes: 0, html: 0 };
 const achados = {
   semIndexDeDiretorio: 0, espacoAcento: new Set(), nfd: [], caixa: [], http: new Set(), localhost: new Set(), fontesExternas: new Set(),
-  semCharset: [], semCanonical: 0, jsonLdRuim: [], assetsSemVersao: new Set(), sem404: [], refresh: 0, maiorSitemap: [0, ''], maiorCarrosJson: [0, '', 0],
+  semCharset: [], semCanonical: 0, jsonLdRuim: [], assetsSemVersao: new Set(), sem404: [], refresh: 0, maiorSitemap: [0, ''], maiorEstoqueJson: [0, '', 0],
   scriptsExternos: new Set(), arquivosGrandes: [],
 };
 
@@ -47,10 +47,10 @@ for (const id of sites) {
     const n = (fs.readFileSync(sm, 'utf8').match(/<url>/g) || []).length;
     if (n > achados.maiorSitemap[0]) achados.maiorSitemap = [n, id];
   }
-  const cj = path.join(dir, 'carros.json');
+  const cj = path.join(dir, 'estoque.json');
   if (fs.existsSync(cj)) {
     const b = fs.readFileSync(cj);
-    if (b.length > achados.maiorCarrosJson[0]) achados.maiorCarrosJson = [b.length, id, zlib.gzipSync(b).length];
+    if (b.length > achados.maiorEstoqueJson[0]) achados.maiorEstoqueJson = [b.length, id, zlib.gzipSync(b).length];
   }
   for (const f of arquivos.filter((x) => x.endsWith('.html'))) {
     total.html++;
@@ -88,8 +88,8 @@ anotar('jsonld', achados.jsonLdRuim.length ? 'PROBLEMA' : 'OK', 'JSON-LD válido
 anotar('canonical', achados.semCanonical ? 'ATENÇÃO' : 'OK', 'Canonical', achados.semCanonical ? `${achados.semCanonical} páginas indexáveis sem canonical` : 'todas as indexáveis têm');
 anotar('redirecionamento', achados.refresh ? 'ATENÇÃO' : 'OK', 'Redirecionamentos', achados.refresh ? `${achados.refresh} feitos com meta refresh (o Google aceita, mas 301 no servidor é melhor e mais rápido)` : 'nenhum');
 anotar('sitemap', achados.maiorSitemap[0] > 45000 ? 'PROBLEMA' : 'OK', 'Tamanho do sitemap', `maior: ${achados.maiorSitemap[0]} URLs (${achados.maiorSitemap[1]}); limite do Google 50.000 por arquivo`);
-anotar('carros-json', achados.maiorCarrosJson[0] > 2 * 1024 * 1024 ? 'ATENÇÃO' : 'OK', 'Tamanho do carros.json (busca no navegador)',
-  `maior: ${kb(achados.maiorCarrosJson[0])}, ${kb(achados.maiorCarrosJson[2])} com gzip (${achados.maiorCarrosJson[1]}). Precisa da compressão ligada na hospedagem; acima de ~5 mil carros vale paginar`);
+anotar('estoque-json', achados.maiorEstoqueJson[0] > 2 * 1024 * 1024 ? 'ATENÇÃO' : 'OK', 'Tamanho do estoque.json (busca no navegador)',
+  `maior: ${kb(achados.maiorEstoqueJson[0])}, ${kb(achados.maiorEstoqueJson[2])} com gzip (${achados.maiorEstoqueJson[1]}). Precisa da compressão ligada na hospedagem; acima de ~5 mil carros vale paginar`);
 anotar('terceiros', achados.scriptsExternos.size ? 'ATENÇÃO' : 'OK', 'Scripts de terceiros', achados.scriptsExternos.size ? [...achados.scriptsExternos].slice(0, 3).join(' | ') : 'nenhum (bom para desempenho e LGPD)');
 anotar('grandes', achados.arquivosGrandes.length ? 'ATENÇÃO' : 'OK', 'Arquivos grandes (>1 MB)', achados.arquivosGrandes.length ? achados.arquivosGrandes.slice(0, 3).join(' | ') : 'nenhum');
 

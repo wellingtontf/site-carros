@@ -94,7 +94,7 @@ function registrarRascunho(d) {
 // AVISO: "whatsap" escrito errado gravaria sem efeito e o site ficaria sem WhatsApp sem ninguém perceber.
 const CAMPOS_SITE = new Set(['inquilino', 'nome', 'slogan', 'template', 'motor', 'url', 'whatsapp', 'fotosBase', 'cor', 'tema', 'textos',
   'cabecalho', 'rodape', 'lojas', 'empresa', 'vendedores', 'busca', 'filtros', 'ordenacao', 'restricoes', 'estoque', 'paginasFiltro',
-  'formatoUrls', 'avisoCookies', 'paginasPadrao', 'pagina404', 'retencaoVendidosDias', 'retencaoRedirecionamentoDias', 'robots', 'feedXml', 'rascunho']);
+  'formatoUrls', 'avisoCookies', 'paginasPadrao', 'pagina404', 'retencaoVendidosDias', 'retencaoRedirecionamentoDias', 'robots', 'formatoEstoque', 'rascunho']);
 const avisosSite = (s) => (s && typeof s === 'object' ? Object.keys(s).filter((k) => !CAMPOS_SITE.has(k)).map((k) => `campo "${k}" não é usado pela plataforma (erro de digitação?)`) : []);
 
 // página de blocos de um site (sites-config/<dominio>/paginas/<caminho>.json): formato e blocos que o template do site tem
@@ -141,7 +141,7 @@ function validarSite(s, dominio) {
   // opções de componente não ficam no cadastro: cada uma é um arquivo em sites-config/<dominio>/componentes/<nome>.json
   if (s.componentes != null) e('"componentes" não vai no cadastro: as opções de cada componente ficam em sites-config/<dominio>/componentes/<nome>.json (ex.: estoque.json); pela API, PUT /v1/sites/<dominio>/componentes/<nome>');
   if (s.robots != null) { const r = require('./robots').validarRobots(s.robots); r.erros.forEach((x) => e(`robots: ${x}`)); }
-  if (s.feedXml != null && s.feedXml !== false && !(typeof s.feedXml === 'object' && typeof s.feedXml.caminho === 'string' && /^[a-z0-9][a-z0-9_/-]*\.xml$/.test(s.feedXml.caminho))) e('"feedXml" deve ser false ou { "caminho": "estoque.xml" }');
+  if (s.formatoEstoque != null && !['lista', 'compacto'].includes(s.formatoEstoque)) e('"formatoEstoque" (formato do estoque.json gerado) deve ser "lista" (padrão) ou "compacto"');
   // lojas: opcionais num site novo (sem lojas, o site sobe sem estoque); se vierem, cada uma completa
   if (s.lojas != null && (typeof s.lojas !== 'object' || Array.isArray(s.lojas))) e('"lojas" deve ser um objeto: { "matriz": { "nome", "cidade", "uf" } }');
   const lj = s.lojas && typeof s.lojas === 'object' && !Array.isArray(s.lojas) ? s.lojas : {};

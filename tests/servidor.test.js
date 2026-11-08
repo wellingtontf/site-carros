@@ -23,7 +23,7 @@ const req = (metodo, caminho, { corpo, token = tokA } = {}) => fetch(url + camin
 const reqJ = async (...a) => { const r = await req(...a); return { status: r.status, j: await r.json() }; };
 const esperar = async (cond, ms = 10000) => { const fim = Date.now() + ms; while (Date.now() < fim) { if (await cond()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; };
 const estoque = (id = ID) => JSON.parse(fs.readFileSync(path.join(A.raiz(), 'sites-config', id, 'estoque.json'), 'utf8')).carros;
-const carrosJson = (id = ID) => JSON.parse(fs.readFileSync(A.saida(id, 'carros.json'), 'utf8'));
+const carrosJson = (id = ID) => JSON.parse(fs.readFileSync(A.saida(id, 'estoque.json'), 'utf8'));
 
 async function subir(env = {}) {
   const porta = await portaLivre();
@@ -222,7 +222,7 @@ test('PUT /v1/sites/<d>: cria o site (201) e já gera; token limitado não cria 
   // já dá para mandar estoque para ele
   const e = await reqJ('PUT', `/v1/sites/${NOVO}/estoque?esperar=20`, { corpo: { carros: [A.carro({ loja: 'matriz' })] }, token: tokTodos });
   assert.equal(e.status, 200, JSON.stringify(e.j));
-  assert.equal(A.lerJSON(NOVO, 'carros.json').length, 1);
+  assert.equal(A.lerJSON(NOVO, 'estoque.json').length, 1);
   // sem esperar: 202 (aceito; a fila cria a estrutura, gera e roda a infra)
   const r2 = await req('PUT', '/v1/sites/outra-nova.com.br', { corpo: cadastro({ url: 'https://outra-nova.com.br' }), token: tokTodos });
   assert.equal(r2.status, 202);
@@ -333,7 +333,7 @@ test('POST /v1/sites: cria site novo só com o domínio (modelo + infra), toda a
   assert.match(semLoja.j.erros[0], /ainda não tem lojas/);
   assert.equal((await req('PUT', `/v1/sites/${D}?esperar=20`, { corpo: { ...cad, lojas: { centro: A.LOJAS.centro } }, token: tokTodos })).status, 200);
   assert.equal((await req('PUT', `/v1/sites/${D}/estoque?esperar=20`, { corpo: { carros: [A.carro()] }, token: tokTodos })).status, 200);
-  assert.equal(A.lerJSON(D, 'carros.json').length, 1);
+  assert.equal(A.lerJSON(D, 'estoque.json').length, 1);
 });
 
 test('POST /v1/sites: infra que falha deixa o site pronto e avisa como erro; POST /infra refaz', async () => {

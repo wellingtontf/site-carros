@@ -1,6 +1,6 @@
 /* Motor de busca e filtros, versão __VERSAO__.
    Não mexe em tela: roda no navegador e no Node (testes). Os templates cuidam só da aparência.
-   Uso (navegador):  const motor = await Motor.criar({ dados: 'carros.json', config: 'config.json' });
+   Uso (navegador):  const motor = await Motor.criar({ dados: 'estoque.json', config: 'config.json' });
    Uso (testes):     const Motor = require('./engine.js'); passando `carregar` para ler os arquivos. */
 (function (raiz) {
   'use strict';
@@ -72,7 +72,7 @@
       opts.config ? Promise.resolve(carregar(opts.config)).catch(() => ({})) : Promise.resolve({}),
     ]);
 
-    // carros.json usa chaves curtas; aqui viram nomes completos
+    // estoque.json (o gerado em sites-public) usa chaves curtas; aqui viram nomes completos
     const palavras = (s) => norm(s).split(/[^a-z0-9.]+/).filter(Boolean);
     const dados = brutos.map((d, i) => {
       const c = { id: d.i, marca: d.m, modelo: d.o, versao: d.v, ano: d.a, preco: d.p, km: d.k, cor: d.c, cambio: d.b, combustivel: d.f, fotos: d.n, loja: d.u, cidade: d.cd, uf: d.uf,

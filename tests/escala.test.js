@@ -66,7 +66,7 @@ test('rajada no MESMO site com dois trabalhadores: tudo aplicado, na ordem, sem 
   for (let i = 0; i < 6; i++) ps.push(await req('PUT', `/v1/sites/${S}/carros/R${i}`, A.carro({ id: `R${i}`, preco: 1000 + i })));
   ps.push(await req('PUT', `/v1/sites/${S}/carros/R0`, A.carro({ id: 'R0', preco: 99 })));
   assert.ok(await esperar(async () => (await Promise.all(ps.map((p) => req('GET', p.j.link)))).every((x) => x.j.status === 'concluido')));
-  const carros = A.lerJSON(S, 'carros.json');
+  const carros = A.lerJSON(S, 'estoque.json');
   assert.equal(carros.filter((c) => /^R\d$/.test(c.i)).length, 6);
   assert.equal(carros.find((c) => c.i === 'R0').p, 99, 'o último pedido vale');
 });

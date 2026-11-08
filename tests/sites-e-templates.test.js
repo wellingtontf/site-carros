@@ -30,7 +30,7 @@ for (const id of reais) {
     const mo = await criar();
     assert.equal(mo.total, feito.total);
     const L = require('../core/ui/link-carro.js');
-    const linkDe = new Map(JSON.parse(fs.readFileSync(path.join(dir, 'carros.json'), 'utf8')).filter((d) => d.l).map((d) => [d.i, d.l]));
+    const linkDe = new Map(require('../core/ui/formato-estoque.js').descompactar(JSON.parse(fs.readFileSync(path.join(dir, 'estoque.json'), 'utf8'))).filter((d) => d.l).map((d) => [d.i, d.l]));
     const sem = mo.resultado().filter((c) => !fs.existsSync(path.join(dir, linkDe.get(c.id) || L.caminho(c))));
     assert.deepEqual(sem.map((c) => c.id), [], 'carros sem página');
     if (mo.total) {
@@ -42,7 +42,7 @@ for (const id of reais) {
 
   test(`[${id}] páginas obrigatórias, SEO e ids que a listagem precisa`, () => {
     const dir = A.saida(id, '', 'dist-teste');
-    for (const p of ['index.html', 'multipla/index.html', 'carros.json', 'config.json', 'motor/engine.js', 'motor/ui-lista.js', 'motor/link-carro.js', 'motor/ui-site.js',
+    for (const p of ['index.html', 'multipla/index.html', 'estoque.json', 'config.json', 'motor/engine.js', 'motor/ui-lista.js', 'motor/link-carro.js', 'motor/ui-site.js',
       'paginas/contato/index.html', 'paginas/politica-de-privacidade/index.html', 'paginas/politica-de-cookies/index.html', 'paginas/lgpd/index.html']) {
       assert.ok(fs.existsSync(path.join(dir, p)), p);
     }
@@ -50,7 +50,7 @@ for (const id of reais) {
     for (const idHtml of ['q', 'filtros-dinamicos', 'ord', 'contagem', 'grade', 'mais', 'limpar', 'copiar', 'tpl-card']) {
       assert.match(lista, new RegExp(`id="${idHtml}"`), `/multipla sem id="${idHtml}"`);
     }
-    assert.match(lista, /data-rel="\.\.\/"/, '/multipla precisa de data-rel para achar carros.json');
+    assert.match(lista, /data-rel="\.\.\/"/, '/multipla precisa de data-rel para achar estoque.json');
     for (const arq of A.listar(dir).filter((f) => f.endsWith('.html'))) {
       const html = fs.readFileSync(arq, 'utf8');
       const rel = path.relative(dir, arq);

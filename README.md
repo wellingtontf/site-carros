@@ -68,7 +68,7 @@ O GitHub roda tudo a cada push (`.github/workflows/testes.yml`).
 | `multipla/index.html` (listagem do estoque, **sempre** em `/multipla`) | `templates/<nome>/paginas/multipla.html` + blocos de `estoque.blocosAntes/blocosDepois` |
 | `carros/<Marca>/<Modelo>/<Versao>/<...>-<id>.html` | `templates/<nome>/paginas/carro.html` (e `vendido.html`) |
 | `<caminho>/index.html` de cada página de conteúdo | `templates/<nome>/paginas/pagina.html` + `blocos/<tipo>.html` |
-| `carros.json`, `config.json`, `sitemap.xml`, `robots.txt` | gerados pelo build |
+| `estoque.json` (os carros que o motor lê, no formato curto; `"formatoEstoque": "compacto"` no site.json deixa ~4x menor), `config.json`, `sitemap.xml`, `robots.txt` | gerados pelo build |
 
 ## Site (`sites-config/primeseminovos.exemplo.com.br/site.json`)
 ```json
@@ -298,7 +298,7 @@ GET    /v1/pedidos/<id>                   andamento    (?esperar=30 nas rotas ac
 ```
 A plataforma é agnóstica: não conhece o sistema de origem, cada um converte para o mesmo formato. Cada token só mexe nos sites dele (criar site novo e refazer todos exigem `*`). Chamadas em sequência viram um build só (`ATRASO_MS`, padrão 3 s), na ordem em que chegaram; a fila fica em disco (`.estado/api/`) e sobrevive a reinício. Fotos por URL são baixadas, convertidas e enviadas para a S3 em segundo plano (`config/fotos.json`; em produção nada fica no servidor).
 
-**Saídas de compatibilidade:** cada site publica `estoque.xml`, o estoque em XML (mesma ordem do site; link, fotos e loja com endereço completo) para portais, catálogos e integrações que só leem XML. `"feedXml": { "caminho": "xml/estoque.xml" }` muda o endereço e `"feedXml": false` desliga. O `robots.txt` vem de um modelo único (`config/robots.txt`, trocado por `PUT /v1/robots`), com `"robots"` no site.json para o site que precisar de um próprio.
+**Sem feed XML:** a plataforma não gera mais `estoque.xml`; o build apaga e despublica o que tiver sobrado.
 
 **Rascunho:** `POST /v1/sites` sem domínio cria o próximo rascunho da sequência (`site1.carro57.com.br`, `site2...`; padrão em `config/rascunhos.json`, número nunca reutilizado). Site novo nasce com `"rascunho": true` (endereço provisório, `noindex` em tudo e robots.txt fechado) e vai para o domínio definitivo com `/promover`.
 
@@ -312,7 +312,7 @@ O que acontece:
 - Valida tudo (ids únicos, loja existente no site, preço, ano, km, fotos, campos de texto). **Qualquer erro → nada é gravado**, o estoque antigo segue valendo.
 - **Trava de queda:** se o estoque cair mais de 50% (ex.: API devolveu lista vazia por engano), recusa. `--forcar` libera.
 - Estoque igual ao anterior → nada acontece. Guarda cópia do anterior em `.estado/estoques-anteriores/<dominio>.json`.
-- Só o site daquele estoque é refeito; nele só as páginas dos carros que mudaram (+ `carros.json`).
+- Só o site daquele estoque é refeito; nele só as páginas dos carros que mudaram (+ o `estoque.json` da saída).
 - Carro que saiu: a página vira "Este veículo não está mais disponível" por `retencaoVendidosDias` (padrão 30, por site) e depois é apagada.
 - Carro que mudou de link: o endereço antigo vira um redirecionamento para o novo (`retencaoRedirecionamentoDias`, padrão 180).
 - Mudar motor ou filtros não refaz nenhuma página de carro. Mudar template/tema/textos refaz as páginas desse site. `--completo` força tudo.

@@ -1,4 +1,4 @@
-// Saídas de compatibilidade: estoque.xml (feed do estoque) e robots.txt por modelo (core/robots.js).
+// robots.txt por modelo (core/robots.js); e o estoque.xml antigo (feed XML, retirado da plataforma) sai da saída.
 const A = require('./ajuda');
 A.prepararRaiz();
 const { test, beforeEach } = require('node:test');
@@ -13,39 +13,20 @@ const ID = 'xml.teste.com.br';
 beforeEach(() => A.limpar());
 const build = () => A.silencioso(() => construir({ sites: [ID] }));
 
-test('estoque.xml: todos os carros, na ordem do site, com link e fotos completos e texto escapado', () => {
-  A.criarSite(ID, { carros: [
-    A.carro({ id: 'X2', ordem: 2, descricao: 'Peças <originais> & "revisado"\u0001', opcionais: ['Ar & direção'] }),
-    A.carro({ id: 'X1', ordem: 1, fotos: 2, carroceria: 'SUV', destaque: true }),
-  ] });
+test('sem estoque.xml: o feed XML saiu da plataforma; o arquivo velho (e o carros.json antigo) é apagado e despublicado', () => {
+  A.criarSite(ID, { carros: [A.carro()] });
   build();
-  const x = A.ler(ID, 'estoque.xml');
-  assert.match(x, /^<\?xml version="1.0" encoding="UTF-8"\?>\n<estoque site="xml.teste.com.br" total="2">/);
-  assert.ok(x.indexOf('<id>X1</id>') < x.indexOf('<id>X2</id>'), 'ordem do site');
-  assert.match(x, /<descricao>Peças &lt;originais&gt; &amp; &quot;revisado&quot;<\/descricao>/, 'escapado e sem caractere de controle');
-  assert.match(x, /<opcional>Ar &amp; direção<\/opcional>/);
-  assert.match(x, /<link>https:\/\/xml\.teste\.com\.br\/carros\/[^<]+-X1\.html<\/link>/);
-  assert.match(x, /<fotos><foto>https:\/\/fotos\.teste\/carros\/X1\/1-1600\.webp<\/foto><foto>[^<]+2-1600\.webp<\/foto><\/fotos>/);
-  assert.match(x, /<carroceria>SUV<\/carroceria><destaque>sim<\/destaque>/);
-  assert.ok(!A.ler(ID, 'sitemap.xml').includes('estoque.xml'), 'feed fora do sitemap');
-});
-
-test('estoque.xml: caminho configurável; desligar apaga o arquivo e despublica', () => {
-  A.criarSite(ID, { carros: [A.carro()], site: { feedXml: { caminho: 'xml/estoque.xml' } } });
-  build();
-  assert.ok(A.existe(ID, 'xml/estoque.xml') && !A.existe(ID, 'estoque.xml'));
+  assert.ok(!A.existe(ID, 'estoque.xml'), 'build não gera mais o XML');
+  assert.ok(A.existe(ID, 'estoque.json') && !A.existe(ID, 'carros.json'), 'os carros do motor saem em estoque.json');
+  // saída de uma versão anterior do build
+  for (const velho of ['estoque.xml', 'carros.json']) fs.writeFileSync(A.saida(ID, velho), 'antigo');
   A.limparPendentes();
-  const cfg = A.lerSite(ID); cfg.feedXml = false; A.gravarSite(ID, cfg);
   build();
-  assert.ok(!A.existe(ID, 'xml/estoque.xml'));
-  assert.ok(A.pendente(ID).removidos.includes(`${ID}/xml/estoque.xml`));
-  // build de novo sem mudar nada: o feed não pode ser apagado e recriado (o build passa "sem mudanças")
-  const cfg2 = A.lerSite(ID); delete cfg2.feedXml; A.gravarSite(ID, cfg2);
-  build();
+  assert.ok(!A.existe(ID, 'estoque.xml') && !A.existe(ID, 'carros.json'));
+  assert.ok(A.pendente(ID).removidos.includes(`${ID}/estoque.xml`) && A.pendente(ID).removidos.includes(`${ID}/carros.json`), 'despublica');
   A.limparPendentes();
   build();
   assert.equal(A.pendente(ID), undefined, 'segundo build sem mudanças');
-  assert.ok(A.existe(ID, 'estoque.xml'));
 });
 
 test('robots.txt: padrão, modelo de todos, robots próprio do site', async () => {
