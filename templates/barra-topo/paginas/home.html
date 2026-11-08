@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{pagina.titulo}}</title>
+<meta name="description" content="{{pagina.descricao}}">
+{{{canon}}}
+{{{fonteLink}}}
+<link rel="stylesheet" href="{{rel}}css/base.css">
+<link rel="stylesheet" href="{{rel}}css/style.css">
+<style>{{{temaCss}}}</style>
+</head>
+<body data-page="pagina" data-base="{{base}}" data-rel="{{rel}}">
+<header class="topo">
+  {{#tema.logo}}<img class="logo" src="{{tema.logo}}" alt="{{site.nome}}">{{/tema.logo}}
+  <a class="marca" href="{{inicioUrl}}">{{site.nome}}</a>
+  <span class="slogan">{{site.slogan}}</span>
+  <a class="ir-estoque" href="{{estoqueUrl}}">Ver estoque ({{estoque.total}})</a>
+</header>
+<main class="conteudo">
+{{{conteudo}}}
+</main>
+{{#site.textos.rodape}}<footer class="rodape">{{site.textos.rodape}}</footer>{{/site.textos.rodape}}
+<script src="{{rel}}motor/engine.js"></script>
+<script src="{{rel}}motor/ui-util.js"></script>
+<script>document.querySelectorAll('img[data-fb]').forEach(function (i) { UI.fallback(i); });</script>
+{{#site.links.length}}<nav class="links-legais">{{#site.links}}<a href="{{link}}">{{rotulo}}</a>{{/site.links}}</nav>{{/site.links.length}}
+<script src="{{rel}}motor/ui-site.js"></script>
+</body>
+</html>

@@ -9,7 +9,7 @@
 //     assets/                    imagens próprias do site (logo, banner...) → <site>/assets/
 //     paginas/                   páginas livres dos designers SÓ deste site (HTML normal; ver core/paginas-livres.js)
 //   templates/<nome>/         visual (o web designer só mexe aqui)
-//     template.json, paginas/{index,carro,vendido,pagina}.html, blocos/, parciais/, css/, js/, img/
+//     template.json, paginas/{home,multipla,carro,vendido,pagina}.html, blocos/, parciais/, css/, js/, img/
 //     paginas-extras/            páginas livres de TODOS os sites do template
 //   inquilinos/<id>/          multi-tenant: inquilino.json + config/ própria (fotos, infra, publicação, robots, modelo de site)
 //   config/                   configuração global (e a do inquilino "padrao"): fontes.json, publicacao.json, historico.json, clientes.json

@@ -13,8 +13,8 @@
 //   motor/engine.js + motor/ui-*.js      ← core (motor da versão do site + ui)
 //   css/ js/ img/ ...                    ← templates/<nome>/ (tudo menos paginas/ e template.json)
 //   assets/                              ← sites-config/<dominio>/assets/
-//   index.html                           ← a HOME institucional: sites-config/<dominio>/paginas/index.json (sem ela, o core gera uma padrão)
-//   multipla/index.html                  ← templates/<nome>/paginas/index.html (a listagem do estoque; sempre em /multipla)
+//   index.html                           ← a HOME: templates/<nome>/paginas/home.html + sites-config/<dominio>/paginas/index.json (sem ela, HOME_PADRAO)
+//   multipla/index.html                  ← templates/<nome>/paginas/multipla.html (a listagem do estoque; sempre em /multipla)
 //   carros/<Marca>/<Modelo>/<Versao>/<...>-<id>.html ← templates/<nome>/paginas/carro.html (e vendido.html); regra em core/ui/link-carro.js
 //   <caminho>/index.html                 ← templates/<nome>/paginas/pagina.html + blocos/<tipo>.html (sites-config/<dominio>/paginas/<caminho>.json)
 //   multipla/<campo>/<valor>/index.html  ← páginas fixas de filtro (marca, cidade, carroceria): a listagem já filtrada,
@@ -51,7 +51,11 @@ const ESTADO = C.ESTADO;
 const CAMPOS_FILTRO = ['estado', 'cidade', 'loja', 'marca', 'modelo', 'carroceria', 'ano', 'preco', 'km', 'cambio', 'combustivel', 'cor'];
 const TEXTOS_PADRAO = { botaoWhatsapp: 'Tenho interesse (WhatsApp)', busca: 'Buscar: marca, modelo, cidade, cor...', voltar: 'Voltar ao estoque', rodape: '' };
 const TEMA_PADRAO = { cor: '#0b5fff', fundo: '#f5f6f8', texto: '#1b2430', raio: 12, colunas: 250, fonte: 'system-ui,-apple-system,"Segoe UI",Roboto,sans-serif' };
-const PAGINAS = ['index.html', 'carro.html', 'vendido.html', 'pagina.html'];
+// páginas que todo template tem (templates/<nome>/paginas/), uma por tipo de página do site:
+//   home.html      página principal (/)                     multipla.html  listagem do estoque (/multipla/ e filtros)
+//   carro.html     página de cada carro                     vendido.html   carro que saiu ("não está mais disponível")
+//   pagina.html    moldura das páginas de conteúdo (/paginas/...) e da 404
+const PAGINAS = ['home.html', 'multipla.html', 'carro.html', 'vendido.html', 'pagina.html'];
 // blocos que todo template precisa ter: home padrão (banner, vitrine) e páginas padrão (titulo, texto, formulario, lojas)
 const BLOCOS_OBRIGATORIOS = ['banner', 'vitrine', 'titulo', 'texto', 'formulario', 'lojas'];
 const AVISO_COOKIES_PADRAO = 'Usamos cookies para melhorar sua experiência e, se ativadas, ferramentas de medição. Ao continuar, você concorda.';
@@ -642,7 +646,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     };
 
     const geradas = []; // páginas de listagem e de conteúdo (para apagar as que deixarem de existir)
-    const tplLista = pagina('index.html');
+    const tplLista = pagina('multipla.html');
     const raizUrlSite = site.url ? site.url.replace(/\/$/, '') : '';
     // listagem: /multipla e cada página de filtro (mesmo template, com o filtro já aplicado e os carros dele no HTML)
     const listagens = [{ caminho: caminhoEstoque, filtro: null }, ...[...paginasFiltro.values()].map((p) => ({ caminho: p.caminho, filtro: p }))];
@@ -668,6 +672,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
     }
     // páginas de conteúdo
     const tplPagina = pagina('pagina.html');
+    const tplHome = pagina('home.html'); // a página principal tem moldura própria
     for (const p of paginasSite) {
       const dirP = endPagina(p.caminho); // '' (home) ou paginas/<caminho>
       const r = prefixo(dirP);
@@ -688,7 +693,7 @@ function construir({ sites = null, motor = null, saida = null, completo = false,
       }
       const nListagem = p.blocos.filter((b) => b.tipo === 'listagem').length;
       if (nListagem > 1) throw new Error(`Site "${site.id}", página "${p.caminho || '(raiz)'}": só pode ter um bloco "listagem"`);
-      datar(arqRel, escreverHtml(arqRel, render(tplPagina, {
+      datar(arqRel, escreverHtml(arqRel, render(p.caminho ? tplPagina : tplHome, {
         ...ctx(r), pagina: { titulo: p.titulo || site.nome, descricao: p.descricao || site.slogan || '' }, canon, conteudo: renderBlocos(p.blocos, r),
         temListagem: nListagem > 0, // a página carrega o motor + ui-lista (ids da listagem: ver README)
       })));

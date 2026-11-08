@@ -74,7 +74,7 @@ test('auditoria dos sites reais: nenhum PROBLEMA de produção', () => {
 test('todo template tem o mínimo exigido pelo core (páginas e blocos da home padrão)', () => {
   for (const t of fs.readdirSync(path.join(A.PROJETO, 'templates'))) {
     const dir = path.join(A.PROJETO, 'templates', t);
-    for (const p of ['index.html', 'carro.html', 'vendido.html', 'pagina.html']) assert.ok(fs.existsSync(path.join(dir, 'paginas', p)), `${t}: falta paginas/${p}`);
+    for (const p of ['home.html', 'multipla.html', 'carro.html', 'vendido.html', 'pagina.html']) assert.ok(fs.existsSync(path.join(dir, 'paginas', p)), `${t}: falta paginas/${p}`);
     for (const b of ['banner', 'vitrine', 'titulo', 'texto', 'formulario', 'lojas']) assert.ok(fs.existsSync(path.join(dir, 'blocos', `${b}.html`)), `${t}: falta blocos/${b}.html (home e páginas padrão)`);
     assert.ok(fs.existsSync(path.join(dir, 'template.json')), `${t}: falta template.json`);
     // as páginas padrão moram no template: sem as legais, os sites dele ficariam fora da LGPD sem ninguém perceber
@@ -101,6 +101,29 @@ test('todo template funciona com a home padrão e com um site de 1 loja (gerado 
       const id = `tpl-${t}.teste.com.br`;
       assert.deepEqual(A.verificarSiteGerado(id, 'dist-tpl').slice(0, 10), [], `template ${t}`);
     }
+  } finally {
+    fs.rmSync(path.join(raiz, 'sites-config'));
+    fs.symlinkSync(path.join(A.PROJETO, 'sites-config'), path.join(raiz, 'sites-config'));
+  }
+});
+
+test('cada tipo de página tem o seu arquivo no template: a home usa home.html (não a moldura das páginas internas)', () => {
+  const sitesTmp = path.join(raiz, 'sites-home');
+  const tpl = path.join(raiz, 'templates', 'home-propria');
+  fs.cpSync(path.join(A.PROJETO, 'tests', 'fixtures', 'templates', 'teste'), tpl, { recursive: true });
+  fs.writeFileSync(path.join(tpl, 'paginas', 'home.html'), fs.readFileSync(path.join(tpl, 'paginas', 'home.html'), 'utf8').replace('<body', '<body data-moldura="home"'));
+  const id = 'home-propria.teste.com.br';
+  fs.mkdirSync(path.join(sitesTmp, id), { recursive: true });
+  fs.writeFileSync(path.join(sitesTmp, id, 'site.json'), JSON.stringify({ nome: 'X', motor: 'v2', template: 'home-propria', url: `https://${id}`, lojas: { u: { nome: 'U', cidade: 'Curitiba', uf: 'PR' } } }));
+  fs.writeFileSync(path.join(sitesTmp, id, 'estoque.json'), JSON.stringify({ carros: [A.carro({ loja: undefined })] }));
+  fs.rmSync(path.join(raiz, 'sites-config'));
+  fs.symlinkSync(sitesTmp, path.join(raiz, 'sites-config'));
+  try {
+    A.silencioso(() => construir({ saida: 'sites-home-out', completo: true, efemero: true }));
+    assert.match(A.ler(id, 'index.html', 'sites-home-out'), /data-moldura="home"/, 'a home sai do home.html');
+    assert.doesNotMatch(A.ler(id, 'paginas/contato/index.html', 'sites-home-out'), /data-moldura="home"/, 'as páginas internas não');
+    fs.rmSync(path.join(tpl, 'paginas', 'home.html'));
+    assert.throws(() => A.silencioso(() => construir({ saida: 'sites-home-out', completo: true, efemero: true })), /falta paginas\/home\.html/);
   } finally {
     fs.rmSync(path.join(raiz, 'sites-config'));
     fs.symlinkSync(path.join(A.PROJETO, 'sites-config'), path.join(raiz, 'sites-config'));

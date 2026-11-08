@@ -491,7 +491,7 @@ test('aviso de cookies: vai no config.json; "avisoCookies": false desliga; texto
 test('template sem os blocos obrigatórios é recusado com mensagem clara', () => {
   const tpl = path.join(A.raiz(), 'templates', 'incompleto');
   fs.mkdirSync(path.join(tpl, 'paginas'), { recursive: true });
-  for (const p of ['index', 'carro', 'vendido', 'pagina']) fs.writeFileSync(path.join(tpl, 'paginas', `${p}.html`), '<html></html>');
+  for (const p of ['home', 'multipla', 'carro', 'vendido', 'pagina']) fs.writeFileSync(path.join(tpl, 'paginas', `${p}.html`), '<html></html>');
   A.criarSite(ID, { carros: [A.carro()], site: { template: 'incompleto' } });
   assert.throws(() => build(), /falta blocos\/banner\.html.*blocos\/lojas\.html/);
   fs.rmSync(tpl, { recursive: true });

@@ -64,8 +64,8 @@ O GitHub roda tudo a cada push (`.github/workflows/testes.yml`).
 | `motor/engine.js`, `motor/ui-*.js` | `core/motor/<versao do site>/` e `core/ui/` |
 | `css/`, `js/`, `img/`... | `templates/<nome>/` (tudo menos `paginas/` e `template.json`) |
 | `assets/` | `sites-config/<dominio>/assets/` |
-| `index.html` (home institucional) | `sites-config/<dominio>/paginas/index.json` (sem ela, o core gera uma home padrão: banner + vitrine) |
-| `multipla/index.html` (listagem do estoque, **sempre** em `/multipla`) | `templates/<nome>/paginas/index.html` + blocos de `estoque.blocosAntes/blocosDepois` |
+| `index.html` (home institucional) | `templates/<nome>/paginas/home.html` + `sites-config/<dominio>/paginas/index.json` (sem ela, o core usa a home padrão: banner + vitrine) |
+| `multipla/index.html` (listagem do estoque, **sempre** em `/multipla`) | `templates/<nome>/paginas/multipla.html` + blocos de `estoque.blocosAntes/blocosDepois` |
 | `carros/<Marca>/<Modelo>/<Versao>/<...>-<id>.html` | `templates/<nome>/paginas/carro.html` (e `vendido.html`) |
 | `<caminho>/index.html` de cada página de conteúdo | `templates/<nome>/paginas/pagina.html` + `blocos/<tipo>.html` |
 | `carros.json`, `config.json`, `sitemap.xml`, `robots.txt` | gerados pelo build |
@@ -205,7 +205,17 @@ Filtro de lista com um único valor no site some sozinho (`"sempre": true` mant�
 `precoMin`, `precoMax`, `anoMin`, `marcas`, `estados` (lista de UF), `cidades`. Independem dos filtros: o carro fora da restrição nem entra no site.
 
 ## Templates
-Cada template fica inteiro em `templates/<nome>/` e precisa ter `paginas/index.html`, `paginas/carro.html` e `paginas/vendido.html` (e `paginas/pagina.html` + `blocos/` se for usado em sites com páginas de conteúdo).
+Cada template fica inteiro em `templates/<nome>/`, com **um arquivo por tipo de página** em `paginas/`:
+
+| Arquivo | Página do site |
+|---|---|
+| `home.html` | a página principal (`/`), com os blocos de `sites-config/<dominio>/paginas/index.json` em `{{{conteudo}}}` |
+| `multipla.html` | a listagem do estoque (`/multipla/` e as páginas de filtro, como `/multipla/marca/toyota/`) |
+| `carro.html` | a página de cada carro |
+| `vendido.html` | o carro que saiu ("não está mais disponível") |
+| `pagina.html` | a moldura das páginas de conteúdo (`/paginas/...`) e da 404 |
+
+Os cinco são obrigatórios (o build recusa com "falta paginas/x.html"), assim como os blocos `banner`, `vitrine`, `titulo`, `texto`, `formulario` e `lojas`.
 Para criar um template novo: copie `templates/barra-topo/` para `templates/meu-template/` e ajuste.
 - Referencie os arquivos sempre com `{{rel}}`: `{{rel}}css/style.css`, `{{rel}}js/meu.js`, `{{rel}}motor/engine.js`, `{{rel}}motor/ui-lista.js`.
 - Marcadores do build: `{{site.nome}}`, `{{site.slogan}}`, `{{site.textos.*}}`, `{{site.cabecalho.*}}`, `{{site.rodape.*}}`, `{{tema.*}}`, `{{rel}}`, `{{inicioUrl}}`, `{{estoqueUrl}}`, `{{{temaCss}}}`, `{{{fonteLink}}}`, `{{base}}`; `{{#x}}...{{/x}}` mostra se tiver valor ou repete listas; `{{^x}}...{{/x}}` é o contrário; `{{> nome}}` inclui `parciais/nome.html`.
