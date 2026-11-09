@@ -5,7 +5,7 @@
 // Multi-tenant: cada cliente pertence a UM inquilino ("inquilino"; ausente = "padrao") e só enxerga os sites dele.
 // "sites": ["*"] = todos os sites DO INQUILINO (e pode criar sites nele). Só o admin (TOKEN_ATUALIZAR) atravessa inquilinos.
 //   { "revenda-mais": { "token_sha256": "<sha256 do token>", "inquilino": "revenda-mais", "sites": ["*"], "criado": "2026-11-07" },
-//     "crm-x":        { "token_sha256": "...", "sites": ["trokey.com.br"], "ativo": false } }
+//     "crm-x":        { "token_sha256": "...", "sites": ["lojateste.com.br"], "ativo": false } }
 // Só o hash do token fica gravado: o token aparece uma vez, quando é criado (node api/cli.js cliente criar <nome>).
 // TOKEN_ATUALIZAR (variável de ambiente) continua valendo como cliente "admin", com acesso a todos os sites.
 const fs = require('fs');

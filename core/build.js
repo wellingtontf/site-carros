@@ -2,8 +2,8 @@
 // Gera os sites. Cada site = sites-config/<dominio>/ (site.json + estoque.json + assets/) + um tema + uma versão do motor.
 // É INCREMENTAL: guarda o que gerou em .estado/ e, na próxima vez, só reescreve o que mudou.
 //   node core/build.js                                          todos os sites, com o motor que cada um usa (sites-public/)
-//   node core/build.js --sites trokey.com.br,outro.com.br        só esses sites
-//   node core/build.js --sites trokey.com.br --motor rascunho    testa o motor em rascunho num site (vai para dist-preview/)
+//   node core/build.js --sites lojateste.com.br,outro.com.br     só esses sites
+//   node core/build.js --sites lojateste.com.br --motor rascunho testa o motor em rascunho num site (vai para dist-preview/)
 //   node core/build.js --sites x.com.br --versao-tema rascunho   prévia do rascunho do tema (temas/<nome>/rascunho; dist-preview/)
 //   --completo                                                  ignora o que já foi gerado e refaz tudo
 //   --saida <pasta>                                             muda a pasta de saída

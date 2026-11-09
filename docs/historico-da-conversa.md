@@ -97,6 +97,8 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
   (comandos de terminal, API de saúde/métricas/fontes/publicação, migrações, contratos do navegador). Achados no caminho:
   `cli.js fotos` quebrava sem config, `auditar-sites.js` e `gerar-exemplo.js` ignoravam a pasta de dados, e o `aplicar`
   falhava calado num `site.json` de uma linha só; um teste de publicação instável (dois trabalhadores na mesma fila).
+- Trokey apagado de vez: `ferramentas/importar-trokey.py` e os exemplos com `trokey.com.br` (viraram `lojateste.com.br`);
+  o `config/historico.json` mantém os registros antigos (é log).
 
 ## Decisões do Wellington (consolidadas)
 
@@ -142,7 +144,7 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
 
 ## Anexo: todas as mensagens do Wellington, na íntegra
 
-125 mensagens, na ordem. Ficaram de fora só avisos automáticos do sistema. Respostas a perguntas de múltipla escolha
+126 mensagens, na ordem. Ficaram de fora só avisos automáticos do sistema. Respostas a perguntas de múltipla escolha
 (como "Espelho do site") não aparecem aqui, porque entraram como resposta de ferramenta e não como mensagem.
 
 **1.** _07/11 18:32_
@@ -793,3 +795,9 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
 **125.** _08/11 20:48_
 
 > check se todos os testes foram criados senão tiver 100 porcento crie. e rode eles e arrume até ficar tudo certo
+
+**126.** _08/11 21:25_
+
+> pode apagar tudo do trokey;;
+>
+> commit em tudo para nao perder nada

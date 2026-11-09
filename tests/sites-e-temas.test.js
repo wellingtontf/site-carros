@@ -64,7 +64,7 @@ for (const id of reais) {
   });
 }
 
-// problemas clássicos de site estático no ar (404, cache, charset, JSON-LD...). "localhost" fica de fora: a Trokey usa
+// problemas clássicos de site estático no ar (404, cache, charset, JSON-LD...). "localhost" fica de fora: um site pode usar
 // o s3-local no teste local de propósito, e quem barra isso é a publicação (tests/producao.test.js)
 test('auditoria dos sites reais: nenhum PROBLEMA de produção', () => {
   const { auditar } = require('../ferramentas/auditar-sites.js');

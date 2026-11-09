@@ -1,4 +1,4 @@
 {
   "revenda-mais": { "token_sha256": "gerado por: node api/cli.js cliente criar revenda-mais --sites \"*\"", "sites": ["*"], "criado": "2026-11-07" },
-  "crm-da-trokey": { "token_sha256": "...", "sites": ["trokey.com.br"], "ativo": false }
+  "crm-da-lojateste": { "token_sha256": "...", "sites": ["lojateste.com.br"], "ativo": false }
 }

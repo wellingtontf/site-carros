@@ -32,7 +32,7 @@ test('".." é recusado', () => {
 test('distribuição única: pasta do site pelo domínio (com ou sem www)', () => {
   R._definirPrefixo(true);
   try {
-    assert.equal(R.handler(ev('/multipla/', { host: 'www.trokey.com.br' })).uri, '/trokey.com.br/multipla/index.html');
+    assert.equal(R.handler(ev('/multipla/', { host: 'www.lojateste.com.br' })).uri, '/lojateste.com.br/multipla/index.html');
     assert.equal(R.handler(ev('/', { host: 'site7.carro57.com.br' })).uri, '/site7.carro57.com.br/index.html');
     assert.equal(R.handler(ev('/', { host: 'evil/../x' })).statusCode, 400);
   } finally { R._definirPrefixo(false); }

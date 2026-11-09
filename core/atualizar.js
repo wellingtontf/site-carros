@@ -1,7 +1,7 @@
 // Atualiza o estoque de um ou mais sites e refaz SÓ os arquivos afetados.
 // Cada site tem UM JSON de carros: sites-config/<dominio>/estoque.json.
 //   node core/cli.js atualizar                          busca o estoque de todos os sites de config/fontes.json
-//   node core/cli.js atualizar trokey.com.br,outro.com  só esses
+//   node core/cli.js atualizar lojateste.com.br,outro.com  só esses
 //   node core/cli.js atualizar --publicar               depois de gerar, publica só o que mudou (config/publicacao.json)
 const fs = require('fs');
 const path = require('path');

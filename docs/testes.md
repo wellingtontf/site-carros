@@ -17,7 +17,7 @@ executadas pelos testes (`npm run test:cobertura`; o "all files" fica um pouco a
 testes, como os que pulam sem Chrome). O código que só roda no navegador (`core/ui/ui-lista.js`, `ui-site.js`,
 `ui-carro.js`, o JS do tema) não entra nessa medição: ele é coberto pelo `navegador.test.js`, no Chrome, com cliques de
 verdade. Os scripts `.sh` de infraestrutura são testados no `infra-scripts.test.js` (modo simulação), e o conversor de fotos
-`core/converter-foto.py` no `fotos.test.js`; o `ferramentas/importar-trokey.py` (do site trokey, que saiu) não tem teste. Código novo entra com teste; a medição mostra o que ficou de fora (coluna "uncovered lines").
+`core/converter-foto.py` no `fotos.test.js`. Código novo entra com teste; a medição mostra o que ficou de fora (coluna "uncovered lines").
 
 ## O que cada arquivo garante
 
