@@ -82,5 +82,5 @@ Endereço: `<fotosBase>carros/<id>/<n>-<400|800|1600>.webp`. Foto que não exist
 
 ## Estoque de exemplo
 
-`node ferramentas/gerar-exemplo.js` regera o estoque de teste da **primeseminovos** (400 carros). Os outros sites da lista
-interna (autocentral, outlet, servopa) não existem mais e são pulados.
+`node ferramentas/gerar-exemplo.js` regera o estoque de teste da **primeseminovos** (400 carros, sempre os mesmos para
+a mesma versão do gerador). Os geradores dos sites que saíram (autocentral, outlet, servopa) foram retirados.

@@ -1,15 +1,23 @@
 # Testes
 
 ```
-npm test               # tudo (~1 min com o Chrome): 300 testes
+npm test               # tudo (~1 min com o Chrome): 320 testes
 npm run test:rapido    # sem o navegador (Chrome)
 npm run test:snapshot  # regrava o snapshot do HTML (depois de aumentar VERSAO_HTML)
+npm run test:cobertura # quais linhas do código os testes executam (sem o Chrome)
 node core/cli.js testar  # testa os sites reais gerados (motor com os dados de verdade, páginas, links)
 ```
 
 O GitHub roda tudo a cada push (`.github/workflows/testes.yml`). Os testes usam uma pasta de dados temporária
 (`SITE_CARROS_RAIZ`), nunca os sites de verdade, e uma data simulada (`construir({ hoje })` / `SITE_CARROS_HOJE`) para
 testar retenção de vendidos e redirecionamentos. O ajudante comum é `tests/ajuda.js`.
+
+**Cobertura (2026-11-08):** todo arquivo **JavaScript** de `core/`, `api/`, `ferramentas/` e `infra/` com **100% das linhas**
+executadas pelos testes (`npm run test:cobertura`; o "all files" fica um pouco abaixo porque conta também as linhas dos próprios
+testes, como os que pulam sem Chrome). O código que só roda no navegador (`core/ui/ui-lista.js`, `ui-site.js`,
+`ui-carro.js`, o JS do tema) não entra nessa medição: ele é coberto pelo `navegador.test.js`, no Chrome, com cliques de
+verdade. Os scripts `.sh` de infraestrutura são testados no `infra-scripts.test.js` (modo simulação), e o conversor de fotos
+`core/converter-foto.py` no `fotos.test.js`; o `ferramentas/importar-trokey.py` (do site trokey, que saiu) não tem teste. Código novo entra com teste; a medição mostra o que ficou de fora (coluna "uncovered lines").
 
 ## O que cada arquivo garante
 
@@ -25,13 +33,15 @@ testar retenção de vendidos e redirecionamentos. O ajudante comum é `tests/aj
 | `componentes.test.js` | componentes (barra-busca, filtro, estoque, filtros-ativos): camadas de opções (componente < tema < site < página), validação, CSS/scripts injetados sem repetir, ids únicos, opção `checkbox` do filtro, `web/multipla.json` |
 | `sites-config-public.test.js` | contrato fonte → saída: cada parte de `sites-config/<d>/` aparece em `sites-public/<d>/` e o que sai da fonte sai da saída; sobras |
 | `temas-versoes.test.js` | versões dos temas pela linha de comando: congelar (rascunho igual recusado, sha256), prévia do rascunho em `dist-preview/`, aplicar (testa antes, grava só `versaoTema`, `--todos` = sites do tema), versão com defeito não é aplicada, reverter, `versaoTema` obrigatória |
+| `comandos.test.js` | os comandos de terminal rodando de verdade (processo separado): `core/cli.js` (status, testar, aplicar/reverter o motor, sitemap, limpar-public, publicar, atualizar com fotos, fotos), `api/cli.js` (inquilinos e tokens), `core/build.js`, `servidor-local.js`, `auditar-sites.js`, `gerar-exemplo.js`, `migrar-temas.js` (tudo de uma vez, com conflito) e `mover-paginas.js` |
+| `contratos.test.js` | os arquivos de `core/ui` viram `window.Rotas`, `window.LinkCarro`, `window.FormatoEstoque` no navegador (iguais aos do Node); `congelar` do motor numa cópia (`SITE_CARROS_MOTOR`) |
 | `sitemap.test.js` | `gerarSitemap(dominio)` igual ao do build |
 | `xml-robots.test.js` | robots.txt por modelo e por site; `estoque.xml` e `carros.json` antigos são apagados e despublicados |
 | `snapshot-html.test.js` | o HTML gerado só muda junto com `VERSAO_HTML` (veja abaixo); arquivos só copiados (`motor/`, `css/`, `componentes/`) ficam de fora |
 | `atualizar.test.js` | fontes HTTP (`${VAR}`, erro 500, JSON quebrado), trava de queda, estoque vazio, trava de execução, publicação incremental, injeção no shell |
 | `fotos.test.js` | fotos por URL: baixa, converte, renumera, não baixa de novo, SSRF (inclusive por redirecionamento), falha de envio fica pendente, caminho completo pela API |
 | `producao.test.js` | problemas de site estático no ar: 404, `?v=` nos css/js, canonical em página livre, publicação recusa fotos em localhost/http, auditoria |
-| `servidor.test.js` | API: tokens por cliente, 403 em site alheio, 422 com erros, estoque inteiro, carro avulso, rajada num build só, trava de queda (409), fila que sobrevive a reinício, site novo |
+| `servidor.test.js` | API: `/v1/saude`, `/v1/pronto` e `/metrics` (Kubernetes), `GET /v1/pedidos`, `POST /v1/atualizar` (fonte ok e fonte com erro), `PUBLICAR=1` (publica e anota no pedido; build que quebra = pedido com erro), tokens por cliente, 403 em site alheio, 422 com erros, estoque inteiro, carro avulso, rajada num build só, trava de queda (409), fila que sobrevive a reinício, site novo |
 | `api-ponta-a-ponta.test.js` | um site montado **só pela API** (cadastro, estoque, páginas, multipla, componentes, arquivos) gera tudo, sem link quebrado nem problema de produção |
 | `sites-repositorio.test.js` | `core/sites.js` é o único que lista sites; site novo só com o domínio em todos os temas; troca de domínio que volta atrás se falhar |
 | `inquilinos.test.js` | multi-tenant: cada inquilino só vê os seus sites, com configuração própria; domínio único na plataforma |

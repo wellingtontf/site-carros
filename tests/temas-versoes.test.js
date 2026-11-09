@@ -79,6 +79,29 @@ test('reverter: volta para a versão anterior do tema (o histórico do motor nã
   assert.match(cli('tema', 'historico').saida, /tema meu +aplicar +versoes\.teste\.com\.br v1→v2\n.*tema meu +reverter +versoes\.teste\.com\.br v2→v1/);
 });
 
+test('tema testar pelo terminal (rascunho ou versão); site sem "versaoTema" no arquivo: o aplicar põe a linha logo depois de "tema"', () => {
+  const t = cli('tema', 'testar', 'meu', 'v2');
+  assert.ok(t.ok, t.saida);
+  assert.match(t.saida, /Testando o tema meu v2 em: versoes\.teste\.com\.br[\s\S]*ok +versoes\.teste\.com\.br .*tema meu v2/);
+  assert.match(cli('tema', 'testar', 'meu', 'v8').saida, /não tem a versão "v8" \(existem: rascunho, v1, v2\)/);
+  assert.match(cli('tema', 'testar', 'nao-tem').saida, /tema "nao-tem" não existe/);
+  assert.match(cli('tema', 'testar', 'meu', '--sites', 'nao-existe.com.br').saida, /Site inexistente|site inexistente/);
+  assert.match(cli('tema', 'xpto').saida, /uso: tema status/);
+  // cadastro antigo, escrito à mão sem "versaoTema": o aplicar insere a linha depois de "tema", sem reformatar o resto
+  const arq = path.join(raiz, 'sites-config', ID, 'site.json');
+  const original = fs.readFileSync(arq, 'utf8');
+  fs.writeFileSync(arq, original.replace(/\n\s*"versaoTema": "v\d+",?/, ''));
+  const r = cli('tema', 'aplicar', 'meu', 'v2', '--sites', ID, '--sem-teste');
+  assert.ok(r.ok, r.saida);
+  assert.match(fs.readFileSync(arq, 'utf8'), /\n {2}"tema": "meu",\n {2}"versaoTema": "v2",\n/);
+  // JSON numa linha só (escrito por outro sistema) e sem o campo: antes a troca de texto falhava calada ("Aplicado" e nada mudava)
+  const linha = JSON.parse(original); delete linha.versaoTema;
+  fs.writeFileSync(arq, JSON.stringify(linha));
+  assert.ok(cli('tema', 'aplicar', 'meu', 'v2', '--sites', ID, '--sem-teste').ok);
+  assert.equal(JSON.parse(fs.readFileSync(arq, 'utf8')).versaoTema, 'v2');
+  fs.writeFileSync(arq, original);
+});
+
 test('versão com defeito: os testes do aplicar pegam e nada muda', () => {
   fs.rmSync(path.join(TEMA, 'rascunho', 'templates', 'carro.html'));
   assert.ok(cli('tema', 'congelar', 'meu', 'v3').ok);

@@ -127,10 +127,10 @@ Gerados e fora do git: `sites-public/`, `dist-preview/`, `.estado/`, `s3-local/`
 ## Regras ao mexer no código
 - **Arquitetura de pastas é prioridade do Wellington:** core isolado em `core/`; cada site em `sites-config/<dominio>/` com subpastas; cada tema inteiro dentro de `temas/<nome>/` (nada solto na raiz de `temas/`; estrutura do Shopify). Caminho novo → adicionar em `core/caminhos.js`.
 - Nunca editar versões congeladas do motor (`core/motor/v1`, ...) nem dos temas (`temas/<nome>/v1`, ...). Só os rascunhos (`core/motor/rascunho`, `temas/<nome>/rascunho`).
-- Rodar `npm test` antes de entregar mudanças (300 testes, ~1 min com o Chrome; `npm run test:rapido` pula o Chrome). Bug corrigido → teste de regressão junto. O GitHub Actions roda os testes a cada push.
+- Rodar `npm test` antes de entregar mudanças (320 testes, ~1 min com o Chrome; `npm run test:rapido` pula o Chrome). Cobertura: `npm run test:cobertura`; todo arquivo JavaScript de core/, api/, ferramentas/ e infra/ está com 100% das linhas (2026-11-08; o código de navegador é coberto pelo navegador.test.js). Código novo entra com teste. Bug corrigido → teste de regressão junto. O GitHub Actions roda os testes a cada push.
 - `VERSAO_HTML` em `core/build.js` (hoje 12): aumentar SÓ quando mudar o HTML/JSON gerado pelo build (refaz as páginas de todos os sites). O `tests/snapshot-html.test.js` cobra; depois de aumentar, `npm run test:snapshot`.
 - Versões congeladas do motor têm `sha256` em `versao.json` (o `congelar` grava); `tests/motor.test.js` falha se alguém editar uma.
-- Os testes usam `SITE_CARROS_RAIZ` (pasta de dados temporária) e `construir({ hoje })` / `SITE_CARROS_HOJE` (data simulada para retenção).
+- Os testes usam `SITE_CARROS_RAIZ` (pasta de dados temporária; `SITE_CARROS_MOTOR` troca a pasta do motor, para testar o `congelar` sem criar versão no projeto) e `construir({ hoje })` / `SITE_CARROS_HOJE` (data simulada para retenção).
 - Build incremental: depois de mudar o `core/build.js`, rodar `node core/build.js` duas vezes. A segunda deve dizer "sem mudanças".
 - Nos temas, referenciar arquivos sempre com `{{rel}}` (`{{rel}}css/style.css`, `{{rel}}motor/engine.js`). Imagens das `configuracoes` com caminho relativo (`assets/logo.png`) já chegam com o prefixo certo em `{{configuracoes.logo}}`.
 - O mini-renderer dos temas usa `{{x}}` (escapa), `{{{x}}}` (HTML cru, só gerado pelo build), `{{#x}}…{{/x}}` e `{{^x}}…{{/x}}`. Os cards ficam em `<script type="text/html" id="tpl-card">` com tokens `[[campo]]`.

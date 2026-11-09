@@ -495,3 +495,85 @@ test('build: um site, uma lista ou todos; "completo" regera todas as páginas ma
   assert.equal(l.status, 200, JSON.stringify(l.j));
   assert.match(fs.readFileSync(pagina, 'utf8'), /<html/);
 });
+
+// ---------- saúde, métricas, pedidos, busca nas fontes e publicação automática (o que o Kubernetes e o integrador usam) ----------
+const http = require('http');
+
+test('saúde sem token: /v1/saude, /v1/pronto (volume gravável) e /metrics (fila e trabalhadores, para o autoscaler)', async () => {
+  const s = await fetch(`${url}/v1/saude`);
+  assert.deepEqual([s.status, (await s.json()).ok], [200, true]);
+  const p = await fetch(`${url}/v1/pronto`);
+  assert.deepEqual([p.status, (await p.json()).pronto], [200, true]);
+  const m = await fetch(`${url}/metrics`);
+  assert.equal(m.status, 200);
+  assert.match(m.headers.get('content-type'), /text\/plain/);
+  const txt = await m.text();
+  for (const re of [/^site_carros_fila_pedidos\{canal="principal"\} \d+$/m, /^site_carros_fila_pedidos\{canal="fotos"\} \d+$/m,
+    /^site_carros_trabalhador_ativos \d+$/m, /^site_carros_uptime_segundos \d+$/m]) assert.match(txt, re);
+});
+
+test('GET /v1/pedidos: os pedidos do cliente (filtro por site, limite); site alheio é 403', async () => {
+  await reqJ('PUT', `/v1/sites/${ID}/estoque?esperar=20`, { corpo: { carros: estoque() } });
+  const r = await reqJ('GET', `/v1/pedidos?site=${ID}&limite=3`);
+  assert.equal(r.status, 200);
+  assert.ok(r.j.pedidos.length >= 1 && r.j.pedidos.length <= 3);
+  assert.ok(r.j.pedidos.every((p) => p.site === ID));
+  assert.equal((await reqJ('GET', `/v1/pedidos?site=${OUTRO}`)).status, 403);
+});
+
+test('POST /v1/atualizar: busca o estoque na URL de config/fontes.json (um site, ou todos com "*"); fonte com erro = pedido com erro', async () => {
+  const novo = estoque().slice(0, 11).map((c, i) => (i === 0 ? { ...c, preco: 12345 } : c));
+  const fonte = http.createServer((q, s) => {
+    if (q.url === '/ok') { s.writeHead(200, { 'content-type': 'application/json' }); return s.end(JSON.stringify({ carros: novo })); }
+    s.writeHead(500); s.end('quebrou');
+  }).listen(0);
+  await new Promise((ok) => fonte.on('listening', ok));
+  const base = `http://127.0.0.1:${fonte.address().port}`;
+  fs.writeFileSync(path.join(A.raiz(), 'config', 'fontes.json'), JSON.stringify({ [ID]: `${base}/ok`, [OUTRO]: `${base}/erro` }));
+  try {
+    assert.equal((await reqJ('POST', '/v1/atualizar', { corpo: { sites: 'x' } })).status, 400);
+    assert.equal((await reqJ('POST', '/v1/atualizar', { corpo: {} })).status, 403, 'todos exige "*"');
+    const r = await reqJ('POST', '/v1/atualizar?esperar=20', { corpo: { sites: [ID] } });
+    assert.equal(r.j.status, 'concluido', JSON.stringify(r.j));
+    assert.equal(estoque().find((c) => c.id === novo[0].id).preco, 12345, 'gravou o estoque que veio da fonte');
+    assert.ok(carrosJson().some((c) => c.p === 12345), 'e refez o site');
+    // todos (token "*"): um pedido por site que tem fonte; a fonte quebrada vira pedido com erro, a outra segue
+    const t = await reqJ('POST', '/v1/atualizar', { corpo: {}, token: tokTodos });
+    assert.equal(t.status, 202);
+    assert.ok(await esperar(async () => { const l = await reqJ('GET', t.j.link || `/v1/lotes/${t.j.lote}`, { token: tokTodos }); return l.j.contagem && !l.j.contagem.na_fila && !l.j.contagem.processando; }, 20000));
+    const ps = (await reqJ('GET', `/v1/pedidos?site=${OUTRO}`, { token: tokTodos })).j.pedidos;
+    assert.equal(ps[0].status, 'erro');
+    assert.match(ps[0].erros.join(' '), /500/);
+  } finally { fonte.close(); fs.rmSync(path.join(A.raiz(), 'config', 'fontes.json')); }
+});
+
+test('PUBLICAR=1: depois do build, o trabalhador publica o site (config/publicacao.json) e anota no pedido; build que quebra = pedido com erro', async () => {
+  const log = path.join(A.raiz(), 'publicados.log');
+  fs.writeFileSync(path.join(A.raiz(), 'config', 'publicacao.json'), JSON.stringify({ paralelo: 1, comandoSite: `echo {site} >> '${log}'` }));
+  // o servidor principal dos testes também é trabalhador da MESMA fila (mesma pasta): durante este teste, só o que publica
+  // trabalha (senão, com a máquina carregada, o outro pega o pedido e não publica: o teste ficaria instável)
+  srv.proc.kill();
+  await new Promise((ok) => (srv.proc.exitCode !== null ? ok() : srv.proc.on('exit', ok)));
+  const s = await subir({ PUBLICAR: '1' });
+  const pedir = async (m, c, corpo) => { const r = await fetch(s.url + c, { method: m, body: corpo && JSON.stringify(corpo), headers: { authorization: `Bearer ${tokA}` } }); return { status: r.status, j: await r.json() }; };
+  try {
+    const r = await pedir('PUT', `/v1/sites/${ID}/estoque?esperar=20`, { carros: estoque().map((c, i) => (i === 1 ? { ...c, km: c.km + 1 } : c)) });
+    assert.equal(r.j.status, 'concluido', JSON.stringify(r.j));
+    // a publicação é anotada logo depois de o pedido terminar
+    assert.ok(await esperar(async () => (await pedir('GET', r.j.link)).j.publicacao === 'publicado'), 'pedido anotado como publicado');
+    assert.match(fs.readFileSync(log, 'utf8'), new RegExp(`^${ID.replace(/\./g, '\\.')}$`, 'm'));
+    // o site quebra entre o pedido e o build (tema apagado do cadastro no disco): o pedido termina com erro, sem derrubar o trabalhador
+    const cfg = A.lerSite(ID);
+    A.gravarSite(ID, { ...cfg, tema: 'sumiu' });
+    const b = await pedir('POST', '/v1/build?esperar=20', { sites: [ID] });
+    A.gravarSite(ID, cfg);
+    const ped = b.j.status ? b.j : (await pedir('GET', `/v1/pedidos?site=${ID}&limite=1`)).j.pedidos[0];
+    assert.equal(ped.status, 'erro', JSON.stringify(b.j));
+    assert.match(ped.erros.join(' '), /tema "sumiu" não existe/);
+    assert.equal((await pedir('PUT', `/v1/sites/${ID}/estoque?esperar=20`, { carros: estoque() })).j.status, 'concluido', 'o trabalhador continua de pé');
+  } finally {
+    s.proc.kill();
+    fs.rmSync(path.join(A.raiz(), 'config', 'publicacao.json'));
+    srv = await subir(); url = srv.url; // o servidor principal volta (para os testes que vierem depois)
+  }
+});

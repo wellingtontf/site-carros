@@ -35,6 +35,9 @@ const COMPONENTES = process.env.SITE_CARROS_COMPONENTES ? path.resolve(process.e
 // temas (com as páginas padrão de cada um em temas/<nome>/paginas-padrao/) são CÓDIGO versionado: na imagem
 // Docker eles vêm junto (SITE_CARROS_TEMAS aponta para dentro da imagem); os DADOS ficam no volume (EFS)
 const TEMAS = process.env.SITE_CARROS_TEMAS ? path.resolve(process.env.SITE_CARROS_TEMAS) : path.join(ROOT, 'temas');
+// versões do motor (core/motor/v1, v2... e o rascunho): código, vai na imagem. SITE_CARROS_MOTOR troca a pasta (os testes
+// do "congelar" usam uma cópia, para nunca criar versão no projeto)
+const MOTOR = process.env.SITE_CARROS_MOTOR ? path.resolve(process.env.SITE_CARROS_MOTOR) : path.join(CORE, 'motor');
 const CONFIG = path.join(ROOT, 'config');
 const ESTADO = path.join(ROOT, '.estado');
 const INQUILINOS = path.join(ROOT, 'inquilinos'); // multi-tenant: inquilinos/<id>/{inquilino.json, config/}
@@ -45,9 +48,9 @@ module.exports = {
   inquilinoJson: (id) => path.join(INQUILINOS, id, 'inquilino.json'),
   inquilinoConfig: (id, arquivo) => path.join(INQUILINOS, id, 'config', arquivo),
   inquilinoTemas: (id) => path.join(INQUILINOS, id, 'temas'), // temas PRÓPRIOS do inquilino (no volume: sem deploy)
-  MOTOR: path.join(CORE, 'motor'),
+  MOTOR,
   UI: path.join(CORE, 'ui'),
-  motor: (versao) => path.join(CORE, 'motor', versao),
+  motor: (versao) => path.join(MOTOR, versao),
   site: (id) => path.join(SITES, id),
   siteJson: (id) => path.join(SITES, id, 'site.json'),
   estoque: (id) => path.join(SITES, id, 'estoque.json'),

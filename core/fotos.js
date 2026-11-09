@@ -156,8 +156,10 @@ async function limparSaidos(site, e, ids, cfg, log) {
 
 // processa as fotos pendentes de um site → { processados: [ids], erros: n }
 async function processarSite(site, { log = console.log, cfg = lerConfig(Inq.doSite(site)) } = {}) {
-  if (!cfg) throw new Error('crie config/fotos.json (veja config/fotos.exemplo.json) para processar fotos por URL');
   const lista = pendentes(site);
+  // sem foto por URL pendente, a configuração só faz falta se houver fotos de carro que saiu para apagar
+  if (!cfg && !lista.length && !Object.keys(lerEstado(site)).length) return { processados: [], erros: 0, falhas: [] };
+  if (!cfg) throw Object.assign(new Error('crie config/fotos.json (veja config/fotos.exemplo.json) para processar fotos por URL'), { semConfig: true });
   if (!lista.length) {
     const e = lerEstado(site);
     const ids = new Set((Sites.estoque(site).carros || []).map((c) => c.id));

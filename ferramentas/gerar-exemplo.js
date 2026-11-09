@@ -1,7 +1,8 @@
-// Gera os estoques dos 3 sites de exemplo (sites-config/<dominio>/estoque.json).
+// Gera os estoques dos sites de exemplo que existirem (sites-config/<dominio>/estoque.json; hoje só a primeseminovos).
 // Em produção, cada estoque.json vem do Revenda Mais (um JSON por site), via node core/cli.js atualizar.
 const fs = require('fs');
 const path = require('path');
+const C = require('../core/caminhos'); // sites-config/ (SITE_CARROS_RAIZ nos testes)
 
 let seed = 7;
 const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
@@ -44,14 +45,7 @@ const CARROCERIA = {
   Tracker: 'SUV', 'T-Cross': 'SUV', 'HR-V': 'SUV', Creta: 'SUV', Renegade: 'SUV', Compass: 'SUV', Duster: 'SUV', Kicks: 'SUV', Q3: 'SUV', XC60: 'SUV', 'XC40 Recharge': 'SUV',
   Toro: 'Utilitário', Hilux: 'Utilitário', Ranger: 'Utilitário',
 };
-// lojas especializadas (Servopa): premium e motos
-const PREMIUM_MODELOS = [
-  ['Audi', 'A3', ['Sedan Prestige Plus 1.4', 'Sedan Performance 2.0'], 150000, 260000],
-  ['Audi', 'Q3', ['Prestige Plus 1.4 TFSI', 'Black 2.0 TFSI'], 180000, 290000],
-  ['Volvo', 'XC60', ['T8 Recharge Inscription', 'B5 Momentum'], 260000, 420000],
-  ['Volvo', 'XC40 Recharge', ['Plus Elétrico', 'Ultimate Elétrico'], 220000, 330000],
-  ['BMW', '320i', ['M Sport 2.0 Turbo'], 220000, 330000],
-];
+// motos (carroceria "Moto"): marcas que o gerarCarro reconhece
 const MOTOS = [
   ['Harley-Davidson', 'Street Glide', ['Special 114'], 90000, 160000],
   ['Harley-Davidson', 'Fat Boy', ['114'], 80000, 140000],
@@ -96,58 +90,22 @@ function gerarCarro(prefixo, n, modelos) {
 }
 
 // Um estoque.json por site de exemplo (sites-config/<dominio>/estoque.json). Cada carro diz a sua loja (ids de site.json → "lojas").
+// (os exemplos autocentral, outletdocarro e gruposervopa saíram junto com os sites, em 2026-11-08)
 // Os sites e as lojas já existem em sites-config/<dominio>/site.json; aqui só se geram os carros.
 const caros = MODELOS.filter((m) => m[3] >= 90000);
 const SITES = [
-  { dominio: 'autocentral.exemplo.com.br', lojas: [
-    { loja: 'sp-centro', prefixo: 'SM', total: 300, modelos: MODELOS },
-    { loja: 'sp-centro', prefixo: 'SP', total: 150, modelos: caros },
-    { loja: 'campinas', prefixo: 'CP', total: 200, modelos: MODELOS.filter((m) => m[4] <= 190000) },
-    { loja: 'bh', prefixo: 'BH', total: 200, modelos: MODELOS.filter((m) => m[4] <= 230000) },
-    { loja: 'rio', prefixo: 'RJ', total: 150, modelos: MODELOS },
-  ] },
-  { dominio: 'outletdocarro.exemplo.com.br', lojas: [ // site.json limita a R$ 50 mil (restricoes.precoMax)
-    { loja: 'campinas', prefixo: 'OC', total: 120, modelos: MODELOS.filter((m) => m[3] <= 70000) },
-    { loja: 'sp-centro', prefixo: 'OS', total: 80, modelos: MODELOS.filter((m) => m[3] <= 70000) },
-  ] },
-  { dominio: 'gruposervopaseminovos.com.br', ordem: true, lojas: [ // 24 lojas (PR, RS e SP), ~1050 carros, com "ordem" e "destaque"
-    ...['servopa-curitiba-marechal', 'servopa-curitiba-pinheirinho', 'servopa-curitiba-rockefeller', 'servopa-maringa', 'servopa-paranagua',
-      'servopa-ponta-grossa-oficinas', 'grupo-servopa-seminovos-canoas', 'grupo-servopa-seminovos-gravatai', 'grupo-servopa-seminovos-novo-hamburgo',
-      'grupo-servopa-seminovos-londrina', 'grupo-servopa-seminovos-umuarama', 'grupo-servopa-seminovos-ipiranga']
-      .map((loja, i) => ({ loja, prefixo: `G${String.fromCharCode(65 + i)}`, total: ['servopa-paranagua', 'grupo-servopa-seminovos-umuarama'].includes(loja) ? 40 : 60, modelos: MODELOS })),
-    { loja: 'grupo-servopa-seminovos-ribeirao-preto', prefixo: 'RP', total: 40, modelos: MODELOS }, // SP (só aparece no menu de cidades do site atual)
-    { loja: 'honda-servopa-curitiba', prefixo: 'HC', total: 50, modelos: MODELOS.filter((m) => m[0] === 'Honda') },
-    { loja: 'honda-servopa-sao-jose-dos-pinhais', prefixo: 'HS', total: 40, modelos: MODELOS.filter((m) => m[0] === 'Honda') },
-    { loja: 'audi-center-cascavel', prefixo: 'AC', total: 25, modelos: PREMIUM_MODELOS.filter((m) => m[0] === 'Audi') },
-    { loja: 'audi-center-maringa', prefixo: 'AM', total: 25, modelos: PREMIUM_MODELOS.filter((m) => m[0] === 'Audi') },
-    { loja: 'audi-curitiba', prefixo: 'AU', total: 30, modelos: PREMIUM_MODELOS },
-    { loja: 'volvo-cascavel', prefixo: 'VC', total: 20, modelos: PREMIUM_MODELOS.filter((m) => m[0] === 'Volvo') },
-    { loja: 'volvo-servopa', prefixo: 'VS', total: 30, modelos: PREMIUM_MODELOS.filter((m) => m[0] === 'Volvo') },
-    { loja: 'red-wheel-harley-davidson', prefixo: 'RW', total: 25, modelos: MOTOS.filter((m) => m[0] === 'Harley-Davidson') },
-    { loja: 'the-one-harley-davidson', prefixo: 'TO', total: 25, modelos: MOTOS.filter((m) => m[0] === 'Harley-Davidson') },
-    { loja: 'triumph-cwb', prefixo: 'TC', total: 32, modelos: MOTOS.filter((m) => m[0] === 'Triumph') },
-    { loja: 'triumph-north', prefixo: 'TN', total: 30, modelos: MOTOS.filter((m) => m[0] === 'Triumph') },
-  ] },
   { dominio: 'primeseminovos.exemplo.com.br', lojas: [ // site.json exige R$ 90 mil ou mais (restricoes.precoMin)
     { loja: 'sp-centro', prefixo: 'PS', total: 250, modelos: caros },
     { loja: 'rio', prefixo: 'PR', total: 150, modelos: caros },
   ] },
 ];
 
-const raiz = path.join(__dirname, '..', 'sites-config');
+const raiz = C.SITES;
 let soma = 0;
 for (const s of SITES) {
   const dir = path.join(raiz, s.dominio);
   if (!fs.existsSync(path.join(dir, 'site.json'))) { console.log(`pulei ${s.dominio}: sites-config/${s.dominio}/site.json não existe`); continue; }
-  let carros = s.lojas.flatMap((l) => Array.from({ length: l.total }, (_, i) => ({ ...gerarCarro(l.prefixo, i + 1, l.modelos), loja: l.loja })));
-  if (s.ordem) {
-    // como viria do Revenda Mais: metade marcada como destaque, e "ordem" = posição de exibição (destaques primeiro, misturando as lojas)
-    carros.forEach((c) => { c.destaque = rnd() < 0.5; c._sorteio = rnd(); });
-    carros.sort((a, b) => (b.destaque - a.destaque) || a._sorteio - b._sorteio);
-    carros = carros.map(({ _sorteio, ...c }, i) => ({ ...c, ordem: i + 1 }));
-    // o arquivo vem embaralhado de propósito: quem manda na exibição é o campo "ordem"
-    carros.sort((a, b) => a.id.localeCompare(b.id));
-  }
+  const carros = s.lojas.flatMap((l) => Array.from({ length: l.total }, (_, i) => ({ ...gerarCarro(l.prefixo, i + 1, l.modelos), loja: l.loja })));
   fs.writeFileSync(path.join(dir, 'estoque.json'), JSON.stringify({ atualizado: new Date().toISOString(), carros }));
   soma += carros.length;
   console.log(`sites-config/${s.dominio}/estoque.json: ${carros.length} carros`);

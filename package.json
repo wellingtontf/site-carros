@@ -6,6 +6,7 @@
     "test": "node --test tests/*.test.js",
     "test:rapido": "SEM_NAVEGADOR=1 node --test tests/*.test.js",
     "test:snapshot": "SNAPSHOT_ATUALIZAR=1 node --test tests/snapshot-html.test.js",
+    "test:cobertura": "SEM_NAVEGADOR=1 node --test --experimental-test-coverage tests/*.test.js",
     "build": "node core/build.js",
     "testar": "node core/cli.js testar",
     "status": "node core/cli.js status",

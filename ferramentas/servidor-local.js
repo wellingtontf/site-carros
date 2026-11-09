@@ -48,6 +48,7 @@ function enviar(res, status, f) {
 if (require.main === module) {
   const porta = +process.argv[2] || 8080;
   const pasta = process.argv[3] || path.join(__dirname, '..', 'sites-public');
+  process.on('SIGTERM', () => process.exit(0)); // encerra limpo (Ctrl+C, kill, docker stop)
   criar(pasta).listen(porta, () => console.log(`sites em http://localhost:${porta}/<dominio>/  (pasta ${pasta}; regras de infra/cloudfront/roteador.js)`));
 }
 module.exports = { criar };

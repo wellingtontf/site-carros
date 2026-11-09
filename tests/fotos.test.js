@@ -167,3 +167,13 @@ test('pela API: PUT de carro com URLs → site no ar sem foto → fotos prontas 
     assert.equal(info.fotos.pendentes, 0);
   } finally { srv.kill(); }
 });
+
+test('site removido: apagarFotosDoSite tira do armazenamento as fotos de TODOS os carros dele (e o estado fica vazio)', async () => {
+  A.criarSite(ID, { carros: [A.carro({ id: 'C1', fotos: [`${base}/ok1`] }), A.carro({ id: 'C2', fotos: [`${base}/ok2`] })] });
+  await F.processarSite(ID, silencioso);
+  assert.ok(fs.existsSync(dirCarro('C1')) && fs.existsSync(dirCarro('C2')));
+  assert.deepEqual(await F.apagarFotosDoSite(ID, silencioso), { apagados: 2, pendentes: 0 });
+  assert.ok(!fs.existsSync(dirCarro('C1')) && !fs.existsSync(dirCarro('C2')), 'fotos apagadas');
+  assert.deepEqual(Object.keys(F.lerEstadoFotos(ID)), []);
+  assert.deepEqual(await F.apagarFotosDoSite(ID, silencioso), { apagados: 0, pendentes: 0 }, 'de novo: nada a apagar');
+});

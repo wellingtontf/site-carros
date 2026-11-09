@@ -213,6 +213,7 @@ test('6) recusas claras: arquivo que não é o que diz, SVG com script, página 
   const bt = await pedir('GET', '/v1/temas/template-basico');
   assert.deepEqual([bt.j.configuracoes.cor.tipo, bt.j.configuracoes.cor.padrao, bt.j.textos.voltar], ['cor', '#0b5fff', 'Voltar ao estoque']);
   assert.equal((await pedir('GET', '/v1/temas/nao-existe')).status, 404);
+  assert.equal((await pedir('GET', `/v1/sites/${D}/paginas/nao-existe`)).status, 404);
   assert.deepEqual([bt.j.versao, bt.j.versoes], ['v1', ['v1']], 'sem ?versao=: a última congelada');
   assert.equal((await pedir('GET', '/v1/temas/template-basico?versao=v9')).status, 404);
   assert.deepEqual(temas.j.temas.find((t) => t.tema === 'template-basico').versoes, ['v1']);

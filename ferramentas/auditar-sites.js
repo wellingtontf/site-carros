@@ -100,7 +100,9 @@ return { resumo: { pasta: DIST, sites: sites.length, ...total }, resultados: res
 module.exports = { auditar };
 
 if (require.main === module) {
-const { resumo: total, resultados } = auditar(process.argv[2] || 'sites-public');
+// sem argumento: a sites-public/ da pasta de dados (C.saida(C.PUBLICO); SITE_CARROS_RAIZ nos testes), não a do diretório atual
+const C = require('../core/caminhos');
+const { resumo: total, resultados } = auditar(process.argv[2] || C.saida(C.PUBLICO));
 const DIST = total.pasta, sites = { length: total.sites };
 console.log(`Auditoria de ${DIST}: ${sites.length} sites, ${total.arquivos} arquivos, ${(total.bytes / 1024 / 1024).toFixed(1)} MB, ${total.html} páginas HTML\n`);
 for (const r of resultados) console.log(`${r.nivel.padEnd(9)} ${r.item}\n          ${r.detalhe}\n`);

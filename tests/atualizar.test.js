@@ -179,3 +179,15 @@ test('publicar: nome de arquivo com aspas não injeta comando no shell', async (
   await A.silenciosoAsync(() => publicarPendentes({ log: () => {} }));
   assert.ok(!fs.existsSync(path.join(A.raiz(), 'HACK')));
 });
+
+test('pendências no formato antigo (um pendente.json para todos os sites): separadas por site uma vez, sem perder nada', () => {
+  const P = require('../core/pendentes');
+  const pasta = 'pendentes-antigo';
+  const velho = path.join(A.raiz(), '.estado', pasta, 'pendente.json');
+  fs.mkdirSync(path.dirname(velho), { recursive: true });
+  fs.writeFileSync(velho, JSON.stringify({ 'a.com.br': { escritos: ['a.com.br/index.html'], removidos: [] }, 'b.com.br': { escritos: [], removidos: ['b.com.br/x.html'], completo: true } }));
+  assert.deepEqual(P.listar(pasta), ['a.com.br', 'b.com.br']);
+  assert.deepEqual(P.ler(pasta, 'a.com.br').escritos, ['a.com.br/index.html']);
+  assert.equal(P.ler(pasta, 'b.com.br').completo, true);
+  assert.ok(!fs.existsSync(velho) && fs.existsSync(`${velho}.migrado`), 'o antigo fica guardado como .migrado (migra uma vez só)');
+});

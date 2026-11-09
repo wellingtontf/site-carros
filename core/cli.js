@@ -66,18 +66,18 @@ const infoVersao = (v) => { const p = path.join(C.motor(v), 'versao.json'); retu
 const hash = (v) => crypto.createHash('md5').update(fs.readFileSync(path.join(C.motor(v), 'engine.js'))).digest('hex');
 const historico = () => (fs.existsSync(HIST) ? lerJSON(HIST) : []);
 const gravarHistorico = (h) => { fs.mkdirSync(path.dirname(HIST), { recursive: true }); fs.writeFileSync(HIST, JSON.stringify(h, null, 2) + '\n'); };
-// muda um campo de texto do site.json sem reformatar o arquivo; se não existir, entra depois de "depois" (ou no começo)
+// muda um campo de texto do site.json sem reformatar o arquivo; se não existir, entra depois de "depois" (ou no começo).
+// Arquivo num formato que a troca de texto não alcança (ex.: JSON numa linha só): grava pelo JSON (nunca falha calado)
 function setCampo(texto, campo, valor, depois = null) {
   const re = new RegExp(`"${campo}"\\s*:\\s*"[^"]*"`);
-  if (re.test(texto)) return texto.replace(re, `"${campo}": "${valor}"`);
   const ref = depois && new RegExp(`(\\n(\\s*)"${depois}"\\s*:\\s*"[^"]*",?)`).exec(texto);
-  if (ref) return texto.replace(ref[1], `${ref[1].endsWith(',') ? ref[1] : `${ref[1]},`}\n${ref[2]}"${campo}": "${valor}"${ref[1].endsWith(',') ? ',' : ''}`);
-  return texto.replace(/^\s*\{\s*\n/, `{\n  "${campo}": "${valor}",\n`);
+  const novo = re.test(texto) ? texto.replace(re, `"${campo}": "${valor}"`)
+    : ref ? texto.replace(ref[1], `${ref[1].endsWith(',') ? ref[1] : `${ref[1]},`}\n${ref[2]}"${campo}": "${valor}"${ref[1].endsWith(',') ? ',' : ''}`)
+      : texto.replace(/^\s*\{\s*\n/, `{\n  "${campo}": "${valor}",\n`);
+  try { if (JSON.parse(novo)[campo] === valor) return novo; } catch (e) { /* a troca de texto quebrou o JSON: vai pelo JSON */ }
+  return JSON.stringify({ ...JSON.parse(texto), [campo]: valor }, null, 2) + '\n';
 }
-function setMotor(texto, versao) {
-  if (/"motor"\s*:\s*"[^"]*"/.test(texto)) return texto.replace(/"motor"\s*:\s*"[^"]*"/, `"motor": "${versao}"`);
-  return texto.replace(/^\s*\{\s*\n/, `{\n  "motor": "${versao}",\n`);
-}
+const setMotor = (texto, versao) => setCampo(texto, 'motor', versao);
 const agora = () => { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
 
 // ---------- comandos ----------
@@ -435,7 +435,11 @@ async function tema(args) {
       const Fotos = require('./fotos.js');
       const alvo = args._[0] ? args._[0].split(',').map((s) => s.trim()) : Sites.listar();
       const feitos = [];
-      for (const s of alvo) if ((await Fotos.processarSite(s)).processados.length) feitos.push(s);
+      for (const s of alvo) {
+        let r;
+        try { r = await Fotos.processarSite(s); } catch (e) { if (e.semConfig) falha(e.message); throw e; }
+        if (r.processados.length) feitos.push(s);
+      }
       if (feitos.length) construir({ sites: feitos });
       else console.log('nenhuma foto pendente');
       return;

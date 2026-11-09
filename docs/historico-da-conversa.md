@@ -93,6 +93,10 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
 - Limpeza: lojateste reduzida a 100 carros (os testes de tamanho já tinham sido feitos); temas `barra-topo` e `lateral`
   apagados (nenhum site usava; o padrão de site novo virou o template-basico); na barra de busca, o modelo fica fechado
   até escolher a marca.
+- Testes: medição de cobertura (`npm run test:cobertura`) e testes novos até todo arquivo de código ficar com 100% das linhas
+  (comandos de terminal, API de saúde/métricas/fontes/publicação, migrações, contratos do navegador). Achados no caminho:
+  `cli.js fotos` quebrava sem config, `auditar-sites.js` e `gerar-exemplo.js` ignoravam a pasta de dados, e o `aplicar`
+  falhava calado num `site.json` de uma linha só; um teste de publicação instável (dois trabalhadores na mesma fila).
 
 ## Decisões do Wellington (consolidadas)
 
@@ -138,7 +142,7 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
 
 ## Anexo: todas as mensagens do Wellington, na íntegra
 
-123 mensagens, na ordem. Ficaram de fora só avisos automáticos do sistema. Respostas a perguntas de múltipla escolha
+125 mensagens, na ordem. Ficaram de fora só avisos automáticos do sistema. Respostas a perguntas de múltipla escolha
 (como "Espelho do site") não aparecem aqui, porque entraram como resposta de ferramenta e não como mensagem.
 
 **1.** _07/11 18:32_
@@ -781,3 +785,11 @@ por que, e o que ficou em aberto**. Horários em Brasília. O histórico de cada
 > o temas barra-top e lateral. senão tiver sendo usado podem ser apagados.
 >
 > no ultimo componente de pesquisa criado que fica acima filtro ativo.. quando selecionar Marca os modelos já devem vir filtrados de acordo.
+
+**124.** _08/11 20:47_
+
+> em qual pasta posso por minhas customizações ?dentro do sites-config?
+
+**125.** _08/11 20:48_
+
+> check se todos os testes foram criados senão tiver 100 porcento crie. e rode eles e arrume até ficar tudo certo
